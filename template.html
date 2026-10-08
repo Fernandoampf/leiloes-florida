@@ -30,6 +30,26 @@ button,input,select,textarea{font:inherit;color:inherit}
 .top .hr{margin-left:auto;text-align:right;font-size:11.5px;color:#b8c5d8}
 .top .hr b{color:#fff}
 .pbadge{display:inline-block;background:var(--gold);color:var(--navy);border-radius:5px;padding:0 5px;font-size:10.5px;font-weight:700;margin-left:4px}
+.candbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px}
+.candbar .btn{font-size:13px}
+.clist{display:flex;flex-direction:column;gap:10px}
+.ccard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.ccard .ctop{display:flex;gap:10px;align-items:flex-start}
+.ccard .ctop .pa{font-weight:700;font-size:15px}
+.ccard .cprog{display:flex;gap:8px;align-items:center;margin:8px 0 4px;flex-wrap:wrap}
+.ccard .cprog .bar{flex:1;min-width:80px;height:8px;background:#2a3140;border-radius:4px;overflow:hidden}
+.ccard .cprog .bar>i{display:block;height:100%;background:var(--gold);border-radius:4px}
+.ccard .cchk{display:grid;grid-template-columns:1fr;gap:6px;margin-top:8px}
+.ccard .cchk label{display:flex;gap:8px;align-items:flex-start;font-size:13.5px;line-height:1.35;cursor:pointer}
+.ccard .cchk input[type=checkbox]{width:18px;height:18px;margin-top:1px;flex-shrink:0}
+.ccard .cmax{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.ccard .cmax input{width:120px;min-height:36px}
+.ccard textarea{width:100%;min-height:56px;margin-top:6px;font-size:13.5px}
+.ccard .crm{margin-left:auto}
+.survbox{background:rgba(200,60,60,.12);border:1px solid rgba(220,90,90,.45);border-radius:10px;padding:10px 12px;margin:8px 0;color:#f2c0c0}
+.survbox b{color:#ffb4b4}
+@media(min-width:760px){.ccard .cchk{grid-template-columns:1fr 1fr}}
+
 .main{padding:12px 16px;max-width:1900px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;border-color:#5a6476}
 .lbl{font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--mut);font-weight:700;margin-right:6px}
@@ -342,7 +362,7 @@ select option{background:#2a303b;color:#eef1f5}
  <div class="disc" id="disc1"></div>
  <section class="kstrip" id="kstrip"></section>
  <div class="jrban" id="jrban"></div>
- <div class="viewbar"><div class="tabs" id="tabs"><button data-v="table">📋 Lista</button><button data-v="cards">🗂 Cards</button><button data-v="fav">⭐ Favoritos</button><button data-v="map">🗺 Mapa</button><button data-v="intel">📊 Inteligência</button><button data-v="res">📈 Resultados</button><button data-v="cal">📅 Calendário</button><button data-v="day">🖨 Dia do leilão</button></div><span class="cnt" id="cnt"></span></div>
+ <div class="viewbar"><div class="tabs" id="tabs"><button data-v="table">📋 Lista</button><button data-v="cards">🗂 Cards</button><button data-v="cand">🎯 Meus candidatos</button><button data-v="fav">⭐ Favoritos</button><button data-v="map">🗺 Mapa</button><button data-v="intel">📊 Inteligência</button><button data-v="res">📈 Resultados</button><button data-v="cal">📅 Calendário</button><button data-v="day">🖨 Dia do leilão</button></div><span class="cnt" id="cnt"></span></div>
  <section class="panel" id="typesbar"><div class="chips" id="types"><span class="lbl">Tipo de imóvel</span></div></section>
  <section class="kpis" id="kpis"></section>
  <section class="sumline" id="sumline"></section>
@@ -473,7 +493,8 @@ const FL = {
  vac:{l:'Vago (USPS)',c:'grn',d:'USPS indica imóvel vago (positivo: sem despejo).'},
  junk:{l:'Faixa/área comum',c:'',d:'Faixa estreita, retenção/drenagem, área comum, via ou brejo (código de uso DOR 009/094/095/096 ou descrição legal) – normalmente sem valor de revenda. Oculto por padrão.'},
  hmtd:{l:'Homestead',c:'vio',d:'Imóvel com isenção homestead indo a tax deed: pela lei da Flórida (F.S. 197.502) o lance inicial inclui metade do valor avaliado; o dono costuma lutar para resgatar.'},
- nobid:{l:'Sem lance inicial',c:'amb',d:'Listagem só no export PropertyOnion, sem julgamento/opening bid do RealAuction. NET/ROI usam o preço esperado do condado (como tax deed) quando houver histórico; senão ficam sem dados até o scrape do clerk.'}
+ nobid:{l:'Sem lance inicial',c:'amb',d:'Listagem só no export PropertyOnion, sem julgamento/opening bid do RealAuction. NET/ROI usam o preço esperado do condado (como tax deed) quando houver histórico; senão ficam sem dados até o scrape do clerk.'},
+ surv:{l:'Hipoteca pode sobreviver',c:'red',d:'Indício de lien que sobrevive ao leilão (HOA/condomínio, hipoteca júnior, ou lien municipal em tax deed). Valor estimado do PropertyOnion quando disponível – confirmar com title search. Reserva no P&L (toggle); veredito/nota penalizados; fora de Negócios limpos.'}
 };
 const SEVERE=['avoid','mtg'];
 const TYPEL={Lote:'🧱 Lote',Terreno:'🌳 Terreno',Casa:'🏠 Casa (SFR)',Townhouse:'🏘 Townhouse',Condo:'🏢 Condo',Mobile:'🚐 Mobile',Multifamily:'🏬 Multifamily',Comercial:'🏪 Comercial',Outro:'❔ Outro'};
@@ -532,7 +553,8 @@ function holdMonth(r,arv,Q){
 function base(r,Q){
  Q=Q||PR;
  const td=r.t==='TD', ev=!isLand(r) && (r.fl.includes('occ')||r.fl.includes('ten'));
- const lien=(r.fl.includes('mtg')||r.fl.includes('avoid'))?(r.m1||0):0;
+ const survOn = r.survAmt && (r.survDeduct!==false) && (r.fl.includes('surv')||r.fl.includes('mtg')||r.hoaPl);
+ const lien = survOn ? (r.survAmt||0) : ((r.fl.includes('mtg')||r.fl.includes('avoid'))?(r.m1||0):0);
  const rh=rehabFor(r,Q);
  const ex=exitParts(r,rh.v,ev,Q);
  return {td, ev, arv:r.val, rehab:rh.v, rehabWhy:rh.why, months:ex.months, mparts:ex.parts, rent:r.rent||0, lien, refi:Q.refi, ppsf:Q.rebuild, rebuild:null, pr:Q};
@@ -554,7 +576,7 @@ function bidAt(r,ret,o){ o=o||base(r); if(!o.arv) return null; const Q=o.pr||PR;
  const c1=Q.clerk1/100, c2=Q.clerk2/100, d=Q.docb/100;
  if(target<=500*(1+c1+d)) return target/(1+c1+d);
  return (target-500*(c1-c2))/(1+c2+d); }
-const HI=['avoid','mtg','code','flood','jr'], MD=['occ','ten','hoa','dec','red','unv','cxl','hmtd','nobid'];
+const HI=['avoid','mtg','surv','code','flood','jr'], MD=['occ','ten','hoa','dec','red','unv','cxl','hmtd','nobid'];
 function evaluate(r){
  const o=base(r); r._o=o; const arv=o.arv; r.rep=o.rehab; r.repw=o.rehabWhy;
  r.refx = ((r.t==='TD' || r.nobid) && PR.tdxp && r.xp && r.xp.v>(r.ref||0)) ? r.xp.v : null;
@@ -607,7 +629,7 @@ function evaluate(r){
   const distP=r.dist==null?2:r.dist<=25?5:r.dist<=50?4:r.dist<=100?3:r.dist<=150?2:1;
   const pen=Math.min(30,r.fl.filter(f=>HI.includes(f)).length*10);
   let s=clamp(roiP+netP+rehP+yrP+confP+headP+mktP+distP-pen,0,100);
-  if(r.fl.includes('avoid')) s=Math.min(s,10); else if(r.fl.includes('mtg')) s=Math.min(s,15);
+  if(r.fl.includes('avoid')) s=Math.min(s,10); else if(r.fl.includes('mtg')||r.fl.includes('surv')) s=Math.min(s,15);
   r.sc=Math.round(s); r.sp={roi:roiP,net:netP,rehab:rehP,ano:yrP,conf:confP,folga:headP,mercado:mktP,dist:distP,risco:-pen}; r.scKind='BidToFlip adaptada';
  } else { r.sc=r.scR; r.sp=r.spR; r.scKind='radar do Fernando'; }
  const sev=r.fl.some(f=>SEVERE.includes(f));
@@ -622,6 +644,67 @@ recalc();
 let FAV=new Set(LS.get('leilao_fav_v1',[]));
 let TRK=LS.get('leilao_tracker_v1',{});
 let FLG=LS.get('leilao_flags_v1',{});
+// ---- Meus candidatos (localStorage, per device)
+const CAND_KEY='leilao_cand_v1';
+const CAND_CHECKS=[
+ ['proc','Processo conferido no condado'],
+ ['title','Liens / title search'],
+ ['occ','Ocupação'],
+ ['visit','Fotos / visita'],
+ ['max','Lance máximo aprovado']
+];
+let CAND=LS.get(CAND_KEY,{}); // id -> {checks:{proc:bool,...}, maxBid:number|null, notes:string, added:iso}
+const saveCand=()=>LS.set(CAND_KEY,CAND);
+function candAdd(id){ if(!CAND[id]) CAND[id]={checks:{}, maxBid:null, notes:'', added:new Date().toISOString()}; saveCand(); toast('Adicionado a Meus candidatos'); if(view==='cand') renderCand(); }
+function candRem(id){ delete CAND[id]; saveCand(); toast('Removido dos candidatos'); if(view==='cand') renderCand(); else apply(); }
+function candToggle(id){ if(CAND[id]) candRem(id); else candAdd(id); }
+function candProg(c){ const ch=c.checks||{}; let n=0; CAND_CHECKS.forEach(([k])=>{ if(k==='max'){ if(c.maxBid!=null&&c.maxBid>0) n++; } else if(ch[k]) n++; }); return n; }
+function renderCand(){
+ const ids=Object.keys(CAND);
+ const rows=ids.map(id=>{ const r=ITEMS.find(x=>x.id===id); return r?{r,c:CAND[id]}:null; }).filter(Boolean);
+ rows.sort((a,b)=>(a.r.date||'').localeCompare(b.r.date||'')||(a.r.addr||'').localeCompare(b.r.addr||''));
+ const g=$('#grid'); if(!g) return;
+ let bar='<div class="candbar panel" style="padding:10px 12px"><b>🎯 Meus candidatos</b> <span class="mini">'+rows.length+' neste aparelho</span>'+
+  '<button class="btn sm" id="cand-export">Exportar JSON</button><button class="btn sm" id="cand-import">Importar JSON</button>'+
+  '<input type="file" id="cand-file" accept="application/json,.json" style="display:none">'+
+  '<span class="mini c-mut">Checklist + lance máx. salvos só neste aparelho. Exporte para levar ao celular/desktop.</span></div>';
+ if(!rows.length){ g.innerHTML=bar+'<div class="panel c-mut" style="text-align:center;padding:28px">Nenhum candidato ainda. Abra um imóvel e toque em <b>+ Candidato</b>, ou use o botão na lista.</div>'; $('#cmore').style.display='none'; bindCandBar(); return; }
+ g.innerHTML=bar+'<div class="clist">'+rows.map(({r,c})=>{
+  const prog=candProg(c), tot=CAND_CHECKS.length, dl=daysLeft(r.date);
+  const mb17=r.mb; // already at PR.ret (17%)
+  const ch=c.checks||{};
+  return '<article class="ccard" data-cid="'+esc(r.id)+'">'+
+   '<div class="ctop">'+thumb(r)+'<div style="flex:1;min-width:0"><div class="pa">'+esc(r.addr)+'</div>'+
+   '<div class="pf">'+esc(r.co)+' · '+fdate(r.date)+' <span class="dl'+(dl<=0?' today':'')+'">'+dl+'d</span> · '+TYPES[r.t]+'</div>'+
+   '<div>'+badges(r)+'</div>'+
+   '<div class="cprog"><span class="mini"><b>'+prog+'/'+tot+'</b> checklist</span><div class="bar"><i style="width:'+(100*prog/tot)+'%"></i></div>'+
+   '<span class="mini">Lance máx. '+nf(PR.ret)+'%: <b class="c-gold">'+money(mb17)+'</b></span></div></div>'+
+   '<button class="btn sm crm" data-cand-rem="'+esc(r.id)+'" title="Remover">✕</button></div>'+
+   '<div class="cchk">'+CAND_CHECKS.map(([k,l])=>{
+     if(k==='max') return '<label><input type="checkbox" disabled '+(c.maxBid!=null&&c.maxBid>0?'checked':'')+'> <span>'+l+' <input class="inp" data-cmax="'+esc(r.id)+'" type="number" step="100" inputmode="decimal" placeholder="US$" value="'+(c.maxBid!=null?c.maxBid:'')+'" style="width:110px;display:inline-block;min-height:32px;margin-left:4px"></span></label>';
+     return '<label><input type="checkbox" data-cchk="'+esc(r.id)+'" data-ck="'+k+'" '+(ch[k]?'checked':'')+'> '+l+'</label>';
+   }).join('')+'</div>'+
+   '<textarea class="inp" data-cnote="'+esc(r.id)+'" placeholder="Anotações…">'+esc(c.notes||'')+'</textarea>'+
+   '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm gold" data-open="'+esc(r.id)+'">Abrir detalhe</button>'+
+   (r.fl.includes('surv')||r.survAmt?'<span class="bdg red">Hipoteca pode sobreviver'+(r.survAmt?' ~'+money(r.survAmt):'')+'</span>':'')+'</div></article>';
+ }).join('')+'</div>';
+ $('#cmore').style.display='none';
+ bindCandBar();
+ g.onclick=e=>{
+  const rem=e.target.closest('[data-cand-rem]'); if(rem){ candRem(rem.dataset.candRem); return; }
+  const op=e.target.closest('[data-open]'); if(op){ openDrawer(op.dataset.open); return; }
+ };
+ g.querySelectorAll('[data-cchk]').forEach(el=>el.onchange=()=>{ const id=el.dataset.cchk; CAND[id]=CAND[id]||{checks:{}}; CAND[id].checks=CAND[id].checks||{}; CAND[id].checks[el.dataset.ck]=el.checked; saveCand(); renderCand(); });
+ g.querySelectorAll('[data-cmax]').forEach(el=>el.onchange=el.oninput=()=>{ const id=el.dataset.cmax; const v=numv(el.value); CAND[id]=CAND[id]||{checks:{}}; CAND[id].maxBid=(isFinite(v)&&v>0)?v:null; saveCand(); /* don't full re-render on every keystroke for max – update checkbox state lightly */ const lab=el.closest('label').querySelector('input[type=checkbox]'); if(lab) lab.checked=!!CAND[id].maxBid; const art=el.closest('.ccard'); if(art){ const prog=candProg(CAND[id]); const bar=art.querySelector('.cprog .bar i'); const labn=art.querySelector('.cprog .mini b'); if(bar) bar.style.width=(100*prog/CAND_CHECKS.length)+'%'; if(labn) labn.textContent=prog+'/'+CAND_CHECKS.length; } });
+ g.querySelectorAll('[data-cnote]').forEach(el=>el.oninput=()=>{ const id=el.dataset.cnote; CAND[id]=CAND[id]||{checks:{}}; CAND[id].notes=el.value; saveCand(); });
+}
+function bindCandBar(){
+ const ex=$('#cand-export'), im=$('#cand-import'), fi=$('#cand-file');
+ if(ex) ex.onclick=()=>{ const blob=new Blob([JSON.stringify({v:1, exported:new Date().toISOString(), cand:CAND},null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='meus-candidatos-leiloes-florida.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); toast('JSON exportado'); };
+ if(im) im.onclick=()=>fi&&fi.click();
+ if(fi) fi.onchange=()=>{ const f=fi.files&&fi.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>{ try{ const o=JSON.parse(rd.result); const src=o.cand||o; if(!src||typeof src!=='object') throw new Error('formato'); CAND={...CAND, ...src}; saveCand(); renderCand(); toast('Candidatos importados'); }catch(err){ toast('JSON inválido'); } fi.value=''; }; rd.readAsText(f); };
+}
+
 const saveFav=()=>LS.set('leilao_fav_v1',[...FAV]);
 const saveTrk=()=>LS.set('leilao_tracker_v1',TRK);
 const saveFlg=()=>LS.set('leilao_flags_v1',FLG);
@@ -775,8 +858,10 @@ function utilBadge(r){ const U=r.util; if(!U) return ''; const w=/Sewer/.test(U.
 function badges(r){
  const b=[];
  if(r.vd==='FLIP') b.push('<span class="bdg blu">FLIP</span>');
- r.fl.forEach(f=>{ if(f==='flood') return; const d=FL[f]; if(d) b.push('<span class="bdg '+d.c+'" title="'+esc(d.d)+'">'+d.l+'</span>'); });
- if(r.olA>0||r.m1) b.push('<span class="bdg red" title="Hipotecas/liens em aberto segundo PropertyOnion: '+esc(money(r.olA||r.m1))+(r.olN?' ('+r.olN+')':'')+'. Em tax deed normalmente são extintas; em foreclosure, confirmar se sobrevivem.">LIEN</span>');
+ r.fl.forEach(f=>{ if(f==='flood') return; if(f==='mtg'&&r.fl.includes('surv')) return; const d=FL[f]; if(!d) return;
+  let lab=d.l; if(f==='surv'&&r.survAmt) lab+=' ~'+money(r.survAmt);
+  b.push('<span class="bdg '+d.c+'" title="'+esc(r.survWhy||d.d)+'">'+lab+'</span>'); });
+ if((r.olA>0||r.m1) && !r.fl.includes('surv')) b.push('<span class="bdg red" title="Hipotecas/liens em aberto segundo PropertyOnion: '+esc(money(r.olA||r.m1))+(r.olN?' ('+r.olN+')':'')+'. Em tax deed normalmente são extintas; em foreclosure, confirmar se sobrevivem.">LIEN</span>');
  if(r.fz) b.push('<span class="bdg '+(/^(A|V)/.test(r.fz)?'red':'cool')+'" title="Zona FEMA '+esc(r.fz)+'">≈ '+esc(r.fz)+'</span>');
  b.push(utilBadge(r));
  if(r.new) b.push('<span class="bdg gld" title="Apareceu pela primeira vez nesta atualização">NOVO</span>');
@@ -797,7 +882,7 @@ const OPT = r=>{
 const refLbl = r=> r.nobid?'Preço esp. / —':r.t==='FC'?'Julgamento':r.t==='TD'?'Lance inicial':'Lance/preço';
 const flagBtn = r=> '<button class="fsw '+(FLG[r.id]||'')+'" data-flag="'+r.id+'" title="Marcar cor: '+(FLG[r.id]?FLAGL[FLG[r.id]]:'nenhuma')+'"></button>';
 const COLS=[
- ['star','★',r=>'<button class="star'+(FAV.has(r.id)?' on':'')+'" data-star="'+r.id+'" title="Favorito">'+(FAV.has(r.id)?'★':'☆')+'</button> '+flagBtn(r),null,1],
+ ['star','★',r=>'<button class="star'+(FAV.has(r.id)?' on':'')+'" data-star="'+r.id+'" title="Favorito">'+(FAV.has(r.id)?'★':'☆')+'</button> '+flagBtn(r)+' <button class="btn sm" data-cand="'+r.id+'" title="Meus candidatos" style="padding:2px 6px;font-size:11px">'+(CAND[r.id]?'✓':'＋')+'</button>',null,1],
  ['n','#',(r,i)=>'<span class="c-mut">'+(i+1)+'</span>',null,1],
  ['addr','Imóvel',r=>'<div class="pr">'+thumb(r)+'<div><div class="pa">'+esc(r.addr)+'</div><div class="pf">'+facts(r)+'</div><div class="pf">'+(r.rent?'🏘 '+money(r.rent)+'/mês'+(r.yld?' · <b class="'+(r.strongRent?'c-green':'')+'">'+pct(r.yld)+' yield</b>':'')+' · ':'')+rtBadge(r.rt)+'</div><div>'+badges(r)+'</div></div></div>','addr',1,'addr'],
  ['sc','Nota',r=>'<span class="sc '+scCls(r.sc)+'" title="'+esc(r.scKind)+'">'+(r.sc==null?'—':r.sc)+'</span>','sc',1],
@@ -838,7 +923,7 @@ function renderTable(reset){
 function card(r){
  const ph=firstImg(r)?'<img loading="lazy" referrerpolicy="no-referrer" src="'+esc(firstImg(r))+'" alt="">':'<div class="thx" style="width:100%;height:100%;border-radius:0">'+(isLand(r)?r.ty+' – sem foto':'Sem foto')+'</div>';
  return '<article class="card" data-id="'+r.id+'"><div class="ph">'+ph+'<div class="tl"><span class="cat '+r.katk+'">'+r.kat+'</span><span class="vd '+r.vd+'">'+r.vd+'</span><span class="bdg">'+TYPES[r.t]+'</span><span class="ty">'+r.ty+'</span></div><div class="tr"><span class="sc '+scCls(r.sc)+'">'+(r.sc==null?'—':r.sc)+'</span></div><div class="bl">🗓 '+fdate(r.date)+' · <b class="c-gold">'+daysLeft(r.date)+'d</b></div></div>'+
-  '<div class="bd"><div style="display:flex;justify-content:space-between;gap:8px"><div class="pa">'+esc(r.addr)+'</div><span>'+flagBtn(r)+' <button class="star'+(FAV.has(r.id)?' on':'')+'" data-star="'+r.id+'">'+(FAV.has(r.id)?'★':'☆')+'</button></span></div><div class="pf">'+facts(r)+' · '+esc(r.co)+(r.dist!=null?' · '+(r.dap?'~':'')+r.dist+' mi':'')+'</div>'+
+  '<div class="bd"><div style="display:flex;justify-content:space-between;gap:8px"><div class="pa">'+esc(r.addr)+'</div><span>'+flagBtn(r)+' <button class="star'+(FAV.has(r.id)?' on':'')+'" data-star="'+r.id+'">'+(FAV.has(r.id)?'★':'☆')+'</button> <button class="btn sm" data-cand="'+r.id+'" title="Meus candidatos" style="padding:2px 6px;font-size:11px">'+(CAND[r.id]?'✓':'＋')+'</button></span></div><div class="pf">'+facts(r)+' · '+esc(r.co)+(r.dist!=null?' · '+(r.dap?'~':'')+r.dist+' mi':'')+'</div>'+
   '<div class="kv4"><div><span>NET</span><b class="'+(r.net>=0?'c-green':'c-red')+'">'+money(r.net)+'</b>'+OPT(r)+'</div><div><span>ROI</span><b>'+pct(r.roi)+'</b>'+OPT(r)+'</div><div><span>'+refLbl(r)+'</span><b>'+money(r.ref)+'</b></div><div><span>Lance máx. ('+pctp(PR.ret,0)+')</span><b>'+money(r.mb)+'</b></div><div><span>Valor (POV/ARV)</span><b>'+money(r.val)+'</b></div><div><span>Aluguel / yield</span><b>'+(r.rent?money(r.rent)+' · '+pct(r.yld):'—')+'</b></div></div>'+
   '<div>'+rtBadge(r.rt)+badges(r)+'</div><div>'+linksH(r)+'</div></div></article>';
 }
@@ -867,7 +952,7 @@ function renderMap(){
  });
 }
 // ---------------------------------------------------------------- apply / views
-const VIEWS=['table','cards','fav','map','intel','res','cal','day'];
+const VIEWS=['table','cards','cand','fav','map','intel','res','cal','day'];
 function apply(noHash){
  const F=readF();
  const noCat=filt(F,true);
@@ -876,7 +961,7 @@ function apply(noHash){
  CUR=list.slice().sort(SORTS[S.sort]||SORTS.sc);
  renderQS(); kstrip(CUR); kpis(CUR);
  $('#cnt').textContent=CUR.length+' de '+ITEMS.length+' imóveis';
- if(view==='table') renderTable(true); else if(view==='cards'||view==='fav') renderCards(true); else if(view==='map') renderMap();
+ if(view==='table') renderTable(true); else if(view==='cards'||view==='fav') renderCards(true); else if(view==='cand') renderCand(); else if(view==='map') renderMap();
  else if(view==='intel') renderIntel(); else if(view==='res') renderRes(); else if(view==='cal') renderCal(); else if(view==='day') renderDay();
  if(!noHash) writeHash();
  ftLabel();
@@ -885,7 +970,7 @@ function setView(v){
  if(!VIEWS.includes(v)) v='table';
  if(v==='fav'){ S.fav=true; } else if(view==='fav'){ S.fav=false; }
  view=v; S.view=v; $$('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
- const show={'v-table':v==='table','v-cards':v==='cards'||v==='fav','v-map':v==='map','v-intel':v==='intel','v-res':v==='res','v-cal':v==='cal','v-day':v==='day'};
+ const show={'v-table':v==='table','v-cards':v==='cards'||v==='fav'||v==='cand','v-map':v==='map','v-intel':v==='intel','v-res':v==='res','v-cal':v==='cal','v-day':v==='day'};
  for(const k in show) $('#'+k).style.display=show[k]?'':'none';
  apply();
 }
@@ -914,6 +999,7 @@ function listClick(e){
  const th=e.target.closest('th[data-sk]'); if(th){ S.sort=th.dataset.sk; apply(); return; }
  if(e.target.closest('a')) return;
  const st=e.target.closest('[data-star]'); if(st){ toggleFav(st.dataset.star); return; }
+ const cd=e.target.closest('[data-cand]'); if(cd){ candToggle(cd.dataset.cand); $$('[data-cand="'+cd.dataset.cand+'"]').forEach(b=>b.textContent=CAND[cd.dataset.cand]?'✓':'＋'); return; }
  const fl=e.target.closest('[data-flag]'); if(fl){ cycleFlag(fl.dataset.flag); return; }
  const tr=e.target.closest('[data-id]'); if(tr) openDrawer(tr.dataset.id);
 }
@@ -1104,6 +1190,9 @@ function alertsHtml(r){
  const A=[]; const add=(s,t)=>A.push('<li>'+stc(s)+'<span>'+t+'</span></li>');
  const isFC=r.t==='FC', isTD=r.t==='TD';
  if(r.fl.includes('avoid')) add('bad','<b>EVITAR</b> – '+esc(FL.avoid.d));
+ if(r.fl.includes('surv')||(r.survAmt&&r.hoaPl)){
+  add('bad','<b>Hipoteca pode sobreviver</b>'+(r.survAmt?' – est. '+money(r.survAmt):'')+'. '+esc(r.survWhy||FL.surv.d)+' <span class="mini">ESTIMATIVA – confirmar com title search.</span>');
+ }
  if(isFC){
   if(r.fl.includes('jr')) add('ind','<b>JR-LIEN?</b> Julgamento ('+money(r.ref)+') é '+pct(r.refPct,0)+' do valor: típico de execução de HOA/hipoteca júnior – a 1ª hipoteca pode sobreviver. Confirmar no processo.');
   else if(r.fl.includes('mtg')) add('bad','<b>Hipoteca sobrevive?</b> '+esc(FL.mtg.d));
@@ -1202,7 +1291,8 @@ function openDrawer(id){
  $('#drawer').innerHTML='<div class="dh"><button class="star'+(FAV.has(r.id)?' on':'')+'" data-star="'+r.id+'">'+(FAV.has(r.id)?'★':'☆')+'</button>'+flagBtn(r)+'<h2>'+esc(r.addr)+'</h2><span class="net" id="dnet"></span><button class="btn sm" id="dclose" aria-label="Fechar">✕</button></div>'+
  '<div class="db">'+
   galHtml(r)+
-  '<div class="dlinks"><a class="btn gold" id="dzil" href="'+esc(zillowUrl(r))+'" target="_blank" rel="noopener">🏠 Zillow</a><a class="btn gold" id="drea" href="'+esc(realtorUrl(r))+'" target="_blank" rel="noopener">🏠 Realtor.com</a><a class="btn" href="'+esc(gmapsUrl(r))+'" target="_blank" rel="noopener">📍 Google Maps</a><a class="btn" href="'+esc(svUrl(r))+'" target="_blank" rel="noopener">🚶 Street View</a>'+(L.pa?'<a class="btn" href="'+esc(L.pa)+'" target="_blank" rel="noopener">🏛 Property Appraiser</a>':'')+(L.auc||L.list?'<a class="btn" href="'+esc(L.auc||L.list)+'" target="_blank" rel="noopener">⚖ Clerk / Leilão</a>':'')+(L.po?'<a class="btn" href="'+esc(L.po)+'" target="_blank" rel="noopener">PropertyOnion</a>':'')+'<button class="btn gold" id="dshare">🔗 Copiar link</button></div>'+
+  '<div class="dlinks"><a class="btn gold" id="dzil" href="'+esc(zillowUrl(r))+'" target="_blank" rel="noopener">🏠 Zillow</a><a class="btn gold" id="drea" href="'+esc(realtorUrl(r))+'" target="_blank" rel="noopener">🏠 Realtor.com</a><a class="btn" href="'+esc(gmapsUrl(r))+'" target="_blank" rel="noopener">📍 Google Maps</a><a class="btn" href="'+esc(svUrl(r))+'" target="_blank" rel="noopener">🚶 Street View</a>'+(L.pa?'<a class="btn" href="'+esc(L.pa)+'" target="_blank" rel="noopener">🏛 Property Appraiser</a>':'')+(L.auc||L.list?'<a class="btn" href="'+esc(L.auc||L.list)+'" target="_blank" rel="noopener">⚖ Clerk / Leilão</a>':'')+(L.po?'<a class="btn" href="'+esc(L.po)+'" target="_blank" rel="noopener">PropertyOnion</a>':'')+'<button class="btn gold" id="dshare">🔗 Copiar link</button><button class="btn '+(CAND[r.id]?'':'gold')+'" id="dcand">'+(CAND[r.id]?'✓ Candidato':'＋ Candidato')+'</button></div>'+
+  ((r.fl.includes('surv')||r.survAmt)?('<div class="survbox" id="survbox"><b>⚠ Hipoteca pode sobreviver</b>'+(r.survAmt?' – est. <b>'+money(r.survAmt)+'</b>':'')+'. '+esc(r.survWhy||FL.surv.d)+' <span class="mini">ESTIMATIVA – confirmar com title search. Toggle no P&L para deduzir/omitir.</span></div>'):'')+
   '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="sc '+scCls(r.sc)+'" title="'+esc(r.scKind)+'">'+(r.sc==null?'—':r.sc)+'</span><span class="cat '+r.katk+'">'+r.kat+'</span><span class="vd '+r.vd+'">'+r.vd+'</span><span class="bdg">'+TYPES[r.t]+(r.plat?' · '+esc(r.plat):'')+'</span><span class="ty">'+TYPEL[r.ty]+'</span><span class="bdg">🗓 '+fdate(r.date)+' '+esc(r.time||'')+' · '+(dl===0?'HOJE':dl+'d')+'</span><span class="bdg">'+esc(r.co)+(r.dist!=null?' · '+(r.dap?'~':'')+r.dist+' mi de Orlando':'')+'</span>'+rtBadge(r.rt)+badges(r)+'</div>'+
   '<div class="pf">'+facts(r)+(r.rent?' · aluguel est. '+money(r.rent)+'/mês ('+esc(r.rsrc||'')+')':'')+(r.case?' · Processo <b>'+esc(r.case)+'</b>':'')+'</div>'+
   '<div class="intel" id="ddep"></div>'+
@@ -1226,6 +1316,7 @@ function openDrawer(id){
  $$('.dtabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===DR.tab));
  $('#dclose').onclick=closeDrawer;
  $('#dshare').onclick=()=>copy(location.origin+location.pathname+'#p='+encodeURIComponent(r.id),'Link do imóvel copiado');
+ $('#dcand').onclick=()=>{ candToggle(r.id); $('#dcand').textContent=CAND[r.id]?'✓ Candidato':'＋ Candidato'; $('#dcand').classList.toggle('gold',!CAND[r.id]); };
  $('#drawer .dh [data-star]').onclick=()=>toggleFav(r.id);
  $('#drawer .dh [data-flag]').onclick=()=>cycleFlag(r.id);
  $('#gal').addEventListener('click',e=>{
@@ -1257,6 +1348,9 @@ function openDrawer(id){
   if(e.target.id==='plsave'){ const keep={...DR.o}, bid=DR.bid, id=r.id; applyPrem({...DR.o.pr}); toast('Custos salvos como seu padrão neste aparelho'); return; }
   if(e.target.id==='plundo'){ $('#w-reset').click(); return; }
   if(e.target.id==='pldef'){ applyPrem({...PDEF}); toast('Padrões originais restaurados'); }
+ });
+ $('#dpl').addEventListener('change',e=>{
+  if(e.target.id==='surv-tog'){ r.survDeduct=!!e.target.checked; DR.o.lien=e.target.checked?(r.survAmt||0):0; set('w-lien',DR.o.lien); drCalc(); }
  });
  $$('.dtabs button').forEach(b=>b.onclick=()=>{ DR.tab=b.dataset.tab; $$('.dtabs button').forEach(x=>x.classList.toggle('on',x===b)); drCalc(); });
  $$('[data-trk]').forEach(b=>b.onclick=()=>{ const cur=TRK[r.id]||{}; cur.s = cur.s===b.dataset.trk ? '' : b.dataset.trk; cur.u=new Date().toLocaleString('pt-BR'); TRK[r.id]=cur; saveTrk(); $$('[data-trk]').forEach(x=>x.classList.toggle('on',x.dataset.trk===cur.s)); $('#trkm').textContent='Salvo em '+cur.u; if(view==='table') renderTable(true); });
@@ -1315,7 +1409,7 @@ function drCalc(){
    (needQT(r)?'<tr><td>Quiet title <span class="mini">('+(r.t==='TD'?'tax deed':'lote')+') '+pin('qt','$')+'</span></td><td>'+z(p.fees.qt)+'</td></tr>':'')+
    (o.ev?'<tr><td>Despejo / cash-for-keys <span class="mini">(ocupado, est.) '+pin('ev','$')+'</span></td><td>'+z(p.fees.ev)+'</td></tr>':'')+
    '<tr><td>Taxas extras do leilão <span class="mini">'+pin('fee','$')+'</span></td><td>'+z(p.fees.fee)+'</td></tr>'+
-   '<tr><td>Liens que sobrevivem '+oin('lien','US$ ')+' <span class="mini">'+(r._o.lien?'(reserva: 1ª hipoteca – indício)':'('+(r.t==='TD'?'liens do governo: não verificado':'não verificado no processo')+')')+'</span></td><td>'+z(p.lien)+'</td></tr>'+
+   '<tr><td>Liens que sobrevivem '+oin('lien','US$ ')+' <span class="mini">'+(r.survAmt?'ESTIMATIVA PO'+(r.survWhy?': '+esc(r.survWhy.slice(0,90)):'')+' – confirmar com title search':(r._o.lien?'(reserva: 1ª hipoteca – indício)':'('+(r.t==='TD'?'liens do governo: não verificado':'não verificado no processo')+')'))+'</span>'+(r.survAmt?' <label class="mini" style="display:inline-flex;gap:4px;align-items:center;margin-left:6px"><input type="checkbox" id="surv-tog"'+(r.survDeduct!==false?' checked':'')+'> deduzir no P&L</label>':'')+'</td><td>'+z(p.lien)+'</td></tr>'+
    '<tr class="h"><td colspan="2">Venda</td></tr>'+
    '<tr><td>Comissão do corretor vendedor <span class="mini">'+pin('list','%')+'</span></td><td>'+z(p.sell.list)+'</td></tr>'+
    '<tr><td>Comissão do corretor comprador <span class="mini">'+pin('buyc','%')+'</span></td><td>'+z(p.sell.buyc)+'</td></tr>'+
@@ -1377,7 +1471,7 @@ $('#legend').innerHTML='<table><tr><th>Selo</th><th>Significado</th></tr>'+Objec
 const H0=readHash();
 setView(S.view || (window.innerWidth<760?'cards':'table'));
 if(H0.p && ITEMS.find(x=>x.id===H0.p)) openDrawer(H0.p);
-window.__dash={apply, ITEMS, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, gmapsUrl, S, readF, FL, get view(){return view;}};
+window.__dash={apply, ITEMS, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
 })();
 </script>
 </body>

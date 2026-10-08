@@ -30,7 +30,7 @@ import argparse, ast, base64, csv, datetime as dt, gzip, io, json, math, os, re,
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-import rawdata, po_fetch, nal, flwmi, po_export
+import rawdata, po_fetch, nal, flwmi, po_export, po_bids
 
 AUC = '/workspace/auc'
 SW = os.path.join(AUC, 'statewide')
@@ -334,6 +334,8 @@ def collect_items():
         it['avoid'] = next((k for k in AVOID if k in a), None)
         items.append(it)
     items, po_st = po_export.enrich(items)
+    bid_st = po_bids.fill_po_bids(items, fetch=True)
+    po_st = dict(po_st, bids=bid_st)
     collect_items._po_stats = po_st
     return items
 
@@ -475,6 +477,8 @@ def build_items(args):
         if val and val < 1000: val = None
         ref = num(x.get('ob')) if src == 'TD' else num(x.get('fj')) if src == 'FC' else num(x.get('ref'))
         nobid = bool(it.get('po_only') and not ref)
+        if it.get('bid_fill') and ref:
+            notes.append(f"Julgamento/lance obtido no RealAuction ({it['bid_fill'].get('how')}).")
         pool = bool(dictval(P0.get('poolCode')))
         units = (nf or {}).get('nu') or num(P0.get('sumResidentialUnits'))
         repairs, rwhy = rehab_for(ty, int(yr) if yr else None, pool, units)
@@ -535,6 +539,30 @@ def build_items(args):
             if hoa_pl: flags.append('hoa')
             if ref and val and ref < 0.5 * val: flags.append('jr')
         if 'hoa' not in flags and ty in ('Condo', 'Townhouse'): flags.append('hoa')
+        # Surviving-lien estimate (PropertyOnion + plaintiff heuristics) – conservative
+        surv_amt = None; surv_why = None
+        olA_v = num(P0.get('totalOpenLienAmt')) or (num(poe.get('liens_amt')) if poe else None)
+        if src == 'FC':
+            if hoa_pl and (m1 or olA_v):
+                surv_amt = m1 or olA_v
+                surv_why = 'Execução de HOA/condomínio: a 1ª hipoteca (ou liens PO) provavelmente SOBREVIVE ao leilão.'
+                if 'mtg' not in flags: flags.append('mtg')
+                if 'surv' not in flags: flags.append('surv')
+            elif 'jr' in flags and (m1 or olA_v):
+                # julgamento << valor = tipico HOA/2ª; herda 1ª hipoteca
+                surv_amt = m1 or olA_v
+                surv_why = 'JR-LIEN: julgamento bem abaixo do valor – tipico de HOA/2ª hipoteca; a 1ª pode sobreviver.'
+                if 'mtg' not in flags: flags.append('mtg')
+                if 'surv' not in flags: flags.append('surv')
+            elif mtg_surv and m1:
+                surv_amt = m1
+                surv_why = 'Indício de execução júnior: 1ª hipoteca recente (PO) maior que o julgamento e autor ≠ credor da 1ª.'
+                if 'surv' not in flags: flags.append('surv')
+        elif src == 'TD':
+            if CODE_RE.search(defend or '') or (olA_v and not m1 and 'code' in flags):
+                surv_why = 'Tax deed: hipotecas privadas costumam ser extintas, mas liens municipais/code enforcement podem sobreviver – confirmar title search.'
+                if 'surv' not in flags: flags.append('surv')
+                surv_amt = None
         fz = (P0.get('fema_flood_zone') or '').upper().strip()
         if fz and re.match(r'^(A|V)', fz): flags.append('flood')
         if occupied and ref and val and ref < (0.10 if src == 'TD' else 0.25) * val: flags.append('red')
@@ -603,6 +631,8 @@ def build_items(args):
             povAsArv=pov_as_arv or None, clv=num(poe.get('clv')) if poe else None,
             prevSale=poe.get('prev_sale_type') if poe else None,
             nobid=nobid or None, poeHow=(poe.get('how') if poe else None),
+            survAmt=round(surv_amt) if surv_amt else None, survWhy=surv_why,
+            survDeduct=True if (surv_amt and hoa_pl and src=='FC') else None,
             beds=beds, baths=baths, sqft=sqft, yr=int(yr) if yr else None, ac=round(acres, 3) if acres else None,
             zon=P0.get('zoning') or None, fz=fz or None, lat=lat, lon=lon, gsrc=gsrc if lat else None,
             dist=round(dist) if dist is not None else None, dap=dapprox, rep=repairs, repw=rwhy,
@@ -882,6 +912,8 @@ def main():
         pe = stats['poExport']
         print('PO export: matched', pe.get('matched'), 'added', pe.get('added'), pe.get('by_how'),
               '| POV', stats.get('pov'), 'como ARV', stats.get('povArv'), 'só-PO', stats.get('poOnly'))
+        if pe.get('bids'):
+            print('PO bids fill:', pe['bids'])
     print('removidos:', json.dumps(dropped, ensure_ascii=False))
 
 if __name__ == '__main__':

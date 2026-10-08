@@ -43,7 +43,9 @@ python3 build.py --site --no-encrypt --out .plain/index.html   # versão sem sen
 python3 build.py --fetch-market                 # atualiza Redfin/Zillow (ZHVI e ZORI)
 python3 test_dashboard.py                       # testes headless (fórmula, filtros, galeria, alertas, visões, celular)
 ```
-Os comandos são os mesmos da v3. `--site` gera `index.html`, `manifest.webmanifest`, `icons/` e `robots.txt`. A senha é lida de um arquivo fora do repositório. `cache/`, `.plain/` e capturas `*.png` (exceto ícones) não são versionados. Os dados brutos dos leilões ficam em `/workspace/auc/` (fora do repositório). Módulos: `rawdata.py` (leilões), `po_fetch.py` (PropertyOnion páginas), `po_export.py` (exports Premium CSV), `nal.py` (cadastro DOR), `flwmi.py` (água/esgoto).
+Os comandos são os mesmos da v3. `--site` gera `index.html`, `manifest.webmanifest`, `icons/` e `robots.txt`. A senha é lida de um arquivo fora do repositório. `cache/`, `.plain/` e capturas `*.png` (exceto ícones) não são versionados. Os dados brutos dos leilões ficam em `/workspace/auc/` (fora do repositório). Módulos: `rawdata.py` (leilões), `po_fetch.py` (PropertyOnion páginas), `po_export.py` (exports Premium CSV), `po_bids.py` (preenche Julgamento/Opening Bid de listagens só-PO a partir do RealAuction público, com cache; Lake/Osceola FC exigem login → pulados), `nal.py` (cadastro DOR), `flwmi.py` (água/esgoto).
+
+No painel: alerta **Hipoteca pode sobreviver** (HOA/JR-lien, com valor estimado do PO e toggle no P&L), filtro Negócios limpos/nota penalizados; aba **Meus candidatos** (checklist pré-lance em localStorage, export/import JSON).
 
 ### Exports PropertyOnion Premium (rotina 6h / build offline)
 1. Baixe o CSV no PropertyOnion (Upcoming, por condado) e salve como
@@ -53,7 +55,7 @@ Os comandos são os mesmos da v3. `--site` gera `index.html`, `manifest.webmanif
 2. O build (`python3 build.py --site`) usa automaticamente o **arquivo mais recente por condado**.
    Limite típico Premium ≈ 2.500 linhas/mês – 1 export/condado-alvo por semana basta.
 3. Join: número do processo → parcela → endereço normalizado. Linhas sem match no RealAuction entram
-   como imóveis “PropertyOnion” (sem AID inventado; sem julgamento/lance → selo **Sem lance inicial**).
+   como imóveis “PropertyOnion” (sem AID inventado; sem julgamento/lance → selo **Sem lance inicial**, preenchido depois por `po_bids.py` quando o RealAuction público já lista o caso).
 4. POV vira ARV só com confiança ≥ 70 e dentro de ~35% do valor de condado; senão fica referência.
 5. **Nunca** commitar os CSV no repositório público – só o `index.html` criptografado leva os dados ao ar.
 
