@@ -27,6 +27,9 @@ with sync_playwright() as p:
     D = 'window.__dash'
     n = pg.evaluate(D + '.ITEMS.length'); check(n > 1000, f'itens carregados: {n}')
     n0 = pg.evaluate(D + '.CUR.length'); check(0 < n0 <= n, f'lista padrão: {n0} (faixas/áreas comuns e execuções de HOA ocultas)')
+    check(pg.evaluate(D + ".S.cat") == 'resid', 'filtro padrão = Residencial (casa/townhouse/condo)')
+    top = pg.evaluate(D + ".CUR.slice(0,30).map(r=>r.ty)")
+    check(sum(1 for x in top if x in ('Casa','Townhouse','Condo')) >= 20, f'topo da lista é residencial ({top[:8]})')
     check(pg.evaluate(D + '.PR.ret') == 17 and pg.evaluate(D + '.PR.flip') == 25, 'retorno mínimo padrão = 17%, FLIP ≥ 25%')
     check('Orçamento' not in pg.inner_text('body') and 'teto orç' not in pg.inner_text('body'), 'sem orçamento de US$ 150 mil na página')
     check(pg.locator('#tbl tbody tr').count() > 0, 'tabela renderizada')
