@@ -31,8 +31,12 @@ with sync_playwright() as p:
     check('Orçamento' not in pg.inner_text('body') and 'teto orç' not in pg.inner_text('body'), 'sem orçamento de US$ 150 mil na página')
     check(pg.locator('#tbl tbody tr').count() > 0, 'tabela renderizada')
     heads = pg.evaluate("document.querySelector('#tbl thead').textContent")
-    for h in ('Condado', 'Valor de mercado (POV/ARV)', 'Julgamento', 'NET', 'ROI', 'Veredito', 'Nota', 'Cat.', 'Autor'):
+    for h in ('Condado', 'Valor de mercado (POV/ARV)', 'POV PO', 'Julgamento', 'NET', 'ROI', 'Veredito', 'Nota', 'Cat.', 'Autor'):
         check(h in heads, f'coluna “{h}”')
+    check(pg.evaluate(D + '.ITEMS.filter(r=>r.pov).length') > 50, 'itens com POV PropertyOnion')
+    check(pg.evaluate(D + '.ITEMS.filter(r=>r.povAsArv).length') > 20, 'itens com POV como ARV')
+    check(pg.evaluate(D + '.ITEMS.filter(r=>r.plat==="PropertyOnion").length') >= 1, 'imóveis só-PropertyOnion')
+    check(pg.locator('#fpovc').count()==1 and pg.locator('#hpov').count()==1, 'filtros POV (confiança + só com POV)')
     check(pg.locator('#kstrip > div').count() == 5, 'faixa de KPIs (5 indicadores)')
     check(pg.locator('#kpis > *').count() >= 7, 'blocos de categoria (7)')
     check('JR-LIEN' in pg.inner_text('#jrban'), 'aviso JR-LIEN')

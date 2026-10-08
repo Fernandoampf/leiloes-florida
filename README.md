@@ -11,6 +11,7 @@ Painel com imóveis em leilão na **Flórida inteira** (referência de distânci
 | Leilões agendados (tax deed e foreclosure) e resultados passados | sites RealAuction dos condados (realtaxdeed.com / realforeclose.com), Orange County Clerk |
 | Leilões privados / federais | Tranzon (busca pública “Florida”), U.S. Treasury Real Property |
 | Detalhes do imóvel, AVM, aluguel, ocupação, hipotecas, FEMA, histórico, fotos | PropertyOnion (páginas públicas) |
+| POV, confiança, liens totais, ocupação/vago, valor da terra, tipo da venda anterior | PropertyOnion **Premium CSV** (`/workspace/auc/statewide/po_exports/po_<condado>_<data>.csv`) |
 | Cadastro (uso DOR, valor, área, ano, homestead, dono) e **vendas comparáveis** | Florida DOR – arquivos NAL (2026) |
 | Água e esgoto | FDOH – Florida Water Management Inventory (ArcGIS público) |
 | Mercado por ZIP (dias no mercado, preço, US$/sqft) e aluguel típico | Redfin Data Center, Zillow ZHVI e ZORI |
@@ -42,7 +43,20 @@ python3 build.py --site --no-encrypt --out .plain/index.html   # versão sem sen
 python3 build.py --fetch-market                 # atualiza Redfin/Zillow (ZHVI e ZORI)
 python3 test_dashboard.py                       # testes headless (fórmula, filtros, galeria, alertas, visões, celular)
 ```
-Os comandos são os mesmos da v3. `--site` gera `index.html`, `manifest.webmanifest`, `icons/` e `robots.txt`. A senha é lida de um arquivo fora do repositório. `cache/`, `.plain/` e capturas `*.png` (exceto ícones) não são versionados. Os dados brutos dos leilões ficam em `/workspace/auc/` (fora do repositório). Módulos: `rawdata.py` (leilões), `po_fetch.py` (PropertyOnion), `nal.py` (cadastro DOR), `flwmi.py` (água/esgoto).
+Os comandos são os mesmos da v3. `--site` gera `index.html`, `manifest.webmanifest`, `icons/` e `robots.txt`. A senha é lida de um arquivo fora do repositório. `cache/`, `.plain/` e capturas `*.png` (exceto ícones) não são versionados. Os dados brutos dos leilões ficam em `/workspace/auc/` (fora do repositório). Módulos: `rawdata.py` (leilões), `po_fetch.py` (PropertyOnion páginas), `po_export.py` (exports Premium CSV), `nal.py` (cadastro DOR), `flwmi.py` (água/esgoto).
+
+### Exports PropertyOnion Premium (rotina 6h / build offline)
+1. Baixe o CSV no PropertyOnion (Upcoming, por condado) e salve como
+   `/workspace/auc/statewide/po_exports/po_<condado>_<YYYY-MM-DD>.csv`
+   (ex.: `po_orange_2026-10-08.csv`, `po_seminole_2026-10-08.csv`). O condado no nome é um fallback;
+   a coluna **County** do CSV manda quando presente.
+2. O build (`python3 build.py --site`) usa automaticamente o **arquivo mais recente por condado**.
+   Limite típico Premium ≈ 2.500 linhas/mês – 1 export/condado-alvo por semana basta.
+3. Join: número do processo → parcela → endereço normalizado. Linhas sem match no RealAuction entram
+   como imóveis “PropertyOnion” (sem AID inventado; sem julgamento/lance → selo **Sem lance inicial**).
+4. POV vira ARV só com confiança ≥ 70 e dentro de ~35% do valor de condado; senão fica referência.
+5. **Nunca** commitar os CSV no repositório público – só o `index.html` criptografado leva os dados ao ar.
+
 
 ## ⚠️ Aviso
 Material informativo, gerado automaticamente – **não é recomendação de investimento**. Dados podem estar errados ou desatualizados e leilões são cancelados/adiados com frequência. **Antes de qualquer lance confirme tudo no site do Clerk (leilão e processo) e no Property Appraiser do condado**, faça pesquisa de título (liens, hipotecas sobreviventes, HOA, code enforcement) e vistorie o imóvel.

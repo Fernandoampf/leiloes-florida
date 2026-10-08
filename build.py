@@ -6,6 +6,7 @@ Builds the single-file dashboard from the public auction scans in /workspace/auc
   - RealAuction (county clerk auction sites) previews: tax deeds (td/), foreclosures (fc/), past results (results/)
   - Tranzon / U.S. Treasury land & property auctions (extra_*.json, extra_sources.py)
   - PropertyOnion public property pages (details, AVM, rent, occupancy, mortgages, FEMA, photos)   -> po_fetch.py
+  - PropertyOnion Premium CSV exports (POV, liens, occupancy) in /workspace/auc/statewide/po_exports/ -> po_export.py
   - Florida DOR tax roll (NAL 2026P): use code, values, last sales, homestead + qualified sales for comps -> nal.py
   - Florida Dept. of Health FLWMI: water (public/well) and wastewater (sewer/septic) per parcel     -> flwmi.py
   - Redfin Data Center ZIP tracker, Zillow ZHVI and ZORI by ZIP (market, days on market, rents)
@@ -29,7 +30,7 @@ import argparse, ast, base64, csv, datetime as dt, gzip, io, json, math, os, re,
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-import rawdata, po_fetch, nal, flwmi
+import rawdata, po_fetch, nal, flwmi, po_export
 
 AUC = '/workspace/auc'
 SW = os.path.join(AUC, 'statewide')
@@ -332,6 +333,8 @@ def collect_items():
         a = x.get('addr', '').upper()
         it['avoid'] = next((k for k in AVOID if k in a), None)
         items.append(it)
+    items, po_st = po_export.enrich(items)
+    collect_items._po_stats = po_st
     return items
 
 def zips_of(x): return re.findall(r'\b(3\d{4})\b', x.get('addr', ''))
@@ -400,7 +403,7 @@ def build_items(args):
             drop('sem endereço nem parcela (timeshare / múltiplas parcelas)'); continue
         pid, slug, full = po_fetch.resolve(street_of(x), zips_of(x), None, it['known'], fetch=False)
         P0 = full or it['known'] or {}
-        has_po = bool(pid and P0)
+        has_po = bool(pid and P0) or bool(it.get('poe'))
         nf = facts.get(x['aid'])
         cs = county_slug(x.get('county') or '') or zcounty.get((zips_of(x) or [''])[-1], '')
         if not cs: drop('condado desconhecido'); continue
@@ -432,8 +435,17 @@ def build_items(args):
             elif re.search(r'\d\s*BR', dsc): ty = ty if ty in ('Casa', 'Mobile', 'Condo', 'Townhouse') else 'Casa'
             tsrc = tsrc or 'descrição do leilão'
         land = ty in ('Lote', 'Terreno')
-        beds = num(P0.get('bedrooms')); baths = num(P0.get('bathTotalCalc'))
+        poe = it.get('poe') or {}
+        if not ty and poe.get('prop_type'):
+            ty = po_export.type_from_prop(poe.get('prop_type'), num(poe.get('sqft')), num(poe.get('lot')))
+            if ty: tsrc = 'PropertyOnion (export)'; land = ty in ('Lote', 'Terreno')
+        if not acres and poe.get('lot'):
+            acres = num(poe.get('lot')) / 43560
+        beds = num(P0.get('bedrooms')) or num(poe.get('beds'))
+        baths = num(P0.get('bathTotalCalc')) or num(poe.get('baths'))
+        if not sqft and poe.get('sqft'): sqft = num(poe.get('sqft'))
         if land: beds = baths = sqft = yr = None
+        if poe.get('cmv') and not mkt: mkt = num(poe.get('cmv'))
         mvals = [v for v in [av, mkt, ocpa_mkt, lake_mv, jv] if v]
         base = max(mvals) if mvals else None
         legal = (P0.get('legalDescription') or x.get('legal') or (nf or {}).get('leg') or '')
@@ -453,8 +465,16 @@ def build_items(args):
             vsrc = ('valor do condado (sem AVM)' if base else 'AVM PropertyOnion (sem valor do condado)') if val else None
         if not val and cest:
             val = cest; vsrc = 'comps DOR (estimativa)'
+        pov = num(poe.get('pov')); pov_conf = num(poe.get('pov_conf'))
+        county_for_pov = next((v for v in [mkt, ocpa_mkt, lake_mv, jv, av] if v), None)
+        pov_as_arv = False
+        if po_export.pov_ok_for_arv(pov, pov_conf, county_for_pov):
+            val = pov; vsrc = f'POV PropertyOnion (confiança {int(pov_conf)})'; pov_as_arv = True
+        elif not val and pov:
+            val = pov; vsrc = 'POV PropertyOnion (sem valor de condado)'; pov_as_arv = True
         if val and val < 1000: val = None
         ref = num(x.get('ob')) if src == 'TD' else num(x.get('fj')) if src == 'FC' else num(x.get('ref'))
+        nobid = bool(it.get('po_only') and not ref)
         pool = bool(dictval(P0.get('poolCode')))
         units = (nf or {}).get('nu') or num(P0.get('sumResidentialUnits'))
         repairs, rwhy = rehab_for(ty, int(yr) if yr else None, pool, units)
@@ -488,16 +508,18 @@ def build_items(args):
         # ---- flags
         flags, notes = [], []
         occ_v = str(dictval(P0.get('ownerOccupied')) or '').lower()
-        owner = (P0.get('ownerNAME1FULL') or (nf or {}).get('own') or (o or {}).get('owner') or (lk or {}).get('owner') or x.get('owner') or '').strip()
+        owner = (P0.get('ownerNAME1FULL') or (nf or {}).get('own') or (o or {}).get('owner') or (lk or {}).get('owner') or (poe.get('owner') if poe else None) or x.get('owner') or '').strip()
         owner2 = P0.get('ownerNAME2FULL') or ''
         mail = norm_street(P0.get('mailingFullStreetAddress') or (nf or {}).get('oa')); situs = norm_street(P0.get('situsFullStreetAddress') or (nf or {}).get('addr'))
         homestead = P0.get('homesteadInd') is True or bool((nf or {}).get('hm'))
         occupied = occ_v in ('yes', 'owner occupied') or homestead or (bool(mail) and mail == situs)
         absentee = occ_v == 'absentee' or (bool(mail) and bool(situs) and mail != situs)
+        if poe.get('owner_occ'): occupied, absentee = True, False
+        if poe.get('vacant') and not land: occupied, absentee = False, False
         if land: occupied = absentee = False
         if occupied: flags.append('occ')
         if DECEASED_RE.search(owner + ' ' + owner2) or (src == 'FC' and re.search(r'DECEASED|ESTATE OF|UNKNOWN HEIRS', defend, re.I)): flags.append('dec')
-        usps_vac = P0.get('usps_vacancy') == 'Y' or str(dictval(P0.get('vacantFlag')) or '').upper() in ('Y', 'YES')
+        usps_vac = P0.get('usps_vacancy') == 'Y' or str(dictval(P0.get('vacantFlag')) or '').upper() in ('Y', 'YES') or bool(poe.get('vacant'))
         if absentee and not occupied and not land and not usps_vac: flags.append('ten')
         if src == 'FC' and CODE_RE.search(defend): flags.append('code')
         hoa_pl = bool(src == 'FC' and HOA_RE.search(plaint_raw))
@@ -516,8 +538,9 @@ def build_items(args):
         fz = (P0.get('fema_flood_zone') or '').upper().strip()
         if fz and re.match(r'^(A|V)', fz): flags.append('flood')
         if occupied and ref and val and ref < (0.10 if src == 'TD' else 0.25) * val: flags.append('red')
-        if not has_po and not nf: flags.append('unv')
+        if not has_po and not nf and not poe: flags.append('unv')
         if any(s and s.lower().startswith('cancel') for s in status): flags.append('cxl')
+        if nobid: flags.append('nobid'); notes.append('Sem julgamento/lance inicial (fonte PropertyOnion export) – ROI no preço esperado do condado quando houver histórico.')
         if usps_vac and not land: flags.append('vac')
         if junk: flags.append('junk')
         if homestead and src == 'TD': flags.append('hmtd')
@@ -532,7 +555,8 @@ def build_items(args):
         if x.get('img'): imgs.insert(0, x['img'])
         # ---- links
         po_url = f'https://propertyonion.com/property_search/properties/{slug}/{pid}' if (pid and slug) else None
-        pa = P0.get('prop_appraiserlink') or x.get('plink')
+        if not po_url and poe.get('po_url'): po_url = poe['po_url']
+        pa = P0.get('prop_appraiserlink') or x.get('plink') or (poe.get('appraiser') if poe else None)
         if pa and ('key=&' in pa or pa.endswith('/parcel/') or 'MULTIPLE' in pa): pa = None
         addr = re.sub(r',\s*FL-?\s*', ', FL ', x['addr']).replace(' ,', ',').strip()
         def plist(sv):
@@ -566,6 +590,7 @@ def build_items(args):
         if zm and zm.get('rf') and zm['rf'][-1].get('dom') is not None and (zm['rf'][-1].get('sold') or 0) >= 3: dom = zm['rf'][-1]['dom']
         zori = (zm or {}).get('zr')
         rent = num(P0.get('estimatedRentalValue')); rsrc = 'PropertyOnion' if rent else None
+        if not rent and poe.get('pov_rent'): rent = num(poe.get('pov_rent')); rsrc = 'PropertyOnion (export)'
         if not rent and zori and not land and ty != 'Comercial': rent = zori; rsrc = 'Zillow ZORI (mediana do ZIP)'
         first = seen.get(key) or ('0000-00-00' if baseline else today)
         seen[key] = first
@@ -574,6 +599,10 @@ def build_items(args):
             date=d_iso, time=et_time(c) if c else x.get('time'), addr=addr, owner=owner or None, case=x.get('case'), parcel=x.get('parcel'),
             ref=ref, av=av, mkt=mkt or ocpa_mkt or lake_mv, jv=jv, avm=avm, avmLo=num(P0.get('vlowValue')), avmHi=num(P0.get('vhighValue')),
             rent=rent, rsrc=rsrc, val=round(val) if val else None, vsrc=vsrc,
+            pov=round(pov) if pov else None, povConf=int(pov_conf) if pov_conf else None,
+            povAsArv=pov_as_arv or None, clv=num(poe.get('clv')) if poe else None,
+            prevSale=poe.get('prev_sale_type') if poe else None,
+            nobid=nobid or None, poeHow=(poe.get('how') if poe else None),
             beds=beds, baths=baths, sqft=sqft, yr=int(yr) if yr else None, ac=round(acres, 3) if acres else None,
             zon=P0.get('zoning') or None, fz=fz or None, lat=lat, lon=lon, gsrc=gsrc if lat else None,
             dist=round(dist) if dist is not None else None, dap=dapprox, rep=repairs, repw=rwhy,
@@ -581,11 +610,16 @@ def build_items(args):
             imgs=imgs[:8], zip=zip5, city=str(city).title() if city else None, plaint=plaintiff, hist=hist[:8], tdy=tdy, lsp=lsp, lsd=lsd,
             m1=m1, m1d=(P0.get('mtg1RecordingDate') or '')[:10] or None, m1l=P0.get('mtg1Lender') or None,
             m2=num(P0.get('mtg2LoanAmt')), m2d=(P0.get('mtg2RecordingDate') or '')[:10] or None,
-            olA=num(P0.get('totalOpenLienAmt')), olN=num(P0.get('totalOpenLienNbr')), hoaPl=hoa_pl, hm=homestead,
+            olA=num(P0.get('totalOpenLienAmt')) or num(poe.get('liens_amt')),
+            olN=num(P0.get('totalOpenLienNbr')) or num(poe.get('liens_n')),
+            olSrc=('PropertyOnion' if (num(P0.get('totalOpenLienAmt')) or num(poe.get('liens_amt'))) else None),
+            hoaPl=hoa_pl, hm=homestead,
             pool=pool, eyb=int(num(P0.get('effectiveYearBuilt'))) if num(P0.get('effectiveYearBuilt')) and num(P0.get('effectiveYearBuilt')) > 1800 else None,
             hasPO=has_po, nalm=(nf or {}).get('how'), tax=taxamt, front=front, sewer=sewer, units=units,
             util=({k: util.get(k) for k in ('WW', 'WW_UPD', 'WW_SRC_TYP', 'DW', 'DW_UPD', 'DW_SRC_TYP', 'PARCELNO', 'LANDUSE', 'BLT_STATUS', 'GIS_ACRE')} | {'pt': util.get('_pt', 0)}) if util else None,
-            comps=cp, xp=xp, dom=dom, desc=x.get('desc'), plat=x.get('platform'), pmax=x.get('pmax') if x.get('pmax') not in (None, 'Hidden') else None,
+            comps=cp, xp=xp, dom=dom, desc=x.get('desc'),
+            plat=('PropertyOnion' if it.get('po_only') else x.get('platform')),
+            pmax=x.get('pmax') if x.get('pmax') not in (None, 'Hidden') else None,
             new=first == today, first=first if first != '0000-00-00' else None, muni=dictval(P0.get('municipality')),
         )
         rec = {k: v for k, v in rec.items() if v not in (None, '', [], {})}
@@ -602,7 +636,10 @@ def build_items(args):
         with ThreadPoolExecutor(3) as ex: list(ex.map(job, fw_jobs))
         print('  (utilidades baixadas – rode o build de novo sem --fetch para incorporá-las, ou elas entram na próxima execução)', flush=True)
     json.dump(seen, open(os.path.join(CACHE, 'seen_v4.json'), 'w'))
-    stats = dict(total=len(items), kept=len(out), nal=sum(1 for r in out if r.get('nalm')), po=sum(1 for r in out if r.get('hasPO')))
+    po_st = getattr(collect_items, '_po_stats', {}) or {}
+    stats = dict(total=len(items), kept=len(out), nal=sum(1 for r in out if r.get('nalm')), po=sum(1 for r in out if r.get('hasPO')),
+                 poExport=po_st, pov=sum(1 for r in out if r.get('pov')), povArv=sum(1 for r in out if r.get('povAsArv')),
+                 poOnly=sum(1 for r in out if r.get('plat') == 'PropertyOnion'))
     return out, stats, dropped
 
 def zip_county_map():
@@ -841,6 +878,10 @@ def main():
     print('por leilão:', dict(Counter(r['t'] for r in items)), ' condados:', len({r['cs'] for r in items}))
     print('com foto:', sum(1 for r in items if r.get('imgs')), ' NAL:', stats['nal'], ' PO:', stats['po'], ' água/esgoto:', sum(1 for r in items if r.get('util')),
           ' comps:', sum(1 for r in items if (r.get('comps') or {}).get('est')), ' coords:', sum(1 for r in items if r.get('lat')))
+    if stats.get('poExport'):
+        pe = stats['poExport']
+        print('PO export: matched', pe.get('matched'), 'added', pe.get('added'), pe.get('by_how'),
+              '| POV', stats.get('pov'), 'como ARV', stats.get('povArv'), 'só-PO', stats.get('poOnly'))
     print('removidos:', json.dumps(dropped, ensure_ascii=False))
 
 if __name__ == '__main__':
