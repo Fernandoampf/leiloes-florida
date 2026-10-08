@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0d1b2a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="LEILÃO">
+<meta name="application-name" content="LEILÃO">
+<title>LEILÃO – Leilões Flórida · CHALLENGE CAPITAL</title>
+<style>
+:root{--bg:#0a1420;--panel:#0f1c2d;--panel2:#14253a;--panel3:#1a2f49;--line:#223955;--ink:#e7eef6;--mut:#8da1b8;--gold:#e0b43c;--gold2:#f3d06e;--green:#2fd27f;--red:#ff6161;--amber:#f5a524;--blue:#57a9ff;--violet:#a78bfa;--cyan:#38d0e0;--navy:#0d1b2a}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink)}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.35}
+a{color:var(--blue)}
+button,input,select,textarea{font:inherit;color:inherit}
+.top{background:linear-gradient(120deg,#0d1b2a,#16304d);padding:12px 18px;border-bottom:2px solid var(--gold);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{width:40px;height:40px;border-radius:9px;background:var(--gold);color:var(--navy);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;letter-spacing:-1px;flex:none}
+.top h1{margin:0;font-size:18px;letter-spacing:.3px}.top h1 b{color:var(--gold2)}
+.top .sub{font-size:11.5px;color:var(--mut)}
+.top .hr{margin-left:auto;text-align:right;font-size:11.5px;color:var(--mut)}
+.top .hr b{color:#fff}
+.pbadge{display:inline-block;background:var(--gold);color:var(--navy);border-radius:5px;padding:0 5px;font-size:10.5px;font-weight:700;margin-left:4px}
+.main{padding:12px 16px;max-width:1900px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.lbl{font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--mut);font-weight:700;margin-right:6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip{border:1px solid var(--line);background:var(--panel2);border-radius:999px;padding:4px 11px;cursor:pointer;font-size:12px;color:var(--ink);white-space:nowrap}
+.chip:hover{border-color:var(--gold)}
+.chip.on{background:var(--gold);color:var(--navy);border-color:var(--gold);font-weight:700}
+.kpis{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.kpi b{display:block;font-size:24px;font-weight:800;letter-spacing:-.5px}
+.kpi span{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--mut);font-weight:700}
+.c-gold{color:var(--gold2)}.c-green{color:var(--green)}.c-red{color:var(--red)}.c-amber{color:var(--amber)}.c-blue{color:var(--blue)}.c-mut{color:var(--mut)}
+.sumline{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px;display:flex;flex-wrap:wrap;gap:18px;font-size:12px;color:var(--mut)}
+.sumline b{color:var(--ink);font-size:13.5px;margin-right:4px}
+.qs .chip{border-radius:7px;padding:5px 10px}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px 10px;align-items:end}
+.fgrid label{display:flex;flex-direction:column;gap:3px;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--mut);font-weight:700}
+.fgrid label.w2{grid-column:span 2}
+.fgrid input,.fgrid select,.inp{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 7px;font-size:12.5px;color:var(--ink);width:100%;min-width:0;text-transform:none;letter-spacing:0;font-weight:400}
+.fgrid input:focus,.fgrid select:focus,.inp:focus{outline:1px solid var(--gold);border-color:var(--gold)}
+.fgrid .ck{flex-direction:row;align-items:center;gap:6px;text-transform:none;font-size:11.5px;letter-spacing:0;font-weight:500;color:var(--ink)}
+.fgrid .ck input{width:auto}
+.fbtns{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px}
+.btn{border:1px solid var(--line);background:var(--panel2);border-radius:7px;padding:6px 11px;font-size:12px;cursor:pointer;color:var(--ink);text-decoration:none;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.btn:hover{border-color:var(--gold)}
+.btn.gold{background:var(--gold);color:var(--navy);border-color:var(--gold);font-weight:700}
+.btn.sm{padding:3px 8px;font-size:11px}
+.viewbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tabs{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.tabs button{border:0;background:var(--panel);padding:7px 14px;cursor:pointer;color:var(--mut);font-size:12.5px}
+.tabs button.on{background:var(--gold);color:var(--navy);font-weight:700}
+.cnt{margin-left:auto;color:var(--mut);font-size:12px}
+.goldbar{height:3px;background:linear-gradient(90deg,var(--gold),transparent);border-radius:2px}
+.tblwrap{overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel);max-height:calc(100vh - 120px)}
+table.tbl{border-collapse:collapse;width:100%;font-size:12px}
+.tbl th{position:sticky;top:0;z-index:2;background:var(--panel3);color:var(--mut);text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;padding:8px;white-space:nowrap;cursor:pointer;border-bottom:1px solid var(--line)}
+.tbl th.on{color:var(--gold2)}
+.tbl td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+.tbl tr:hover td{background:#13243a;cursor:pointer}
+.tbl td.addr{white-space:normal;min-width:330px}
+.tbl .num{text-align:right;font-variant-numeric:tabular-nums}
+.pr{display:flex;gap:9px;align-items:flex-start}
+.th{width:74px;height:56px;border-radius:6px;object-fit:cover;flex:none;background:#1b2c42}
+.thx{width:74px;height:56px;border-radius:6px;flex:none;background:repeating-linear-gradient(45deg,#16273c,#16273c 8px,#1a2d45 8px,#1a2d45 16px);display:flex;align-items:center;justify-content:center;color:#5d7390;font-size:10px}
+.pa{font-weight:700;font-size:12.5px;color:#fff}
+.pf{color:var(--mut);font-size:11px;margin:2px 0}
+.bdg{display:inline-flex;align-items:center;gap:3px;border:1px solid var(--line);border-radius:4px;padding:0 5px;font-size:10px;font-weight:700;margin:2px 3px 0 0;line-height:16px;white-space:nowrap;background:#132236;color:var(--ink)}
+.bdg.red{border-color:#7a2a2a;background:#2a1416;color:#ff8a8a}.bdg.amb{border-color:#6e4f12;background:#2a2010;color:#ffc35a}
+.bdg.grn{border-color:#1d5c3e;background:#0f2a1e;color:#5fe3a1}.bdg.blu{border-color:#204a77;background:#0f2238;color:#7cbcff}
+.bdg.vio{border-color:#4b3b80;background:#1c1733;color:#c4b5fd}.bdg.gld{border-color:#7a6220;background:#2a2410;color:var(--gold2)}
+.bdg.hot{background:#3a1410;border-color:#8a2f1f;color:#ff8a65}.bdg.warm{background:#33240c;border-color:#7d5a17;color:#ffc35a}.bdg.cool{background:#0f2238;border-color:#204a77;color:#7cbcff}.bdg.cold{background:#18202b;border-color:#334255;color:#9fb0c4}
+.sc{display:inline-block;min-width:34px;text-align:center;border-radius:6px;padding:3px 6px;font-weight:800;font-size:12.5px;border:1px solid}
+.sc.hi{color:var(--green);border-color:#1d5c3e;background:#0f2a1e}.sc.mid{color:var(--amber);border-color:#6e4f12;background:#2a2010}.sc.lo{color:var(--red);border-color:#7a2a2a;background:#2a1416}.sc.na{color:var(--mut);border-color:var(--line)}
+.cat{display:inline-block;border-radius:5px;padding:2px 7px;font-weight:800;font-size:11px}
+.cat.jmax{background:#3a2a08;color:var(--gold2);border:1px solid #7a6220}.cat.flip{background:#0f2a1e;color:var(--green);border:1px solid #1d5c3e}.cat.lote{background:#10243a;color:var(--cyan);border:1px solid #1f4a6a}.cat.renda{background:#1c1733;color:#c4b5fd;border:1px solid #4b3b80}.cat.risco{background:#2a1416;color:#ff8a8a;border:1px solid #7a2a2a}.cat.none{color:var(--mut)}
+.vd{display:inline-block;border-radius:5px;padding:2px 8px;font-weight:800;font-size:11px;letter-spacing:.4px}
+.vd.FLIP{background:#0f2238;color:#7cbcff;border:1px solid #204a77}.vd.CONSIDER{background:#2a2010;color:#ffc35a;border:1px solid #6e4f12}.vd.PASS{background:#2a1416;color:#ff8a8a;border:1px solid #7a2a2a}
+.opt{color:var(--amber);font-size:10px;margin-left:2px;cursor:help}
+.dl{color:var(--gold2);font-weight:700;margin-left:4px}.dl.today{color:var(--red)}
+.star{cursor:pointer;font-size:16px;color:#4a607c;user-select:none;background:none;border:0;padding:0}.star.on{color:var(--gold)}
+.lk a{display:inline-block;margin-right:4px;padding:2px 6px;border:1px solid var(--line);border-radius:5px;text-decoration:none;font-size:10.5px;font-weight:700;color:var(--ink);background:#132236}
+.lk a:hover{border-color:var(--gold)}
+.more{text-align:center;margin:10px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column}
+.card:hover{border-color:var(--gold)}
+.card .ph{position:relative;aspect-ratio:4/3;background:#16273c}
+.card .ph img{width:100%;height:100%;object-fit:cover;display:block}
+.card .ph .tl{position:absolute;left:8px;top:8px;display:flex;gap:4px;flex-wrap:wrap}
+.card .ph .tr{position:absolute;right:8px;top:8px}
+.card .ph .bl{position:absolute;left:8px;bottom:8px;background:rgba(10,20,32,.85);border-radius:6px;padding:3px 7px;font-size:11.5px}
+.card .bd{padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.kv4{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.kv4 div{background:var(--panel2);border-radius:7px;padding:5px 7px}
+.kv4 span{display:block;font-size:9.5px;text-transform:uppercase;color:var(--mut);letter-spacing:.4px}
+.kv4 b{font-size:13.5px}
+#map{height:72vh;border-radius:10px;border:1px solid var(--line);background:#16273c}
+.mapmsg{padding:30px;text-align:center;color:var(--mut)}
+section.info details{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:8px}
+section.info summary{cursor:pointer;font-weight:700;color:var(--gold2)}
+section.info table{border-collapse:collapse;width:100%;margin:6px 0;font-size:12px}
+section.info td,section.info th{border:1px solid var(--line);padding:5px 7px;text-align:left;vertical-align:top}
+section.info th{background:var(--panel3)}
+section.info h4{margin:12px 0 4px;color:var(--gold2)}
+.disc{background:#2a2010;border:1px solid #6e4f12;color:#ffd78a;border-radius:10px;padding:8px 12px;font-size:12px}
+footer{text-align:center;color:var(--mut);font-size:11.5px;padding:8px 16px 30px}
+#drbg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:60}
+#drbg.on{display:block}
+#drawer{position:fixed;top:0;right:0;height:100%;width:min(860px,100vw);background:var(--bg);border-left:1px solid var(--line);z-index:61;transform:translateX(102%);transition:transform .22s;overflow:auto;-webkit-overflow-scrolling:touch}
+#drawer.on{transform:none}
+.dh{position:sticky;top:0;z-index:3;background:var(--panel);border-bottom:1px solid var(--line);padding:10px 14px;display:flex;align-items:center;gap:10px}
+.dh h2{margin:0;font-size:15px;flex:1;min-width:0}
+.dh .net{font-size:17px;font-weight:800}
+.db{padding:12px 14px 40px;display:flex;flex-direction:column;gap:10px}
+.dlinks{display:flex;flex-wrap:wrap;gap:6px}
+.intel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:12.5px}
+.wif{border:1px solid var(--gold);border-radius:10px;padding:10px 12px;background:var(--panel)}
+.wif .g{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:8px;align-items:end}
+.wif label{display:flex;flex-direction:column;gap:3px;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--mut);font-weight:700}
+.wif input[type=range]{width:100%;accent-color:var(--gold)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:8px;text-align:center;cursor:pointer}
+.tile:hover{border-color:var(--gold)}
+.tile span{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--mut);font-weight:700}
+.tile b{font-size:16px}
+.dtabs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dtabs button{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:8px;cursor:pointer;font-weight:700;color:var(--mut)}
+.dtabs button.on{border-color:var(--gold);color:var(--gold2)}
+.pl{width:100%;border-collapse:collapse;font-size:12.5px}
+.pl td{padding:6px 2px;border-bottom:1px solid var(--line)}
+.pl td:last-child{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pl tr.h td{text-align:left!important;color:var(--mut);font-size:10px;text-transform:uppercase;letter-spacing:.6px;padding-top:12px;border-bottom:0}
+.pl tr.t td{font-weight:800}
+.pl tr.big td{font-size:15px;font-weight:800;border-top:2px solid var(--line)}
+.neg{color:var(--red)}.pos{color:var(--green)}
+.band{border-radius:9px;padding:9px 12px;font-weight:800;display:flex;justify-content:space-between;background:var(--panel3)}
+.sec{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.sec h3{margin:0 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--gold2)}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.mgrid div{background:var(--panel2);border-radius:7px;padding:6px 8px}
+.mgrid span{display:block;font-size:9.5px;text-transform:uppercase;color:var(--mut);letter-spacing:.4px}
+.mgrid b{font-size:14px}
+.mgrid em{font-style:normal;font-size:11px;margin-left:4px}
+.spark{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px}
+.spark figure{margin:0;font-size:10.5px;color:var(--mut)}
+.trk{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+textarea.inp{min-height:70px;resize:vertical}
+.mini{font-size:11px;color:var(--mut)}
+dialog{border:1px solid var(--line);border-radius:12px;padding:0;background:var(--panel);color:var(--ink);max-width:min(760px,95vw);width:100%;box-shadow:0 20px 50px rgba(0,0,0,.5)}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+.dg-h{background:var(--panel3);padding:11px 14px;border-bottom:2px solid var(--gold);font-weight:800}
+.dg-b{padding:12px 14px;max-height:70vh;overflow:auto}
+.dg-b h4{margin:10px 0 6px;color:var(--gold2);font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+.pmg{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.pmg label{display:flex;flex-direction:column;gap:3px;font-size:11.5px;color:var(--mut)}
+.dg-f{display:flex;gap:8px;justify-content:flex-end;padding:10px 14px;border-top:1px solid var(--line);flex-wrap:wrap}
+.dg-f .l{margin-right:auto}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--gold);color:var(--navy);font-weight:700;padding:8px 14px;border-radius:8px;display:none;z-index:99}
+#ftoggle{display:none}
+@media (max-width:1100px){.kpis{grid-template-columns:repeat(4,1fr)}}
+@media (max-width:760px){
+ .main{padding:8px}
+ .kpis{grid-template-columns:repeat(2,1fr)}
+ .kpi b{font-size:20px}
+ .top .hr{margin-left:0;text-align:left;width:100%}
+ #ftoggle{display:inline-flex}
+ #filters .fgrid,#filters .fbtns{display:none}
+ #filters.open .fgrid{display:grid;margin-top:8px}#filters.open .fbtns{display:flex}
+ .fgrid{grid-template-columns:repeat(2,1fr)}
+ .grid{grid-template-columns:1fr}
+ .wif .g{grid-template-columns:repeat(2,1fr)}
+ .tiles{grid-template-columns:repeat(2,1fr)}
+ #drawer{width:100vw}
+}
+</style>
+</head>
+<body>
+<header class="top">
+ <div class="logo">CC</div>
+ <div><h1>LEILÃO · <b>Leilões Flórida</b></h1><div class="sub">CHALLENGE CAPITAL · tax deed + foreclosure · flip e lotes · base Orlando</div></div>
+ <div class="hr" id="hdrr"></div>
+</header>
+<div class="main">
+ <div class="disc" id="disc1"></div>
+ <section class="panel"><div class="chips" id="types"><span class="lbl">Tipo de imóvel</span></div></section>
+ <section class="kpis" id="kpis"></section>
+ <section class="sumline" id="sumline"></section>
+ <section class="panel qs"><div class="chips" id="qs"><span class="lbl">Ordenação rápida</span></div><div class="mini" style="margin-top:6px">☆ clique na estrela de uma linha para salvar nos Favoritos (fica salvo neste aparelho).</div></section>
+ <section class="panel" id="filters">
+  <button class="btn" id="ftoggle">☰ Filtros</button>
+  <div class="fgrid">
+   <label class="w2">Buscar endereço / cidade / ZIP / condado / processo<input id="q" type="search" placeholder="digite para filtrar…"></label>
+   <label>Condado<select id="fco"><option value="">Todos</option></select></label>
+   <label>Veredito<select id="fvd"><option value="">Todos</option><option>FLIP</option><option>CONSIDER</option><option>PASS</option></select></label>
+   <label>Data de<input id="d1" type="date"></label>
+   <label>Data até<input id="d2" type="date"></label>
+   <label>NET mín. $<input id="mnet" type="number" step="1000" placeholder="qualquer"></label>
+   <label>ROI mín. %<input id="mroi" type="number" step="1" placeholder="qualquer"></label>
+   <label>Nota mín.<input id="msc" type="number" min="0" max="100" step="5" placeholder="0–100"></label>
+   <label>Ano de<input id="y1" type="number" placeholder="qualquer"></label>
+   <label>Ano até<input id="y2" type="number" placeholder="qualquer"></label>
+   <label>Valor (ARV) máx. $<input id="mpov" type="number" step="10000" placeholder="qualquer"></label>
+   <label>Tipo de leilão<select id="fty"><option value="">Todos</option><option value="TD">Tax deed</option><option value="FC">Foreclosure</option></select></label>
+   <label>Lance/julg. mín.<input id="j1" type="number" step="1000" placeholder="mín"></label>
+   <label>Lance/julg. máx.<input id="j2" type="number" step="1000" placeholder="máx"></label>
+   <label>Dist. máx. Orlando (mi)<input id="dmax" type="number" step="10" placeholder="sem limite"></label>
+   <label>Situação (tracker)<select id="fst"><option value="">Todas</option></select></label>
+   <label class="ck"><input type="checkbox" id="hhoa"> Ocultar risco HOA</label>
+   <label class="ck"><input type="checkbox" id="hhfc"> Ocultar execuções de HOA</label>
+   <label class="ck"><input type="checkbox" id="hsev"> Ocultar riscos graves</label>
+   <label class="ck"><input type="checkbox" id="hocc"> Ocultar ocupados</label>
+   <label class="ck"><input type="checkbox" id="fit"> Só cabe no orçamento</label>
+  </div>
+  <div class="fbtns">
+   <button class="btn" id="bcols">⚙ Colunas</button>
+   <button class="btn" id="bprem">⚙ Premissas</button>
+   <button class="btn gold" id="breset">↺ Limpar filtros</button>
+   <button class="btn" id="bcsv">⬇ Exportar CSV</button>
+   <button class="btn" id="blink">🔗 Copiar link</button>
+  </div>
+ </section>
+ <div class="viewbar"><div class="tabs" id="tabs"><button data-v="table">Tabela</button><button data-v="cards">Cards</button><button data-v="map">Mapa</button></div><span class="cnt" id="cnt"></span></div>
+ <div class="goldbar"></div>
+ <div id="v-table"><div class="tblwrap"><table class="tbl" id="tbl"></table></div><div class="more"><button class="btn" id="tmore">Mostrar mais</button></div></div>
+ <div id="v-cards" style="display:none"><div class="grid" id="grid"></div><div class="more"><button class="btn" id="cmore">Mostrar mais</button></div></div>
+ <div id="v-map" style="display:none"><div id="map"><div class="mapmsg">Carregando mapa… (requer internet)</div></div><p class="mini" id="mapnote"></p></div>
+ <section class="info">
+  <details id="how"><summary>Como a nota é calculada</summary><div id="howc"></div></details>
+  <details><summary>Legenda dos selos, indicadores e fontes</summary><div id="legend"></div></details>
+ </section>
+ <div class="disc" id="disc2"></div>
+</div>
+<footer id="foot"></footer>
+<div id="drbg"></div>
+<aside id="drawer" aria-hidden="true"></aside>
+<dialog id="prem"><form method="dialog" id="pmf"><div class="dg-h">⚙ Premissas da conta</div><div class="dg-b" id="pmb"></div>
+ <div class="dg-f"><button type="button" class="btn l" id="pmdef">Voltar ao padrão</button><button type="button" class="btn" id="pmcancel">Cancelar</button><button type="submit" class="btn gold" id="pmok">Aplicar</button></div></form></dialog>
+<dialog id="cols"><form method="dialog"><div class="dg-h">⚙ Colunas da tabela</div><div class="dg-b"><div class="pmg" id="colb"></div></div>
+ <div class="dg-f"><button type="button" class="btn l" id="colreset">Padrão</button><button type="submit" class="btn gold">OK</button></div></form></dialog>
+<div id="toast"></div>
+
+<script id="db" type="application/json">/*__DATA__*/null</script>
+<script>
+(function(){
+'use strict';
+const DB = JSON.parse(document.getElementById('db').textContent);
+const M = DB.meta, ITEMS = DB.items, P = M.params, Z = M.zips || {}, MS = M.mktSrc || {};
+const $ = s=>document.querySelector(s), $$ = s=>[...document.querySelectorAll(s)];
+const esc = s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const NF = new Intl.NumberFormat('pt-BR',{maximumFractionDigits:0});
+const nf = (v,d)=> (v==null||!isFinite(v)) ? '—' : new Intl.NumberFormat('pt-BR',{maximumFractionDigits:d||0,minimumFractionDigits:d||0}).format(v);
+const money = v=> (v==null||!isFinite(v)) ? '—' : (v<0?'-':'')+'$'+NF.format(Math.abs(Math.round(v)));
+const mshort = v=> (v==null||!isFinite(v)) ? '—' : Math.abs(v)>=1e6 ? '$'+nf(v/1e6,1)+'M' : Math.abs(v)>=1e3 ? '$'+nf(v/1e3,0)+'k' : money(v);
+const pct = (v,d)=> (v==null||!isFinite(v)) ? '—' : nf(v*100,d==null?1:d)+'%';
+const pctp = (v,d)=> (v==null||!isFinite(v)) ? '—' : nf(v,d==null?1:d)+'%';
+const sgn = (v,d)=> (v==null||!isFinite(v)) ? '—' : (v>0?'+':'')+nf(v*100,d==null?1:d)+'%';
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const TODAY = M.dataDate;
+const dnum = s=>{const [y,m,d]=s.split('-').map(Number); return Date.UTC(y,m-1,d)/864e5;};
+const daysLeft = s=> Math.round(dnum(s)-dnum(TODAY));
+const fdm = s=> s ? s.slice(8,10)+'/'+s.slice(5,7) : '—';
+const fdate = s=> s ? s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4) : '—';
+const LS = {get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch(e){return d;}}, set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}, del(k){try{localStorage.removeItem(k);}catch(e){}}};
+function toast(t){const e=$('#toast');e.textContent=t;e.style.display='block';clearTimeout(e._t);e._t=setTimeout(()=>e.style.display='none',2200);}
+const numv = v=> v===''||v==null ? NaN : parseFloat(String(v).replace(',','.'));
+
+const FL = {
+ avoid:{l:'EVITAR',c:'red',d:'Revisão anterior identificou problema grave (ex.: execução de hipoteca júnior/HOA – hipoteca sênior sobrevive). Veredito PASS, nota máx. 10.'},
+ mtg:{l:'Hipoteca sobrevive',c:'red',d:'Foreclosure em que o autor parece ser credor júnior/HOA e há 1ª hipoteca maior e recente (≥2012, >1,3× o julgamento) de outro credor – o comprador herdaria a dívida. Reserva p/ dívidas = valor da 1ª hipoteca; veredito PASS, nota máx. 15.'},
+ occ:{l:'OO',c:'amb',d:'Dono mora no imóvel (owner-occupied/homestead ou correspondência no próprio imóvel): despejo provável (custo e meses extras nas premissas).'},
+ ten:{l:'Inquilino',c:'amb',d:'Dono com correspondência em outro endereço e imóvel não marcado como vago: inquilino provável (despejo/cash-for-keys).'},
+ dec:{l:'Espólio',c:'vio',d:'Dono falecido/espólio/herdeiros: herdeiros podem contestar; checar título.'},
+ code:{l:'Code',c:'red',d:'Município (CITY/TOWN OF) é réu: possível multa/lien de code enforcement.'},
+ hoa:{l:'HOA',c:'vio',d:'Condomínio/associação: taxas mensais (valor não disponível) e possíveis débitos; ou autor da execução é a associação.'},
+ flood:{l:'FEMA alto',c:'red',d:'Zona FEMA A/AE/AH/AO/V/VE: seguro contra enchente obrigatório com financiamento, revenda mais difícil.'},
+ red:{l:'Resgate provável',c:'amb',d:'Dono no imóvel e dívida pequena vs. valor (tax deed < 10%, foreclosure < 25%): grande chance de pagamento/cancelamento antes do leilão.'},
+ unv:{l:'Não verificado',c:'',d:'Sem registro PropertyOnion ou valor apenas da avaliação do condado – dados incompletos.'},
+ cxl:{l:'Cancelado?',c:'',d:'PropertyOnion marca o leilão desta data como cancelado – confirmar no site do leilão.'},
+ vac:{l:'Vago (USPS)',c:'grn',d:'USPS indica imóvel vago (positivo: sem despejo).'},
+ pick:{l:'★ Pré-sel.',c:'gld',d:'Estava na lista final da análise anterior.'}
+};
+const SEVERE=['avoid','mtg'];
+const CATS=[['Casa','SFR'],['Townhouse','Townhouse'],['Condo','Condo'],['Mobile','Mobile'],['Multifamiliar','Multifamiliar'],['Lote','Lote'],['Indefinido','Indefinido']];
+const TYPES={TD:'Tax deed',FC:'Foreclosure'};
+const STATUS=[['monitorando','Monitorando'],['interessa','Interessa'],['adiado','Adiado'],['descartado','Descartado'],['arrematado','Arrematado']];
+const STL=Object.fromEntries(STATUS);
+
+// ---------------------------------------------------------------- premissas
+const PF=[
+ ['Meta de retorno',[['ret','Retorno mínimo (%) – define o lance máx.',0.5],['flip','ROI p/ veredito FLIP (%)',0.5],['budget','Orçamento all-in (US$)',1000]]],
+ ['Compra (Flórida)',[['clerk','Taxas do clerk / título / registro (% do lance)',0.1],['docb','Doc stamps na compra (% do lance)',0.05],['fee','Taxas fixas do leilão (US$)',50],['qt','Quiet title – só tax deed (US$)',100],['ev','Despejo / cash-for-keys se ocupado (US$, est.)',100]]],
+ ['Prazo e posse',[['months','Meses até vender (base)',1],['qtm','+ meses p/ tax deed (quiet title)',1],['evm','+ meses se houver despejo',1],['hold','Posse: imposto, seguro, contas (% do valor/ano)',0.1]]],
+ ['Venda',[['list','Comissão corretor vendedor (%)',0.1],['buyc','Comissão corretor comprador (%)',0.1],['title','Título / escrow (%)',0.1],['docs','Doc stamps na venda (%)',0.05]]],
+ ['Aluguel, BRRRR e reconstrução',[['yld','Yield bruto p/ “aluguel forte” (%)',0.5],['refi','Taxa do refinanciamento (% a.a.)',0.1],['ltv','LTV do refi (% do ARV)',1],['tax','Imposto predial (% do valor/ano, est.)',0.1],['ins','Seguro (% do valor/ano, est.)',0.1],['vac','Vacância + manutenção (% do aluguel)',1],['mgmt','Administração (% do aluguel)',1],['rebuild','Reconstrução (US$/sqft)',5],['depr','Depreciação (% por ano de idade, máx. 60%)',0.1]]]
+];
+const PKEYS=PF.flatMap(g=>g[1].map(f=>f[0]));
+const PDEF={}; PKEYS.forEach(k=>PDEF[k]=+P[k]);
+const PKEY='leilao_premissas_v2';
+let PR={...PDEF};
+(()=>{const sv=LS.get(PKEY,null); if(sv) PKEYS.forEach(k=>{if(typeof sv[k]==='number'&&isFinite(sv[k])&&sv[k]>=0) PR[k]=sv[k];});})();
+const custom=()=>PKEYS.some(k=>PR[k]!==PDEF[k]);
+
+// ---------------------------------------------------------------- the formula (single source for table, cards and drawer)
+function base(r){
+ const td=r.t==='TD', ev=r.cat!=='Lote' && (r.fl.includes('occ')||r.fl.includes('ten'));
+ const lien=(r.fl.includes('mtg')||r.fl.includes('avoid'))?(r.m1||0):0;
+ return {td, ev, arv:r.val, rehab:r.rep, months:PR.months+(td?PR.qtm:0)+(ev?PR.evm:0), rent:r.rent||0, lien, refi:PR.refi, ppsf:PR.rebuild, rebuild:null};
+}
+function pnl(r,bid,o){
+ o=o||base(r);
+ const arv=o.arv, clerk=bid*PR.clerk/100, docb=bid*PR.docb/100, acq=bid+clerk+docb;
+ const hold=arv*PR.hold/100/12*o.months;
+ const fees={fee:PR.fee, qt:o.td?PR.qt:0, ev:o.ev?PR.ev:0}; const flat=fees.fee+fees.qt+fees.ev;
+ const sell={list:arv*PR.list/100,buyc:arv*PR.buyc/100,title:arv*PR.title/100,docs:arv*PR.docs/100};
+ const sellT=sell.list+sell.buyc+sell.title+sell.docs;
+ const inv=acq+o.rehab+hold+flat+o.lien, net=arv-sellT-inv, roi=inv>0?net/inv:null;
+ return {bid,arv,clerk,docb,acq,rehab:o.rehab,hold,months:o.months,fees,flat,lien:o.lien,sell,sellT,inv,net,roi};
+}
+// highest bid that still yields return `ret` (closed form of pnl)
+function bidAt(r,ret,o){ o=o||base(r); const p0=pnl(r,0,o); const c=(PR.clerk+PR.docb)/100; return ((o.arv-p0.sellT)/(1+ret)-p0.inv)/(1+c); }
+function capBid(r,o){ o=o||base(r); const p0=pnl(r,0,o); const c=(PR.clerk+PR.docb)/100; return (PR.budget-p0.inv)/(1+c); }
+function evaluate(r){
+ const o=base(r); r._o=o; const ref=r.ref;
+ r.floor=bidAt(r,PR.ret/100,o); r.mb=Math.max(0,r.floor); r.be=bidAt(r,0,o); r.r70=0.70*o.arv-o.rehab; r.capv=capBid(r,o);
+ r.sug=Math.max(0,Math.min(r.floor,r.capv));
+ if(ref!=null){const p=pnl(r,ref,o); r.net=p.net; r.roi=p.roi; r.inv=p.inv;} else {r.net=r.roi=r.inv=null;}
+ r.jmax = ref!=null && ref>r.r70;
+ r.cush = ref!=null ? (r.floor-ref)/o.arv : null;
+ r.refPct = ref!=null ? ref/o.arv : null;
+ r.fits = ref!=null && r.sug>=ref && r.sug>0;
+ r.yld = r.rent ? r.rent*12/o.arv : null;
+ r.ppsf = (r.sqft && r.cat!=='Lote') ? o.arv/r.sqft : null;
+ const zm=Z[r.zip]; const rf=zm&&zm.rf&&zm.rf.length?zm.rf[zm.rf.length-1]:null;
+ r.zppsf = rf&&rf.ppsf ? rf.ppsf : null; r.ppsfVs = (r.ppsf&&r.zppsf) ? r.ppsf/r.zppsf-1 : null;
+ r.rt = zm ? zm.rt : null;
+ r.yrsDel = (r.t==='TD' && r.tdy) ? (+TODAY.slice(0,4) - r.tdy) : null;
+ r.ttf = o.months;
+ const HI=['avoid','mtg','code','flood'], MD=['occ','ten','hoa','dec','red','unv','cxl'];
+ r.risk = (r.fl.some(f=>HI.includes(f)) || (r.net!=null&&r.net<0)) ? 'alto' : (r.fl.some(f=>MD.includes(f)) || (r.olA>0)) ? 'medio' : 'baixo';
+ const pend=[]; if(!r.fz) pend.push('zona FEMA'); if(!r.zon) pend.push('zoneamento'); if(!r.hasPO) pend.push('hipotecas/dívidas (sem registro PropertyOnion)'); if(r.cat!=='Lote'&&!r.sqft) pend.push('área construída');
+ r.pend=pend;
+ if(r.roi==null){ r.sc=null; r.sp={}; }
+ else {
+  const roiPts=clamp(r.roi/0.40,0,1)*50, margPts=(clamp(r.cush/0.15,-1,1)+1)/2*40, riskPts={baixo:10,medio:5,alto:0}[r.risk], falta=Math.min(15,pend.length*3);
+  let s=clamp(roiPts+margPts+riskPts-falta,0,100);
+  if(r.fl.includes('avoid')) s=Math.min(s,10); else if(r.fl.includes('mtg')) s=Math.min(s,15);
+  r.sc=Math.round(s); r.sp={roi:roiPts,marg:margPts,risk:riskPts,falta:-falta};
+ }
+ const sev=r.fl.some(f=>SEVERE.includes(f));
+ r.vd = r.roi==null ? 'PASS' : sev ? 'PASS' : r.roi>=PR.flip/100 ? 'FLIP' : r.roi>=PR.ret/100 ? 'CONSIDER' : 'PASS';
+ r.strongRent = r.yld!=null && r.yld>=PR.yld/100;
+ r.kat = sev ? 'RISCO' : r.jmax ? 'J>MAX' : r.cat==='Lote' ? 'LOTE' : (r.strongRent && r.vd!=='FLIP') ? 'RENDA' : r.vd==='FLIP' ? 'FLIP' : '—';
+}
+function recalc(){ ITEMS.forEach(evaluate); }
+recalc();
+
+let FAV=new Set(LS.get('leilao_fav_v1',[]));
+let TRK=LS.get('leilao_tracker_v1',{});
+const saveFav=()=>LS.set('leilao_fav_v1',[...FAV]);
+const saveTrk=()=>LS.set('leilao_tracker_v1',TRK);
+
+// ---------------------------------------------------------------- external links
+const fullAddr = r=> r.addr.replace(/\s+/g,' ').trim();
+function zillowUrl(r){ return 'https://www.zillow.com/homes/'+encodeURIComponent(fullAddr(r).replace(/#/g,'').replace(/,/g,'').replace(/\s+/g,'-'))+'_rb/'; }
+function realtorUrl(r){
+ const a=fullAddr(r).replace(/#/g,' '); const m=a.match(/^(.*?),\s*FL\s*(\d{5})?/i);
+ let street=m?m[1]:a, zip=(m&&m[2])||r.zip||'', city=r.city||'';
+ if(city && street.toUpperCase().endsWith(' '+city.toUpperCase())) street=street.slice(0,-(city.length+1));
+ const slug=[street.trim().replace(/\s+/g,'-'), city.replace(/\s+/g,'-'), 'FL', zip].filter(Boolean).join('_');
+ return 'https://www.realtor.com/realestateandhomes-search/'+encodeURIComponent(slug);
+}
+const gmapsUrl = r=> 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(fullAddr(r));
+// ---------------------------------------------------------------- header, disclaimers
+const dd = fdate(TODAY);
+function hdr(){ $('#hdrr').innerHTML='Dados de <b>'+dd+'</b> · Orçamento <b>'+money(PR.budget)+'</b> all-in · retorno mín. <b>'+pctp(PR.ret)+'</b> · FLIP ≥ <b>'+pctp(PR.flip)+'</b>'+(custom()?'<span class="pbadge">premissas personalizadas</span>':''); }
+hdr();
+const DISC='<b>Aviso:</b> dados de terceiros (sites de leilão RealAuction dos condados, PropertyOnion, Property Appraisers, AVM automático, Redfin/Zillow por ZIP) coletados até '+dd+'. Valores, ocupação, hipotecas, aluguel e riscos são <b>estimativas e podem estar errados ou desatualizados</b>; leilões são cancelados com frequência. <b>Verifique tudo no Clerk (processo/edital) e no Property Appraiser do condado antes de dar qualquer lance</b>, faça busca de título e visite o imóvel. Não é recomendação de investimento.';
+$('#disc1').innerHTML=DISC; $('#disc2').innerHTML=DISC;
+$('#foot').innerHTML='CHALLENGE CAPITAL · LEILÃO – Leilões Flórida · dados de '+dd+' · gerado em '+esc(M.built)+' · '+ITEMS.length+' imóveis';
+
+// ---------------------------------------------------------------- filters
+const counties={}; ITEMS.forEach(r=>counties[r.co]=(counties[r.co]||0)+1);
+Object.keys(counties).sort().forEach(c=>$('#fco').insertAdjacentHTML('beforeend','<option value="'+esc(c)+'">'+esc(c)+' ('+counties[c]+')</option>'));
+STATUS.forEach(([k,l])=>$('#fst').insertAdjacentHTML('beforeend','<option value="'+k+'">'+l+'</option>'));
+$('#fst').insertAdjacentHTML('beforeend','<option value="_any">Com situação</option>');
+const FIELDS={q:'#q',co:'#fco',vd:'#fvd',d1:'#d1',d2:'#d2',mnet:'#mnet',mroi:'#mroi',msc:'#msc',y1:'#y1',y2:'#y2',mpov:'#mpov',ty:'#fty',j1:'#j1',j2:'#j2',dmax:'#dmax',st:'#fst'};
+const CHECKS={hhoa:'#hhoa',hhfc:'#hhfc',hsev:'#hsev',hocc:'#hocc',fit:'#fit'};
+let S={cat:'',sort:'sc',today:false,d7:false,fav:false,view:null};
+const QS=[['sc','★ Melhor nota'],['net','💰 Maior NET'],['roi','📈 Maior ROI'],['cush','↔ Maior spread'],['date','⏱ Mais próximo'],['yr','🏗 Mais novo'],['arv','🏠 Maior ARV'],['yld','🏘 Maior yield'],['dist','📍 Perto de Orlando'],['rt','🔥 Revenda mais rápida']];
+const QT=[['today','📅 Hoje'],['d7','⏳ < 7 dias'],['fav','☆ Favoritos']];
+function readF(){ const F={}; for(const k in FIELDS){ F[k]=$(FIELDS[k]).value.trim(); } for(const k in CHECKS){ F[k]=$(CHECKS[k]).checked; } return F; }
+function filt(F,ignoreCat){
+ const q=F.q.toLowerCase().split(/\s+/).filter(Boolean);
+ const mnet=numv(F.mnet), mroi=numv(F.mroi), msc=numv(F.msc), y1=numv(F.y1), y2=numv(F.y2), mpov=numv(F.mpov), j1=numv(F.j1), j2=numv(F.j2), dmax=numv(F.dmax);
+ return ITEMS.filter(r=>{
+  if(!ignoreCat && S.cat && r.cat!==S.cat) return false;
+  if(F.co && r.co!==F.co) return false;
+  if(F.vd && r.vd!==F.vd) return false;
+  if(F.ty && r.t!==F.ty) return false;
+  if(F.d1 && r.date<F.d1) return false; if(F.d2 && r.date>F.d2) return false;
+  if(!isNaN(mnet) && !(r.net>=mnet)) return false;
+  if(!isNaN(mroi) && !(r.roi*100>=mroi)) return false;
+  if(!isNaN(msc) && !(r.sc>=msc)) return false;
+  if(!isNaN(y1) && !(r.yr>=y1)) return false; if(!isNaN(y2) && !(r.yr<=y2)) return false;
+  if(!isNaN(mpov) && !(r.val<=mpov)) return false;
+  if(!isNaN(j1) && !(r.ref>=j1)) return false; if(!isNaN(j2) && !(r.ref<=j2)) return false;
+  if(!isNaN(dmax) && !(r.dist!=null && r.dist<=dmax)) return false;
+  if(F.st){ const t=TRK[r.id]; if(F.st==='_any'? !(t&&t.s) : !(t&&t.s===F.st)) return false; }
+  if(F.hhoa && r.fl.includes('hoa')) return false;
+  if(F.hhfc && r.hoaPl) return false;
+  if(F.hsev && r.fl.some(f=>SEVERE.includes(f))) return false;
+  if(F.hocc && (r.fl.includes('occ')||r.fl.includes('ten'))) return false;
+  if(F.fit && !r.fits) return false;
+  if(S.today && r.date!==TODAY) return false;
+  if(S.d7 && !(daysLeft(r.date)>=0 && daysLeft(r.date)<7)) return false;
+  if(S.fav && !FAV.has(r.id)) return false;
+  if(q.length){ const h=(r.addr+' '+(r.city||'')+' '+(r.zip||'')+' '+r.co+' '+(r.case||'')+' '+(r.parcel||'')+' '+(r.owner||'')+' '+(r.plaint||'')).toLowerCase(); if(!q.every(w=>h.includes(w))) return false; }
+  return true;
+ });
+}
+const nz=(v,d)=> v==null||!isFinite(v) ? d : v;
+const SORTS={
+ sc:(a,b)=>nz(b.sc,-1)-nz(a.sc,-1)||nz(b.net,-1e12)-nz(a.net,-1e12),
+ net:(a,b)=>nz(b.net,-1e12)-nz(a.net,-1e12), roi:(a,b)=>nz(b.roi,-1e9)-nz(a.roi,-1e9), cush:(a,b)=>nz(b.cush,-1e9)-nz(a.cush,-1e9),
+ date:(a,b)=>a.date.localeCompare(b.date)||nz(b.sc,-1)-nz(a.sc,-1), yr:(a,b)=>nz(b.yr,0)-nz(a.yr,0), arv:(a,b)=>b.val-a.val,
+ yld:(a,b)=>nz(b.yld,-1)-nz(a.yld,-1), dist:(a,b)=>nz(a.dist,1e9)-nz(b.dist,1e9), rt:(a,b)=>nz(b.rt&&b.rt.sc,-1)-nz(a.rt&&a.rt.sc,-1),
+ refPct:(a,b)=>nz(a.refPct,1e9)-nz(b.refPct,1e9), co:(a,b)=>a.co.localeCompare(b.co), vd:(a,b)=>a.vd.localeCompare(b.vd),
+ mb:(a,b)=>b.mb-a.mb, addr:(a,b)=>a.addr.localeCompare(b.addr)
+};
+function renderTypes(list){
+ const cnt={}; list.forEach(r=>cnt[r.cat]=(cnt[r.cat]||0)+1);
+ $('#types').innerHTML='<span class="lbl">Tipo de imóvel</span><button class="chip'+(S.cat===''?' on':'')+'" data-cat="">Todos ('+list.length+')</button>'+
+  CATS.filter(([c])=>cnt[c]||S.cat===c).map(([c,l])=>'<button class="chip'+(S.cat===c?' on':'')+'" data-cat="'+c+'">'+l+' ('+(cnt[c]||0)+')</button>').join('');
+}
+function renderQS(){
+ $('#qs').innerHTML='<span class="lbl">Ordenação rápida</span>'+QS.map(([k,l])=>'<button class="chip'+(S.sort===k?' on':'')+'" data-sort="'+k+'">'+l+'</button>').join('')+
+  QT.map(([k,l])=>'<button class="chip'+(S[k]?' on':'')+'" data-tog="'+k+'">'+l+(k==='fav'?' ('+FAV.size+')':'')+'</button>').join('');
+}
+$('#types').addEventListener('click',e=>{const b=e.target.closest('[data-cat]'); if(b){S.cat=b.dataset.cat; apply();}});
+$('#qs').addEventListener('click',e=>{const b=e.target.closest('button'); if(!b) return; if(b.dataset.sort){S.sort=b.dataset.sort;} else if(b.dataset.tog){S[b.dataset.tog]=!S[b.dataset.tog];} apply();});
+function kpis(list){
+ const viable=list.filter(r=>r.vd==='FLIP'), cons=list.filter(r=>r.vd==='CONSIDER');
+ const jm=list.filter(r=>r.jmax).length, below=list.filter(r=>r.roi!=null&&r.roi<PR.flip/100).length, rent=list.filter(r=>r.strongRent).length;
+ const vnet=viable.reduce((s,r)=>s+r.net,0), varv=viable.reduce((s,r)=>s+r.val,0), avgroi=viable.length?viable.reduce((s,r)=>s+r.roi,0)/viable.length:null;
+ const K=[[list.length,'Imóveis','c-gold'],[viable.length,'Viáveis (FLIP)','c-green'],[jm,'J>MAX','c-amber'],[below,'Abaixo de '+nf(PR.flip)+'%','c-red'],[rent,'Aluguel forte','c-green'],[cons.length,'Considerar','c-amber'],[mshort(vnet),'NET viável','c-mut']];
+ $('#kpis').innerHTML=K.map(([v,l,c])=>'<div class="kpi"><b class="'+c+'">'+(typeof v==='number'?nf(v):v)+'</b><span>'+l+'</span></div>').join('');
+ const below10=list.filter(r=>r.roi!=null&&r.roi<PR.ret/100).length;
+ $('#sumline').innerHTML='<span><b>'+nf(list.length)+'</b>imóveis avaliados</span><span><b class="c-gold">'+mshort(varv)+'</b>pipeline viável (ARV)</span><span><b class="c-green">'+mshort(vnet)+'</b>folga líquida (NET)</span><span><b class="c-blue">'+pct(avgroi)+'</b>ROI médio viável</span><span><b class="c-red">'+nf(below10)+'</b>abaixo do retorno mín. '+pctp(PR.ret)+'</span><span><b class="c-amber">'+nf(list.filter(r=>r.vd==='FLIP'&&r.t==='TD').length)+'</b>dos viáveis são tax deed ¹ (NET no lance inicial – otimista)</span>';
+}
+function rtBadge(rt){ if(!rt) return ''; return '<span class="bdg '+rt.lab.toLowerCase()+'" title="Temperatura de revenda do ZIP (Redfin, janela até '+fdate(rt.end)+'): nota '+rt.sc+'/100, '+nf(rt.dom)+' dias medianos no mercado, '+nf(rt.sold)+' vendas em 90 dias'+(rt.thin?' – poucas vendas, pouco confiável':'')+'">'+(rt.lab==='HOT'?'🔥':rt.lab==='WARM'?'♨':rt.lab==='COOL'?'❄':'🧊')+' '+rt.sc+'/100 · '+rt.lab+' · '+nf(rt.dom)+'d'+(rt.thin?'?':'')+'</span>'; }
+function badges(r){
+ const b=[];
+ if(r.vd==='FLIP') b.push('<span class="bdg blu">FLIP</span>');
+ r.fl.forEach(f=>{ if(f==='flood') return; const d=FL[f]; if(d) b.push('<span class="bdg '+d.c+'" title="'+esc(d.d)+'">'+d.l+'</span>'); });
+ if(r.olA>0||r.m1) b.push('<span class="bdg red" title="Hipotecas/liens em aberto segundo PropertyOnion: '+esc(money(r.olA||r.m1))+(r.olN?' ('+r.olN+')':'')+'. Em tax deed normalmente são extintas; em foreclosure, confirmar se sobrevivem.">LIEN</span>');
+ if(r.fz) b.push('<span class="bdg '+(/^(A|V)/.test(r.fz)?'red':'cool')+'" title="Zona FEMA '+esc(r.fz)+'">≈ '+esc(r.fz)+'</span>');
+ if(r.pa_only) b.push('<span class="bdg amb" title="Valor de revenda só do AVM do PropertyOnion (sem confirmação do condado)">PO-only</span>');
+ if(r.hist&&r.hist.length) b.push('<span class="bdg vio" title="'+esc(r.hist.map(h=>fdate(h.d)+' '+(h.t||'')+' '+(h.s||'')).join(' · '))+'">↺ '+r.hist.length+' leilão(ões) antes</span>');
+ if(r.yrsDel) b.push('<span class="bdg" title="Imposto atrasado desde '+r.tdy+'">'+r.yrsDel+'a atraso</span>');
+ return b.join('');
+}
+const scCls = s=> s==null?'na':s>=65?'hi':s>=45?'mid':'lo';
+const katCls = k=> ({'J>MAX':'jmax','FLIP':'flip','LOTE':'lote','RENDA':'renda','RISCO':'risco'})[k]||'none';
+const thumb = r=> r.img ? '<img class="th" loading="lazy" src="'+r.img+'" alt="">' : '<div class="thx">'+(r.cat==='Lote'?'lote':'sem foto')+'</div>';
+const facts = r=> r.cat==='Lote' ? 'Lote · '+(r.ac?nf(r.ac,2)+' acre':'área —')+(r.zon?' · '+esc(r.zon):'') : nf(r.beds)+'qt / '+nf(r.baths,1)+'bh · '+(r.sqft?nf(r.sqft)+' sqft':'— sqft')+' · '+(r.yr?'Constr. '+r.yr:'ano —')+' · '+r.cat;
+const linksH = r=> '<span class="lk"><a href="'+esc(zillowUrl(r))+'" target="_blank" rel="noopener" title="Abrir no Zillow">Zillow</a><a href="'+esc(realtorUrl(r))+'" target="_blank" rel="noopener" title="Abrir no Realtor.com">Realtor</a><a href="'+esc(gmapsUrl(r))+'" target="_blank" rel="noopener" title="Google Maps">Mapa</a></span>';
+const OPT = r=> r.t==='TD' ? '<span class="opt" title="Tax deed: calculado no lance inicial. A disputa no leilão costuma subir o preço – use o lance máximo como limite.">¹</span>' : '';
+const COLS=[
+ ['star','★',r=>'<button class="star'+(FAV.has(r.id)?' on':'')+'" data-star="'+r.id+'" title="Favorito">'+(FAV.has(r.id)?'★':'☆')+'</button>',null,1],
+ ['n','#',(r,i)=>'<span class="c-mut">'+(i+1)+'</span>',null,1],
+ ['addr','Imóvel',r=>'<div class="pr">'+thumb(r)+'<div><div class="pa">'+esc(r.addr)+'</div><div class="pf">'+facts(r)+'</div><div class="pf">'+(r.rent?'🏘 '+money(r.rent)+'/mês'+(r.yld?' · <b class="'+(r.strongRent?'c-green':'')+'">'+pct(r.yld)+' yield</b>':'')+' · ':'')+rtBadge(r.rt)+'</div><div>'+badges(r)+'</div></div></div>','addr',1,'addr'],
+ ['sc','Nota',r=>'<span class="sc '+scCls(r.sc)+'">'+(r.sc==null?'—':r.sc)+'</span>','sc',1],
+ ['kat','Cat.',r=>'<span class="cat '+katCls(r.kat)+'">'+r.kat+'</span>',null,1],
+ ['date','Data',r=>{const d=daysLeft(r.date); return fdm(r.date)+'<span class="dl'+(d<=0?' today':'')+'">'+d+'d</span><div class="mini">'+esc(r.time||'')+'</div>';},'date',1],
+ ['co','Condado',r=>esc(r.co)+'<div class="mini">'+esc(r.city||'')+(r.zip?' '+r.zip:'')+'</div>','co',1],
+ ['type','Tipo',r=>TYPES[r.t],null,0],
+ ['val','Valor (ARV)',r=>money(r.val)+(r.ppsf?'<div class="mini">'+money(r.ppsf)+'/sqft'+(r.ppsfVs!=null?' · <span class="'+(r.ppsfVs>0.15?'c-amber':r.ppsfVs<-0.15?'c-green':'')+'">'+sgn(r.ppsfVs,0)+' vs ZIP</span>':'')+'</div>':''),'arv',1,'num'],
+ ['ref','Julg. / lance',r=>'<span class="'+(r.jmax?'c-red':'')+'">'+money(r.ref)+'</span>'+(r.refPct!=null?'<div class="mini '+(r.refPct>0.7?'c-red':'')+'">'+pct(r.refPct,0)+' do valor</div>':''),'refPct',1,'num'],
+ ['mb','Lance máx.',r=>'<b>'+money(r.mb)+'</b><div class="mini">ROI '+pctp(PR.ret,0)+(r.capv<r.mb?' · teto orç. '+mshort(Math.max(0,r.capv)):'')+'</div>','mb',1,'num'],
+ ['net','NET',r=>'<b class="'+(r.net>=0?'c-green':'c-red')+'">'+money(r.net)+'</b>'+OPT(r),'net',1,'num'],
+ ['roi','ROI',r=>'<span class="'+(r.roi>=PR.flip/100?'c-green':r.roi>=PR.ret/100?'c-amber':'c-red')+'">'+pct(r.roi)+'</span>'+OPT(r),'roi',1,'num'],
+ ['vd','Veredito',r=>'<span class="vd '+r.vd+'">'+r.vd+'</span>'+(TRK[r.id]&&TRK[r.id].s?'<div class="mini c-gold">'+STL[TRK[r.id].s]+'</div>':''),'vd',1],
+ ['plaint','Autor / titular',r=>'<div style="max-width:190px;overflow:hidden;text-overflow:ellipsis" title="'+esc(r.plaint||'')+'">'+esc(r.plaint||'—')+'</div>',null,1],
+ ['rent','Aluguel / yield',r=>r.rent?money(r.rent)+'<div class="mini">'+pct(r.yld)+'</div>':'—','yld',0,'num'],
+ ['rt','Revenda (ZIP)',r=>rtBadge(r.rt)||'—','rt',0],
+ ['dist','Dist.',r=>r.dist==null?'—':(r.dap?'~':'')+r.dist+' mi','dist',1,'num'],
+ ['be','Break-even',r=>money(r.be),null,0,'num'],
+ ['ttf','Prazo est.',r=>r.ttf+' meses',null,0,'num'],
+ ['links','Links',r=>linksH(r),null,1]
+];
+const COLDEF=Object.fromEntries(COLS.map(c=>[c[0],!!c[4]]));
+let COLON={...COLDEF,...LS.get('leilao_cols_v1',{})};
+let CUR=[], tShown=0, cShown=0, view=null; const TPAGE=80, CPAGE=36;
+function renderTable(reset){
+ const cols=COLS.filter(c=>COLON[c[0]]);
+ if(reset){ tShown=0; $('#tbl').innerHTML='<thead><tr>'+cols.map(c=>'<th'+(c[3]?' data-sk="'+c[3]+'"':'')+(c[3]&&S.sort===c[3]?' class="on"':'')+(c[5]==='num'?' style="text-align:right"':'')+'>'+c[1]+'</th>').join('')+'</tr></thead><tbody></tbody>'; }
+ const tb=$('#tbl tbody');
+ if(!CUR.length){ tb.innerHTML='<tr><td colspan="'+cols.length+'" style="text-align:center;padding:30px" class="c-mut">Nenhum imóvel com esses filtros.</td></tr>'; $('#tmore').style.display='none'; return; }
+ const next=CUR.slice(tShown,tShown+TPAGE);
+ tb.insertAdjacentHTML('beforeend',next.map((r,j)=>'<tr data-id="'+r.id+'">'+cols.map(c=>'<td'+(c[5]?' class="'+c[5]+'"':'')+'>'+c[2](r,tShown+j)+'</td>').join('')+'</tr>').join(''));
+ tShown+=next.length;
+ $('#tmore').style.display=tShown<CUR.length?'inline-flex':'none'; $('#tmore').textContent='Mostrar mais ('+(CUR.length-tShown)+' restantes)';
+}
+function card(r){
+ const ph=r.img?'<img loading="lazy" src="'+r.img+'" alt="">':'<div class="thx" style="width:100%;height:100%;border-radius:0">'+(r.cat==='Lote'?'Lote – sem foto':'Sem foto')+'</div>';
+ return '<article class="card" data-id="'+r.id+'"><div class="ph">'+ph+'<div class="tl"><span class="cat '+katCls(r.kat)+'">'+r.kat+'</span><span class="vd '+r.vd+'">'+r.vd+'</span><span class="bdg">'+TYPES[r.t]+'</span></div><div class="tr"><span class="sc '+scCls(r.sc)+'">'+(r.sc==null?'—':r.sc)+'</span></div><div class="bl">🗓 '+fdate(r.date)+' · <b class="c-gold">'+daysLeft(r.date)+'d</b></div></div>'+
+  '<div class="bd"><div style="display:flex;justify-content:space-between;gap:8px"><div class="pa">'+esc(r.addr)+'</div><button class="star'+(FAV.has(r.id)?' on':'')+'" data-star="'+r.id+'">'+(FAV.has(r.id)?'★':'☆')+'</button></div><div class="pf">'+facts(r)+' · '+esc(r.co)+(r.dist!=null?' · '+(r.dap?'~':'')+r.dist+' mi':'')+'</div>'+
+  '<div class="kv4"><div><span>NET</span><b class="'+(r.net>=0?'c-green':'c-red')+'">'+money(r.net)+'</b>'+OPT(r)+'</div><div><span>ROI</span><b>'+pct(r.roi)+'</b>'+OPT(r)+'</div><div><span>'+(r.t==='FC'?'Julgamento':'Lance inicial')+'</span><b>'+money(r.ref)+'</b></div><div><span>Lance máx. ('+pctp(PR.ret,0)+')</span><b>'+money(r.mb)+'</b></div><div><span>Valor (ARV)</span><b>'+money(r.val)+'</b></div><div><span>Aluguel / yield</span><b>'+(r.rent?money(r.rent)+' · '+pct(r.yld):'—')+'</b></div></div>'+
+  '<div>'+rtBadge(r.rt)+badges(r)+'</div><div>'+linksH(r)+'</div></div></article>';
+}
+function renderCards(reset){
+ const g=$('#grid'); if(reset){g.innerHTML='';cShown=0;}
+ if(!CUR.length){ g.innerHTML='<div class="panel c-mut" style="text-align:center;padding:30px">Nenhum imóvel com esses filtros.</div>'; $('#cmore').style.display='none'; return; }
+ const next=CUR.slice(cShown,cShown+CPAGE); g.insertAdjacentHTML('beforeend',next.map(card).join('')); cShown+=next.length;
+ $('#cmore').style.display=cShown<CUR.length?'inline-flex':'none'; $('#cmore').textContent='Mostrar mais ('+(CUR.length-cShown)+' restantes)';
+}
+let MAP=null,LAYER=null;
+function loadLeaflet(cb){
+ if(window.L) return cb();
+ const css=document.createElement('link'); css.rel='stylesheet'; css.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'; document.head.appendChild(css);
+ const s=document.createElement('script'); s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'; s.onload=cb; s.onerror=()=>{$('#map').innerHTML='<div class="mapmsg">Não foi possível carregar o mapa (sem internet?).</div>';}; document.head.appendChild(s);
+}
+const VCOL={FLIP:'#57a9ff',CONSIDER:'#f5a524',PASS:'#ff6161'};
+function renderMap(){
+ loadLeaflet(()=>{
+  if(!MAP){ $('#map').innerHTML=''; MAP=L.map('map').setView([28.3,-81.6],7); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OpenStreetMap'}).addTo(MAP);
+   L.circleMarker([M.orlando[0],M.orlando[1]],{radius:7,color:'#0d1b2a',fillColor:'#e0b43c',fillOpacity:1,weight:2}).addTo(MAP).bindPopup('<b>Downtown Orlando</b>'); }
+  if(LAYER) LAYER.remove(); LAYER=L.layerGroup().addTo(MAP);
+  const pts=CUR.filter(r=>r.lat!=null&&r.lon!=null);
+  pts.forEach(r=>L.circleMarker([r.lat,r.lon],{radius:7,color:'#fff',weight:1.2,fillColor:VCOL[r.vd],fillOpacity:.9}).addTo(LAYER).bindPopup('<b>'+esc(r.addr)+'</b><br>'+r.vd+' · nota '+(r.sc==null?'—':r.sc)+' · NET '+money(r.net)+'<br>'+TYPES[r.t]+' · '+fdate(r.date)+'<br><a href="#" data-open="'+r.id+'">abrir detalhes</a>'));
+  $('#mapnote').textContent=pts.length+' de '+CUR.length+' imóveis filtrados têm coordenadas. Cores: azul FLIP, laranja CONSIDER, vermelho PASS.';
+  setTimeout(()=>MAP.invalidateSize(),60);
+ });
+}
+function apply(noHash){
+ const F=readF();
+ const noCat=filt(F,true);
+ renderTypes(noCat);
+ const list=S.cat?noCat.filter(r=>r.cat===S.cat):noCat;
+ CUR=list.slice().sort(SORTS[S.sort]||SORTS.sc);
+ renderQS(); kpis(CUR);
+ $('#cnt').textContent=CUR.length+' de '+ITEMS.length+' imóveis';
+ if(view==='table') renderTable(true); else if(view==='cards') renderCards(true); else if(view==='map') renderMap();
+ if(!noHash) writeHash();
+}
+function setView(v){ view=v; S.view=v; $$('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===v)); $('#v-table').style.display=v==='table'?'':'none'; $('#v-cards').style.display=v==='cards'?'':'none'; $('#v-map').style.display=v==='map'?'':'none'; apply(); }
+function stateObj(){ const F=readF(), o={}; for(const k in F){ if(F[k]!==''&&F[k]!==false) o[k]=F[k]; } ['cat','today','d7','fav'].forEach(k=>{if(S[k]) o[k]=S[k];}); if(S.sort!=='sc') o.sort=S.sort; if(S.view) o.v=S.view; return o; }
+let OPEN=null;
+function writeHash(){ const o=stateObj(); const parts=[]; if(Object.keys(o).length) parts.push('f='+encodeURIComponent(JSON.stringify(o))); if(OPEN) parts.push('p='+encodeURIComponent(OPEN)); const h=parts.length?'#'+parts.join('&'):''; if(location.hash!==h){ try{history.replaceState(null,'',location.pathname+location.search+(h||''));}catch(e){} } }
+function readHash(){
+ const h=location.hash.replace(/^#/,''); const out={}; h.split('&').forEach(p=>{const i=p.indexOf('='); if(i>0) out[p.slice(0,i)]=decodeURIComponent(p.slice(i+1));});
+ if(out.f){ try{ const o=JSON.parse(out.f); for(const k in FIELDS){ if(o[k]!=null) $(FIELDS[k]).value=o[k]; } for(const k in CHECKS){ $(CHECKS[k]).checked=!!o[k]; } ['cat','today','d7','fav'].forEach(k=>{if(o[k]!=null) S[k]=o[k];}); if(o.sort) S.sort=o.sort; if(o.v) S.view=o.v; }catch(e){} }
+ return out;
+}
+let tmr; const deb=()=>{clearTimeout(tmr); tmr=setTimeout(()=>apply(),180);};
+Object.values(FIELDS).concat(Object.values(CHECKS)).forEach(s=>{ $(s).addEventListener('input',deb); $(s).addEventListener('change',deb); });
+$('#breset').onclick=()=>{ Object.values(FIELDS).forEach(s=>$(s).value=''); Object.values(CHECKS).forEach(s=>$(s).checked=false); S.cat=''; S.today=S.d7=S.fav=false; S.sort='sc'; apply(); };
+$('#ftoggle').onclick=()=>$('#filters').classList.toggle('open');
+$$('#tabs button').forEach(b=>b.onclick=()=>setView(b.dataset.v));
+$('#tmore').onclick=()=>renderTable(false); $('#cmore').onclick=()=>renderCards(false);
+$('#tbl').addEventListener('click',e=>{
+ const th=e.target.closest('th[data-sk]'); if(th){ S.sort=th.dataset.sk; apply(); return; }
+ if(e.target.closest('a')) return;
+ const st=e.target.closest('[data-star]'); if(st){ toggleFav(st.dataset.star); return; }
+ const tr=e.target.closest('tr[data-id]'); if(tr) openDrawer(tr.dataset.id);
+});
+$('#grid').addEventListener('click',e=>{ if(e.target.closest('a')) return; const st=e.target.closest('[data-star]'); if(st){ toggleFav(st.dataset.star); return; } const c=e.target.closest('[data-id]'); if(c) openDrawer(c.dataset.id); });
+$('#map').addEventListener('click',e=>{const a=e.target.closest('a[data-open]'); if(a){e.preventDefault(); openDrawer(a.dataset.open);}});
+function toggleFav(id){ FAV.has(id)?FAV.delete(id):FAV.add(id); saveFav(); $$('[data-star="'+id+'"]').forEach(b=>{b.classList.toggle('on',FAV.has(id)); b.textContent=FAV.has(id)?'★':'☆';}); renderQS(); if(S.fav) apply(); }
+function copy(t,msg){ const ok=()=>toast(msg||'Copiado'); try{ navigator.clipboard.writeText(t).then(ok,()=>{prompt('Copie o link:',t);}); }catch(e){ prompt('Copie o link:',t); } }
+$('#blink').onclick=()=>{ writeHash(); copy(location.href,'Link com filtros copiado'); };
+$('#bcsv').onclick=()=>{
+ const H=['nota','categoria','veredito','endereco','cidade','zip','condado','tipo_leilao','imovel','data','dias','valor_arv','lance_ref','pct_valor','lance_max_'+PR.ret+'pct','break_even','net','roi_pct','qts','banh','sqft','ano','aluguel_mes','yield_pct','fema','dist_mi','autor','processo','parcela','riscos','zillow','realtor','leilao','property_appraiser'];
+ const rows=CUR.map(r=>[r.sc,r.kat,r.vd,r.addr,r.city,r.zip,r.co,TYPES[r.t],r.cat,r.date,daysLeft(r.date),Math.round(r.val),r.ref,r.refPct!=null?(r.refPct*100).toFixed(1):'',Math.round(r.mb),Math.round(r.be),r.net!=null?Math.round(r.net):'',r.roi!=null?(r.roi*100).toFixed(1):'',r.beds,r.baths,r.sqft,r.yr,r.rent,r.yld!=null?(r.yld*100).toFixed(1):'',r.fz,r.dist,r.plaint,r.case,r.parcel,r.fl.map(f=>FL[f]?FL[f].l:f).join('; '),zillowUrl(r),realtorUrl(r),r.links&&r.links.auc,r.links&&r.links.pa]);
+ const csv=[H].concat(rows).map(a=>a.map(v=>{v=v==null?'':String(v); return /[",;\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}).join(',')).join('\n');
+ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'})); a.download='leiloes-florida-'+TODAY+'.csv'; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},500);
+};
+$('#bcols').onclick=()=>{ $('#colb').innerHTML=COLS.map(c=>'<label style="flex-direction:row;gap:6px;align-items:center;color:var(--ink)"><input type="checkbox" data-col="'+c[0]+'"'+(COLON[c[0]]?' checked':'')+'> '+c[1]+'</label>').join(''); $('#cols').showModal(); };
+$('#colb').addEventListener('change',e=>{const i=e.target.closest('[data-col]'); if(i){ COLON[i.dataset.col]=i.checked; LS.set('leilao_cols_v1',COLON); if(view==='table') renderTable(true);} });
+$('#colreset').onclick=()=>{ COLON={...COLDEF}; LS.del('leilao_cols_v1'); $$('#colb [data-col]').forEach(i=>i.checked=COLON[i.dataset.col]); if(view==='table') renderTable(true); };
+function fillPrem(src){ $('#pmb').innerHTML=PF.map(([g,fs])=>'<h4>'+g+'</h4><div class="pmg">'+fs.map(([k,l,st])=>'<label>'+l+'<input class="inp" type="number" min="0" step="'+st+'" id="pm-'+k+'" value="'+src[k]+'" inputmode="decimal"></label>').join('')+'</div>').join('')+'<p class="mini">Valem para todos os imóveis e ficam salvas neste aparelho. Padrões da Flórida: doc stamps 0,70% (compra e venda); taxas do clerk/título 1,5%; despejo e imposto/seguro do BRRRR são estimativas.</p>'; }
+function applyPrem(np){ PR={...np}; if(custom()) LS.set(PKEY,PR); else LS.del(PKEY); recalc(); hdr(); renderHow(); apply(); if(OPEN) openDrawer(OPEN); }
+$('#bprem').onclick=()=>{ fillPrem(PR); $('#prem').showModal(); };
+$('#pmcancel').onclick=()=>$('#prem').close();
+$('#pmdef').onclick=()=>fillPrem(PDEF);
+$('#pmf').addEventListener('submit',e=>{ const np={...PR}; for(const k of PKEYS){ const v=numv($('#pm-'+k).value); if(!isFinite(v)||v<0){ e.preventDefault(); $('#pm-'+k).focus(); return; } np[k]=v; } applyPrem(np); });
+// ---------------------------------------------------------------- detail drawer
+function spark(vals,w,h,col){ const v=vals.filter(x=>x!=null&&isFinite(x)); if(v.length<2) return '<span class="c-mut">—</span>'; const mn=Math.min(...v), mx=Math.max(...v), rg=(mx-mn)||1; const pts=vals.map((x,i)=>x==null?null:[(i/(vals.length-1))*w, h-2-((x-mn)/rg)*(h-4)]).filter(Boolean); return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'"><polyline fill="none" stroke="'+col+'" stroke-width="2" points="'+pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')+'"/></svg>'; }
+function marketHtml(r){
+ const zm=Z[r.zip]; if(!r.zip||!zm) return '<div class="sec"><h3>Mercado da região</h3><p class="mini">Sem dados de mercado para este ZIP'+(r.zip?' ('+esc(r.zip)+')':'')+'.</p></div>';
+ let h='<div class="sec" id="dmkt"><h3>Mercado da região · ZIP '+esc(r.zip)+'</h3>';
+ const rf=zm.rf||[]; const L=rf[rf.length-1];
+ if(L){
+  h+='<div class="mgrid">'+
+   '<div><span>Preço mediano de venda</span><b>'+money(L.price)+'</b><em class="'+(L.price_yoy>=0?'pos':'neg')+'">'+sgn(L.price_yoy)+' a/a</em></div>'+
+   '<div><span>Mediana US$/sqft</span><b>'+money(L.ppsf)+'</b><em class="'+(L.ppsf_yoy>=0?'pos':'neg')+'">'+sgn(L.ppsf_yoy)+' a/a</em></div>'+
+   '<div><span>Dias no mercado (mediana)</span><b>'+nf(L.dom)+'</b><em>'+(L.dom_yoy!=null?(L.dom_yoy>0?'+':'')+nf(L.dom_yoy)+' d a/a':'')+'</em></div>'+
+   '<div><span>Vendas (90 dias)</span><b>'+nf(L.sold)+'</b><em class="'+(L.sold_yoy>=0?'pos':'neg')+'">'+sgn(L.sold_yoy,0)+' a/a</em></div>'+
+   '<div><span>Venda / pedido</span><b>'+pct(L.stl)+'</b></div>'+
+   '<div><span>Vendidos acima do pedido</span><b>'+pct(L.above,0)+'</b></div>'+
+   '<div><span>Saem do mercado em 2 sem.</span><b>'+pct(L.off2w,0)+'</b></div>'+
+   '<div><span>Estoque</span><b>'+nf(L.inv)+'</b></div>'+
+   '<div><span>Temperatura de revenda</span><b>'+(zm.rt?rtBadge(zm.rt):'—')+'</b></div>'+
+   (r.ppsf?'<div><span>Este imóvel US$/sqft</span><b>'+money(r.ppsf)+'</b><em class="'+(r.ppsfVs>0.15?'neg':r.ppsfVs<-0.15?'pos':'')+'">'+sgn(r.ppsfVs,0)+' vs ZIP</em></div>':'')+
+  '</div>';
+  h+='<div class="spark"><figure>'+spark(rf.map(x=>x.price),150,38,'#e0b43c')+'<figcaption>Preço mediano · 13 meses</figcaption></figure><figure>'+spark(rf.map(x=>x.ppsf),150,38,'#57a9ff')+'<figcaption>US$/sqft</figcaption></figure><figure>'+spark(rf.map(x=>x.dom),150,38,'#ff6161')+'<figcaption>Dias no mercado</figcaption></figure><figure>'+spark(rf.map(x=>x.sold),150,38,'#2fd27f')+'<figcaption>Vendas (90 d)</figcaption></figure></div>';
+  const pick=[0,Math.floor((rf.length-1)/2),rf.length-1].filter((v,i,a)=>a.indexOf(v)===i);
+  h+='<table class="pl" style="margin-top:6px"><tr class="h"><td>Janela até</td><td>Preço</td><td>US$/sqft</td><td>Dias merc.</td><td>Vendas</td></tr>'+pick.map(i=>'<tr><td>'+fdate(rf[i].end)+'</td><td>'+money(rf[i].price)+'</td><td>'+money(rf[i].ppsf)+'</td><td>'+nf(rf[i].dom)+'</td><td>'+nf(rf[i].sold)+'</td></tr>').join('')+'</table>';
+  h+='<p class="mini">Fonte: '+esc((MS.redfin||{}).name||'Redfin')+', janela de 90 dias encerrada em '+fdate(L.end)+' (Redfin Data Center, dados públicos).</p>';
+ }
+ if(zm.zh&&zm.zh.v){ const v=zm.zh.v, last=v[v.length-1], first=v[0]; h+='<div class="mgrid" style="margin-top:6px"><div><span>Zillow ZHVI (valor típico)</span><b>'+money(last)+'</b><em class="'+(last>=first?'pos':'neg')+'">'+sgn(first?last/first-1:null)+' a/a</em></div><div style="grid-column:span 2">'+spark(v,220,38,'#a78bfa')+'</div></div><p class="mini">Fonte: '+esc((MS.zillow||{}).name||'Zillow')+', até '+fdate(zm.zh.end[zm.zh.end.length-1])+'.</p>'; }
+ return h+'</div>';
+}
+function intelHtml(r){
+ const a=[];
+ a.push('<b>Valor (ARV):</b> '+money(r.val)+' <span class="mini">('+esc(r.vsrc)+')</span>');
+ if(r.avm) a.push('AVM '+money(r.avm)+(r.avmLo&&r.avmHi?' ('+mshort(r.avmLo)+'–'+mshort(r.avmHi)+')':''));
+ if(r.mkt) a.push('Mercado (condado) '+money(r.mkt)); if(r.av) a.push('Avaliação no leilão '+money(r.av));
+ a.push('<b>Última venda:</b> '+(r.lsp?money(r.lsp)+' em '+fdate(r.lsd):(r.lsd?'em '+fdate(r.lsd)+' (valor não informado)':'—')));
+ a.push('<b>Dono:</b> '+esc(r.owner||'—'));
+ a.push('<b>'+(r.t==='FC'?'Autor (credor)':'Titular do certificado')+':</b> '+esc(r.plaint||'—'));
+ a.push('Processo '+esc(r.case||'—')+' · Parcela '+esc(r.parcel||'—'));
+ return '<div class="intel">📊 '+a.join(' · ')+'</div>';
+}
+function riskHtml(r){
+ const L=[];
+ r.fl.forEach(f=>{ if(FL[f]) L.push('<li><span class="bdg '+FL[f].c+'">'+FL[f].l+'</span> '+esc(FL[f].d)+'</li>'); });
+ if(r.fz) L.push('<li>Zona FEMA <b>'+esc(r.fz)+'</b> – risco de seguro '+(/^(A|V)/.test(r.fz)?'<b class="c-red">alto</b> (seguro contra enchente obrigatório se financiado)':/X500|^B|SHADED|0\.2/i.test(r.fz)?'<b class="c-amber">moderado</b>':'<b class="c-green">baixo</b>')+' (regra por zona; sem cotação).</li>'); else L.push('<li>Zona FEMA não informada – conferir no mapa da FEMA.</li>');
+ if(r.m1||r.m2||r.olA) L.push('<li>Hipotecas/liens (PropertyOnion): 1ª '+money(r.m1)+(r.m1d?' ('+fdate(r.m1d)+')':'')+(r.m1l?' '+esc(r.m1l):'')+(r.m2?' · 2ª '+money(r.m2)+(r.m2d?' ('+fdate(r.m2d)+')':''):'')+(r.olA?' · em aberto '+money(r.olA)+(r.olN?' ('+r.olN+')':''):'')+'. '+(r.t==='TD'?'Em tax deed, hipotecas privadas normalmente são extintas (liens do governo podem ficar).':'Em foreclosure, liens subordinados ao autor caem; os anteriores sobrevivem.')+'</li>');
+ if(r.yrsDel) L.push('<li>Imposto atrasado desde <b>'+r.tdy+'</b> ('+r.yrsDel+' ano(s)).'+(r.fl.includes('red')?' Resgate provável.':'')+'</li>');
+ if(r.hist&&r.hist.length) L.push('<li>Histórico de leilões deste imóvel (PropertyOnion): '+r.hist.map(h=>fdate(h.d)+' '+esc(h.t||'')+' – '+esc(h.s||'')+(h.b?' ('+money(h.b)+')':'')).join(' · ')+'</li>');
+ if(r._o.ev) L.push('<li>Ocupado / inquilino provável: incluídos <b>'+money(PR.ev)+'</b> de despejo/cash-for-keys (estimativa) e +'+PR.evm+' meses.</li>');
+ if(r.t==='TD') L.push('<li>Tax deed: quiet title <b>'+money(PR.qt)+'</b> e +'+PR.qtm+' meses incluídos antes da revenda.</li>');
+ L.push('<li>Prazo estimado até vender: <b>'+r._o.months+' meses</b>. Break-even (ROI 0%): <b>'+money(r.be)+'</b>.</li>');
+ if(r.cond||r.pool||r.eyb) L.push('<li>'+[r.cond?'Condição (PO): '+esc(r.cond):'',r.pool?'Piscina: '+esc(r.pool):'',r.eyb?'Ano efetivo: '+r.eyb:''].filter(Boolean).join(' · ')+'</li>');
+ if(r.pend.length) L.push('<li class="c-amber">Falta verificar: '+esc(r.pend.join(', '))+'.</li>');
+ if(r.note) L.push('<li class="c-mut">'+esc(r.note)+'</li>');
+ return '<div class="sec"><h3>Riscos e indicadores · risco '+r.risk+'</h3><ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">'+L.join('')+'</ul></div>';
+}
+let DR=null;
+function openDrawer(id){
+ const r=ITEMS.find(x=>x.id===id); if(!r) return;
+ OPEN=id; writeHash();
+ DR={r,o:{...r._o},bid:r.ref!=null?r.ref:Math.round(r.mb),tab:DR&&DR.r===r?DR.tab:'flip'};
+ const L=r.links||{}, t=TRK[r.id]||{};
+ const maxS=Math.max(10000,Math.round(Math.max(r.val,(r.ref||0)*1.5)/1000)*1000);
+ $('#drawer').innerHTML='<div class="dh"><button class="star'+(FAV.has(r.id)?' on':'')+'" data-star="'+r.id+'">'+(FAV.has(r.id)?'★':'☆')+'</button><h2>'+esc(r.addr)+'</h2><span class="net" id="dnet"></span><button class="btn sm" id="dclose" aria-label="Fechar">✕</button></div>'+
+ '<div class="db">'+
+  '<div class="dlinks"><a class="btn gold" id="dzil" href="'+esc(zillowUrl(r))+'" target="_blank" rel="noopener">🏠 Zillow</a><a class="btn gold" id="drea" href="'+esc(realtorUrl(r))+'" target="_blank" rel="noopener">🏠 Realtor.com</a><a class="btn" href="'+esc(gmapsUrl(r))+'" target="_blank" rel="noopener">📍 Google Maps</a>'+(L.pa?'<a class="btn" href="'+esc(L.pa)+'" target="_blank" rel="noopener">🏛 Property Appraiser</a>':'')+(L.auc?'<a class="btn" href="'+esc(L.auc)+'" target="_blank" rel="noopener">⚖ Clerk / Leilão</a>':'')+(L.po?'<a class="btn" href="'+esc(L.po)+'" target="_blank" rel="noopener">PropertyOnion</a>':'')+'<button class="btn gold" id="dshare">🔗 Copiar link</button></div>'+
+  '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="sc '+scCls(r.sc)+'">'+(r.sc==null?'—':r.sc)+'</span><span class="cat '+katCls(r.kat)+'">'+r.kat+'</span><span class="vd '+r.vd+'">'+r.vd+'</span><span class="bdg">'+TYPES[r.t]+'</span><span class="bdg">'+r.cat+'</span><span class="bdg">🗓 '+fdate(r.date)+' '+esc(r.time||'')+' · '+daysLeft(r.date)+'d</span><span class="bdg">'+esc(r.co)+(r.dist!=null?' · '+(r.dap?'~':'')+r.dist+' mi de Orlando':'')+'</span>'+rtBadge(r.rt)+badges(r)+'</div>'+
+  '<div class="pf">'+facts(r)+(r.rent?' · aluguel est. '+money(r.rent)+'/mês (PropertyOnion)':'')+'</div>'+
+  intelHtml(r)+
+  '<div class="wif"><div class="lbl" style="color:var(--gold2);margin-bottom:6px">🧮 E SE… (simulador)</div><div class="g">'+
+   '<label>Seu lance<input class="inp" id="w-bid" type="number" step="500" inputmode="decimal"></label><label>ARV / valor<input class="inp" id="w-arv" type="number" step="1000" inputmode="decimal"></label><label>Reforma<input class="inp" id="w-rehab" type="number" step="500" inputmode="decimal"></label><label>Meses<input class="inp" id="w-months" type="number" step="1" inputmode="decimal"></label><label>Aluguel / mês<input class="inp" id="w-rent" type="number" step="50" inputmode="decimal"></label><label>⚠ Reserva p/ dívidas<input class="inp" id="w-lien" type="number" step="500" inputmode="decimal"></label><label>Taxa refi %<input class="inp" id="w-refi" type="number" step="0.1" inputmode="decimal"></label><label>$/sqft reconstr.<input class="inp" id="w-ppsf" type="number" step="5" inputmode="decimal"></label><label>Reconstrução $<input class="inp" id="w-rebuild" type="number" step="1000" placeholder="auto" inputmode="decimal"></label><button class="btn" id="w-reset" type="button">↺ Reset</button></div>'+
+   '<div class="mini" style="margin:8px 0 2px">ARRASTE O LANCE PARA TESTAR ATÉ ONDE DÁ PARA IR</div><input type="range" id="w-sl" min="0" max="'+maxS+'" step="500"></div>'+
+  '<div class="tiles" id="dtiles"></div>'+
+  '<div class="dtabs"><button data-tab="flip">🔨 P&L do flip</button><button data-tab="brrrr">🏘 BRRRR (aluguel)</button></div>'+
+  '<div class="sec" id="dpl"></div><div id="drep"></div>'+
+  marketHtml(r)+
+  '<div class="sec"><h3>Vendas próximas (comps)</h3><p class="mini">Não disponível nesta versão: não há fonte gratuita, em lote, de vendas individuais com endereço/preço/coordenadas para todos os condados (Redfin/Zillow publicam só agregados por ZIP; PropertyOnion não traz comps). Confira as vendas recentes da vizinhança no <a href="'+esc(zillowUrl(r))+'" target="_blank" rel="noopener">Zillow</a> ou no <a href="'+esc(realtorUrl(r))+'" target="_blank" rel="noopener">Realtor.com</a>.'+(r.lsp?' Última venda deste imóvel: '+money(r.lsp)+' em '+fdate(r.lsd)+'.':'')+'</p></div>'+
+  riskHtml(r)+
+  '<div class="sec"><h3>📋 Flip tracker</h3><div class="trk">'+STATUS.map(([k,l])=>'<button class="chip'+(t.s===k?' on':'')+'" data-trk="'+k+'">'+l+'</button>').join('')+'</div><textarea class="inp" id="trkn" placeholder="Anotações, lance máximo combinado, visita, título…">'+esc(t.n||'')+'</textarea><div class="mini" id="trkm">'+(t.u?'Salvo em '+esc(t.u):'Salvo só neste aparelho.')+'</div></div>'+
+ '</div>';
+ const set=(id,v)=>{ const e=$('#'+id); if(e) e.value=v==null?'':Math.round(v*100)/100; };
+ const fillInputs=()=>{ set('w-bid',DR.bid); set('w-arv',DR.o.arv); set('w-rehab',DR.o.rehab); set('w-months',DR.o.months); set('w-rent',DR.o.rent||''); set('w-lien',DR.o.lien); set('w-refi',DR.o.refi); set('w-ppsf',DR.o.ppsf); $('#w-rebuild').value=DR.o.rebuild==null?'':DR.o.rebuild; $('#w-sl').value=DR.bid; };
+ fillInputs(); drCalc();
+ $('#drawer').classList.add('on'); $('#drbg').classList.add('on'); $('#drawer').setAttribute('aria-hidden','false'); $('#drawer').scrollTop=0;
+ $$('.dtabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===DR.tab));
+ $('#dclose').onclick=closeDrawer;
+ $('#dshare').onclick=()=>copy(location.origin+location.pathname+'#p='+encodeURIComponent(r.id),'Link do imóvel copiado');
+ $('#drawer .dh [data-star]').onclick=()=>toggleFav(r.id);
+ const wmap={'w-arv':'arv','w-rehab':'rehab','w-months':'months','w-rent':'rent','w-lien':'lien','w-refi':'refi','w-ppsf':'ppsf'};
+ Object.keys(wmap).forEach(id=>$('#'+id).addEventListener('input',e=>{ const v=numv(e.target.value); DR.o[wmap[id]]=isFinite(v)?v:0; drCalc(); }));
+ $('#w-rebuild').addEventListener('input',e=>{ const v=numv(e.target.value); DR.o.rebuild=isFinite(v)?v:null; drCalc(); });
+ $('#w-bid').addEventListener('input',e=>{ const v=numv(e.target.value); DR.bid=isFinite(v)?v:0; $('#w-sl').value=DR.bid; drCalc(); });
+ $('#w-sl').addEventListener('input',e=>{ DR.bid=+e.target.value; set('w-bid',DR.bid); drCalc(); });
+ $('#w-reset').onclick=()=>{ DR.o={...r._o}; DR.bid=r.ref!=null?r.ref:Math.round(r.mb); fillInputs(); drCalc(); };
+ $('#dtiles').addEventListener('click',e=>{const tl=e.target.closest('[data-bid]'); if(tl){ DR.bid=Math.max(0,Math.round(+tl.dataset.bid)); fillInputs(); drCalc(); }});
+ $$('.dtabs button').forEach(b=>b.onclick=()=>{ DR.tab=b.dataset.tab; $$('.dtabs button').forEach(x=>x.classList.toggle('on',x===b)); drCalc(); });
+ $$('[data-trk]').forEach(b=>b.onclick=()=>{ const cur=TRK[r.id]||{}; cur.s = cur.s===b.dataset.trk ? '' : b.dataset.trk; cur.u=new Date().toLocaleString('pt-BR'); TRK[r.id]=cur; saveTrk(); $$('[data-trk]').forEach(x=>x.classList.toggle('on',x.dataset.trk===cur.s)); $('#trkm').textContent='Salvo em '+cur.u; if(view==='table') renderTable(true); });
+ $('#trkn').addEventListener('input',e=>{ const cur=TRK[r.id]||{}; cur.n=e.target.value; cur.u=new Date().toLocaleString('pt-BR'); TRK[r.id]=cur; saveTrk(); $('#trkm').textContent='Salvo em '+cur.u; });
+}
+function drCalc(){
+ const {r,o,bid}=DR; const p=pnl(r,bid,o);
+ $('#dnet').innerHTML='<span class="'+(p.net>=0?'pos':'neg')+'">'+money(p.net)+'</span>';
+ const T=[[pctp(PR.ret,0)+' piso (lance máx.)',bidAt(r,PR.ret/100,o),'c-green'],['25% alvo',bidAt(r,0.25,o),'c-gold'],['30% esticado',bidAt(r,0.30,o),'c-green'],['Regra dos 70%',0.70*o.arv-o.rehab,'c-blue'],['Break-even (0%)',bidAt(r,0,o),'c-mut']];
+ if(r.ref!=null) T.push([r.t==='FC'?'Julgamento':'Lance inicial',r.ref,'c-red']);
+ T.push(['Teto do orçamento',capBid(r,o),'c-mut']);
+ $('#dtiles').innerHTML=T.map(([l,v,c])=>'<div class="tile" data-bid="'+Math.max(0,v)+'" title="Clique para simular este lance"><span>'+l+'</span><b class="'+c+'">'+money(Math.max(0,v))+'</b></div>').join('');
+ const neg=v=>'<span class="neg">-'+money(Math.abs(v))+'</span>';
+ if(DR.tab==='flip'){
+  $('#dpl').innerHTML='<table class="pl"><tr class="h"><td colspan="2">P&L com seu lance de '+money(bid)+'</td></tr>'+
+   '<tr><td>Preço de venda (ARV)</td><td class="pos">'+money(p.arv)+'</td></tr>'+
+   '<tr class="h"><td colspan="2">Aquisição</td></tr><tr><td>Lance vencedor</td><td>'+neg(bid)+'</td></tr><tr><td>Taxas do clerk / título / registro ('+pctp(PR.clerk)+')</td><td>'+neg(p.clerk)+'</td></tr><tr><td>Doc stamps na compra ('+pctp(PR.docb,2)+')</td><td>'+neg(p.docb)+'</td></tr><tr class="t"><td>Total da aquisição</td><td>'+neg(p.acq)+'</td></tr>'+
+   '<tr class="h"><td colspan="2">Reforma e posse</td></tr><tr><td>Reforma'+(o.rehab===r.rep?' <span class="mini">('+esc(r.repw)+')</span>':'')+'</td><td>'+neg(p.rehab)+'</td></tr><tr><td>Posse ('+nf(o.months)+' meses × '+pctp(PR.hold)+' do valor/ano)</td><td>'+neg(p.hold)+'</td></tr><tr><td>Taxas fixas do leilão</td><td>'+neg(p.fees.fee)+'</td></tr>'+(p.fees.qt?'<tr><td>Quiet title (tax deed)</td><td>'+neg(p.fees.qt)+'</td></tr>':'')+(p.fees.ev?'<tr><td>Despejo / cash-for-keys (est.)</td><td>'+neg(p.fees.ev)+'</td></tr>':'')+(p.lien?'<tr><td>Reserva p/ dívidas que ficam</td><td>'+neg(p.lien)+'</td></tr>':'')+
+   '<tr class="h"><td colspan="2">Venda</td></tr><tr><td>Comissão corretor vendedor ('+pctp(PR.list)+')</td><td>'+neg(p.sell.list)+'</td></tr><tr><td>Comissão corretor comprador ('+pctp(PR.buyc)+')</td><td>'+neg(p.sell.buyc)+'</td></tr><tr><td>Título / escrow ('+pctp(PR.title)+')</td><td>'+neg(p.sell.title)+'</td></tr><tr><td>Doc stamps na venda ('+pctp(PR.docs,2)+')</td><td>'+neg(p.sell.docs)+'</td></tr>'+
+   '<tr class="big"><td class="'+(p.net>=0?'pos':'neg')+'">Lucro líquido</td><td class="'+(p.net>=0?'pos':'neg')+'" id="dplnet">'+money(p.net)+' · '+pct(p.roi)+' ROI</td></tr>'+
+   '<tr><td>Total investido até vender</td><td>'+money(p.inv)+(p.inv>PR.budget?' <span class="neg">(acima do orçamento '+money(PR.budget)+')</span>':'')+'</td></tr></table>';
+ } else {
+  const rent=o.rent||0, loan=o.arv*PR.ltv/100, i=o.refi/100/12, n=360, pi=loan>0?(i>0?loan*i/(1-Math.pow(1+i,-n)):loan/n):0;
+  const tax=o.arv*PR.tax/100/12, ins=o.arv*PR.ins/100/12, vac=rent*PR.vac/100, mg=rent*PR.mgmt/100, noi=rent-tax-ins-vac-mg, cf=noi-pi;
+  const allin=p.inv, left=allin-loan, coc=left>0?cf*12/left:null;
+  $('#dpl').innerHTML=!rent?'<p class="mini">Sem estimativa de aluguel para este imóvel. Preencha <b>Aluguel / mês</b> no simulador para ver o BRRRR.</p>':
+   '<table class="pl"><tr class="h"><td colspan="2">BRRRR com seu lance de '+money(bid)+'</td></tr><tr><td>Aluguel mensal</td><td class="pos">'+money(rent)+'</td></tr><tr><td>Yield bruto (aluguel × 12 ÷ ARV)</td><td>'+pct(rent*12/o.arv)+'</td></tr>'+
+   '<tr class="h"><td colspan="2">Despesas mensais</td></tr><tr><td>Imposto predial (est. '+pctp(PR.tax)+'/ano)</td><td>'+neg(tax)+'</td></tr><tr><td>Seguro (est. '+pctp(PR.ins)+'/ano)</td><td>'+neg(ins)+'</td></tr><tr><td>Vacância + manutenção ('+pctp(PR.vac,0)+')</td><td>'+neg(vac)+'</td></tr><tr><td>Administração ('+pctp(PR.mgmt,0)+')</td><td>'+neg(mg)+'</td></tr><tr class="t"><td>NOI mensal</td><td>'+money(noi)+'</td></tr>'+
+   '<tr class="h"><td colspan="2">Refinanciamento</td></tr><tr><td>Empréstimo ('+pctp(PR.ltv,0)+' do ARV)</td><td>'+money(loan)+'</td></tr><tr><td>Parcela (30 anos, '+pctp(o.refi)+')</td><td>'+neg(pi)+'</td></tr><tr><td>Total investido (aquisição + reforma + posse + taxas)</td><td>'+money(allin)+'</td></tr><tr><td>'+(left>0?'Dinheiro que fica no negócio':'Dinheiro retirado no refi')+'</td><td class="'+(left>0?'':'pos')+'">'+money(Math.abs(left))+'</td></tr>'+
+   '<tr class="big"><td class="'+(cf>=0?'pos':'neg')+'">Fluxo de caixa mensal</td><td class="'+(cf>=0?'pos':'neg')+'">'+money(cf)+' · '+(coc==null?'∞':pct(coc))+' cash-on-cash</td></tr><tr><td>DSCR (NOI ÷ parcela)</td><td>'+(pi?nf(noi/pi,2):'—')+'</td></tr></table>';
+ }
+ if(r.cat==='Lote'||!r.sqft){ $('#drep').innerHTML='<div class="sec"><h3>Custo de reconstrução</h3><p class="mini">'+(r.cat==='Lote'?'Lote – sem construção.':'Área construída desconhecida – informe Reconstrução $ no simulador.')+'</p>'+(o.rebuild?repBand(o.rebuild,p.inv):'')+'</div>'; }
+ else {
+  const age=r.yr?Math.max(0,+TODAY.slice(0,4)-r.yr):null, dep=age==null?0:Math.min(60,age*PR.depr);
+  const rb=o.rebuild!=null?o.rebuild:o.ppsf*r.sqft*(1-dep/100);
+  $('#drep').innerHTML='<div class="sec"><h3>Custo de reconstrução (piso)</h3><table class="pl"><tr><td>'+(o.rebuild!=null?'Reconstrução informada':'Estrutura · '+money(o.ppsf)+'/sqft × '+nf(r.sqft)+' sqft − '+nf(dep)+'% depreciação ('+(age==null?'idade desconhecida':age+' anos')+')')+'</td><td class="c-blue">'+money(rb)+'</td></tr><tr><td>Seu total investido</td><td>'+money(p.inv)+'</td></tr></table>'+repBand(rb,p.inv)+'</div>';
+ }
+}
+function repBand(rb,inv){ if(!rb) return ''; const d=inv/rb-1; return '<div class="band" style="margin-top:6px"><span>'+(d>0?'⚪ ACIMA DA RECONSTRUÇÃO':'🟢 ABAIXO DA RECONSTRUÇÃO')+'</span><span class="'+(d>0?'c-amber':'c-green')+'">'+nf(Math.abs(d)*100,0)+'% '+(d>0?'acima':'abaixo')+'</span></div>'; }
+function closeDrawer(){ $('#drawer').classList.remove('on'); $('#drbg').classList.remove('on'); $('#drawer').setAttribute('aria-hidden','true'); OPEN=null; DR=null; writeHash(); }
+$('#drbg').onclick=closeDrawer;
+document.addEventListener('keydown',e=>{ if(e.key==='Escape' && OPEN) closeDrawer(); });
+// ---------------------------------------------------------------- methodology
+function renderHow(){
+ const rr=M.repairRates.map(([y,r],i)=>'<tr><td>'+(i===0?'≥ '+y:(y===0?'antes de '+M.repairRates[i-1][0]:y+'–'+(M.repairRates[i-1][0]-1)))+'</td><td>US$ '+r+'/sqft</td></tr>').join('');
+ const dropped=Object.entries(M.dropped||{}).map(([k,v])=>'<tr><td>'+esc(k)+'</td><td>'+v+'</td></tr>').join('');
+ $('#howc').innerHTML=
+ '<p>Espelho do painel de referência (estilo BidToFlip) com a conta do radar do Fernando. Onde a lógica exata da referência não é visível, as regras abaixo são <b>inferidas</b> e estão documentadas. Tudo é recalculado ao mudar as <b>⚙ Premissas</b>'+(custom()?' (<b>personalizadas neste aparelho</b>)':'')+'.</p>'+
+ '<h4>1. Conta do flip (NET e ROI)</h4><p><b>Investido</b> = lance + taxas do clerk/título/registro ('+pctp(PR.clerk)+' do lance) + doc stamps ('+pctp(PR.docb,2)+' do lance) + taxas fixas do leilão ('+money(PR.fee)+') + quiet title nos tax deeds ('+money(PR.qt)+') + despejo estimado se ocupado/inquilino ('+money(PR.ev)+') + reforma estimada + posse ('+pctp(PR.hold)+' do valor ao ano × meses) + reserva para dívidas que ficam (1ª hipoteca quando “Hipoteca sobrevive”/EVITAR).<br>'+
+ '<b>Meses</b> = '+PR.months+' (base) + '+PR.qtm+' em tax deed (quiet title) + '+PR.evm+' se houver despejo.<br>'+
+ '<b>Custo de venda</b> = comissão do vendedor '+pctp(PR.list)+' + comprador '+pctp(PR.buyc)+' + título/escrow '+pctp(PR.title)+' + doc stamps '+pctp(PR.docs,2)+' = '+pctp(PR.list+PR.buyc+PR.title+PR.docs,2)+' do ARV.<br>'+
+ '<b>NET</b> = ARV − custo de venda − investido. <b>ROI</b> = NET ÷ investido. Na tabela, NET e ROI são calculados <b>no lance de referência</b> (julgamento no foreclosure; lance inicial no tax deed – no tax deed a concorrência sobe o preço, então o ROI no lance inicial é otimista). O painel de detalhes usa exatamente a mesma conta (ao abrir, o simulador começa nesses mesmos valores).</p>'+
+ '<h4>2. Lances de referência</h4><p><b>Lance máximo (piso) = o maior lance que ainda dá retorno mínimo de '+pctp(PR.ret)+'</b>: [ARV × (1 − custo de venda) ÷ (1 + '+pctp(PR.ret)+') − custos que não dependem do lance] ÷ (1 + '+pctp(PR.clerk+PR.docb,2)+'). Também mostrados: alvo 25%, esticado 30%, regra dos 70% (0,70 × ARV − reforma), break-even (ROI 0%) e teto do orçamento all-in de '+money(PR.budget)+'.</p>'+
+ '<h4>3. Categoria, veredito e KPIs</h4><table><tr><th>Item</th><th>Regra</th></tr>'+
+ '<tr><td>J>MAX</td><td>Julgamento/lance de referência acima do lance pela regra dos 70% (como na referência, em que “70% MAX BID” menor que o julgamento gera J>MAX). O banco pode dar lance até o julgamento.</td></tr>'+
+ '<tr><td>Veredito</td><td><b>FLIP</b> se ROI no lance de referência ≥ '+pctp(PR.flip)+' · <b>CONSIDER</b> se entre '+pctp(PR.ret)+' e '+pctp(PR.flip)+' · <b>PASS</b> abaixo de '+pctp(PR.ret)+' ou com risco grave (EVITAR / hipoteca sobrevive). O limiar de 18% foi inferido do KPI “below 18%” da referência.</td></tr>'+
+ '<tr><td>Categoria</td><td>RISCO (risco grave) › J>MAX › LOTE › RENDA (yield ≥ '+pctp(PR.yld)+' e veredito diferente de FLIP) › FLIP.</td></tr>'+
+ '<tr><td>KPIs</td><td>Viáveis = veredito FLIP; Considerar = CONSIDER; Abaixo de '+nf(PR.flip)+'% = ROI menor que '+pctp(PR.flip)+'; Aluguel forte = yield bruto ≥ '+pctp(PR.yld)+'; NET viável e pipeline (ARV) somam os FLIP. Calculados sobre os imóveis filtrados.</td></tr></table>'+
+ '<h4>4. Nota 0–100 (critério do radar do Fernando)</h4><table><tr><th>Componente</th><th>Pontos</th><th>Regra</th></tr>'+
+ '<tr><td>Retorno</td><td>0–50</td><td>ROI no lance de referência ÷ 40% (cheio com ROI ≥ 40%).</td></tr>'+
+ '<tr><td>Folga</td><td>0–40</td><td>(lance máximo − lance de referência) ÷ ARV, escala de −15% a +15% (20 pontos com folga zero).</td></tr>'+
+ '<tr><td>Risco</td><td>0–10</td><td>baixo 10 · médio 5 · alto 0. <b>Alto</b>: EVITAR, hipoteca sobrevive, code enforcement, FEMA A/V ou NET negativo. <b>Médio</b>: ocupado, inquilino, HOA, espólio, resgate provável, não verificado, cancelado? ou liens em aberto.</td></tr>'+
+ '<tr><td>Dados faltando</td><td>−3 cada (máx. −15)</td><td>zona FEMA, zoneamento, hipotecas (sem registro PropertyOnion), área construída.</td></tr>'+
+ '<tr><td>Limites</td><td></td><td>EVITAR: nota máx. 10 · Hipoteca sobrevive: nota máx. 15. Cores: ≥65 verde, 45–64 laranja, abaixo de 45 vermelho.</td></tr></table>'+
+ '<h4>5. Indicadores extras</h4><table><tr><th>Indicador</th><th>Como</th></tr>'+
+ '<tr><td>Temperatura de revenda (HOT/WARM/COOL/COLD, 0–100)</td><td>Inferida dos dados Redfin do ZIP (janela de 90 dias): dias no mercado (40 pts: ≤20 dias cheio, ≥120 zero) + venda/pedido (25 pts: 93%→100%) + % que sai do mercado em 2 semanas (20 pts: até 50%) + variação anual do preço (15 pts: −10%→+10%). HOT ≥70, WARM 50–69, COOL 30–49, COLD abaixo de 30. “?” = menos de 5 vendas.</td></tr>'+
+ '<tr><td>US$/sqft vs ZIP</td><td>ARV ÷ área comparado à mediana US$/sqft das vendas do ZIP (Redfin).</td></tr>'+
+ '<tr><td>Aluguel e yield</td><td>Aluguel estimado do PropertyOnion; yield bruto = aluguel × 12 ÷ ARV.</td></tr>'+
+ '<tr><td>Break-even</td><td>Lance com ROI 0%.</td></tr><tr><td>Prazo estimado</td><td>Meses de posse usados na conta (base + tax deed + despejo).</td></tr>'+
+ '<tr><td>Anos de atraso</td><td>Ano dos dados − ano de inadimplência do imposto (PropertyOnion), só tax deed.</td></tr>'+
+ '<tr><td>Histórico</td><td>Leilões anteriores do mesmo imóvel no PropertyOnion (datas, tipo, status).</td></tr>'+
+ '<tr><td>Risco de seguro FEMA</td><td>Por zona: A/V alto, X sombreada/B moderado, X/C baixo (sem cotação).</td></tr>'+
+ '<tr><td>Custo de reconstrução</td><td>US$ '+nf(PR.rebuild)+'/sqft × área − '+pctp(PR.depr)+' por ano de idade (máx. 60%), comparado ao total investido.</td></tr></table>'+
+ '<h4>6. Valor de revenda e reforma</h4><p><b>ARV</b> (conservador): imóveis construídos usam o <i>menor</i> entre o maior valor de mercado/avaliação (PropertyOnion, Property Appraiser ou leilão) e o AVM; lotes usam o maior valor de mercado/avaliação. <b>Reforma (estimativa)</b>: área (1.300 sqft se desconhecida) × custo por idade, mínimo US$ '+NF.format(M.repairMin)+'; mobile home US$ '+M.repairMobile+'/sqft; ano desconhecido US$ '+M.repairUnknown+'/sqft; lote US$ 0.</p><table><tr><th>Ano de construção</th><th>Reforma estimada</th></tr>'+rr+'</table>'+
+ '<h4>Itens fora da lista</h4><p>Da varredura estadual ('+(M.stats.td_total||0)+' tax deeds e '+(M.stats.fc_cand||0)+' foreclosures pré-filtrados de '+(M.stats.fc_total||0)+') foram removidos:</p><table><tr><th>Motivo</th><th>Qtde</th></tr>'+dropped+'</table>';
+}
+renderHow();
+$('#legend').innerHTML='<table><tr><th>Selo</th><th>Significado</th></tr>'+Object.keys(FL).map(k=>'<tr><td><span class="bdg '+FL[k].c+'">'+FL[k].l+'</span></td><td>'+esc(FL[k].d)+'</td></tr>').join('')+
+ '<tr><td><span class="bdg red">LIEN</span></td><td>Hipotecas/liens em aberto segundo PropertyOnion.</td></tr><tr><td><span class="bdg cool">≈ X</span></td><td>Zona FEMA (vermelho = A/V).</td></tr><tr><td><span class="bdg amb">PO-only</span></td><td>Valor só do AVM do PropertyOnion.</td></tr><tr><td><span class="bdg vio">↺ n</span></td><td>Leilões anteriores do mesmo imóvel.</td></tr></table>'+
+ '<h4>Fontes</h4><p>Leilões: sites RealAuction dos condados (realtaxdeed.com / realforeclose.com). Imóvel, AVM, aluguel, ocupação, hipotecas, FEMA, histórico e fotos: propertyonion.com. Orange: OCPA. Mercado por ZIP: '+esc((MS.redfin||{}).name||'—')+' (até '+fdate((MS.redfin||{}).end)+') e '+esc((MS.zillow||{}).name||'—')+' (até '+fdate((MS.zillow||{}).end)+'). Links Zillow/Realtor/Google abrem a busca pelo endereço.</p>'+
+ '<h4>Não disponível (sem fonte gratuita confiável)</h4><p>Vendas comparáveis individuais (comps), taxa mensal de HOA, imposto predial real e cotação de seguro (usamos % estimados nas premissas), dias no mercado do próprio imóvel.</p>';
+
+// ---------------------------------------------------------------- init
+const H0=readHash();
+setView(S.view || (window.innerWidth<760?'cards':'table'));
+if(H0.p && ITEMS.find(x=>x.id===H0.p)) openDrawer(H0.p);
+window.__dash={apply, ITEMS, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, gmapsUrl, S};
+})();
+</script>
+</body>
+</html>

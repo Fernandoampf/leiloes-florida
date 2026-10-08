@@ -1,0 +1,11 @@
+cache/
+__pycache__/
+*.pyc
+# cópia local idêntica ao index.html e capturas de tela de teste
+leiloes-florida.html
+preview*.png
+live_mobile.png
+.plain/
+.tplparts/
+*.png
+!icons/*.png
