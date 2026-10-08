@@ -32,12 +32,13 @@ Não automatizados (por regra ou termos de uso): Auction.com, Xome, Hubzu, Bid4A
 - **Extras:** quiet title US$ 2.500 (tax deed e lotes), limpeza/agrimensura de lote US$ 1.500, despejo US$ 2.500 se ocupado, liens que sobrevivem (1ª hipoteca quando há indício).
 - **NET** = ARV − custos de venda − custo all-in; **ROI** = NET ÷ custo all-in. **Retorno mínimo 17%** (lance máximo = maior lance com ROI de 17%); **FLIP** ≥ 25%, **CONSIDERAR** 17–25%, **PASSAR** < 17%.
 - Cada linha do P&L é editável no painel do imóvel; “Salvar custos como meu padrão” grava no aparelho (com botão para voltar aos padrões).
-- Tax deed: NET/ROI no **preço esperado** (histórico do condado) quando disponível – o lance inicial é só o imposto devido.
+- **Capa (v7):** NET/ROI/nota no **lance realista** = maior entre lance inicial/julgamento, preço histórico do condado, 55% (TD) / 70% (FC) do lance máx. de 17% e 28%/40% do ARV. “ROI no lance inicial” é só nota. Valor suspeito (ARV vs comps ou condado > 2×) usa o menor número e corta a nota.
 - O prazo de saída pelo ZIP (dias no mercado Redfin) aparece no P&L como sensibilidade; pode substituir os meses fixos em ⚙ Premissas.
 
 ## Regerar
 ```bash
-python3 build.py --site                         # offline (o que a rotina das 7:46 roda); gera index.html criptografado
+python3 build.py --site --offline               # sem rede (RealAuction está bloqueado neste host). Cache local apenas.
+python3 build.py --site                         # igual, e também não consulta RealAuction (só cache). `--fetch-bids` liga a rede do clerk.
 python3 build.py --fetch --site                 # também baixa o que falta do PropertyOnion e do FDOH (água/esgoto)
 python3 build.py --site --no-encrypt --out .plain/index.html   # versão sem senha, só para teste local
 python3 build.py --fetch-market                 # atualiza Redfin/Zillow (ZHVI e ZORI)

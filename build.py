@@ -317,7 +317,7 @@ def load_results():
     return stats, recent, dict(rows=len(rows), first=iso(dates[0]) if dates else None, last=iso(dates[-1]) if dates else None)
 
 # ----------------------------------------------------------------------------- collection + enrichment
-def collect_items():
+def collect_items(fetch_bids=False):
     known = {}
     for f in ('td_po.json', 'fc_po.json'):
         for k, v in (jload(os.path.join(SW, f), {}) or {}).items():
@@ -334,7 +334,9 @@ def collect_items():
         it['avoid'] = next((k for k in AVOID if k in a), None)
         items.append(it)
     items, po_st = po_export.enrich(items)
-    bid_st = po_bids.fill_po_bids(items, fetch=True)
+    # RealAuction is often blocked (HTTP 403). Default is cache/local files only.
+    # Pass fetch_bids=True (--fetch-bids or --fetch, and not --offline) to hit the network.
+    bid_st = po_bids.fill_po_bids(items, fetch=bool(fetch_bids))
     po_st = dict(po_st, bids=bid_st)
     collect_items._po_stats = po_st
     return items
@@ -381,7 +383,12 @@ def nal_index(items, today):
 
 def build_items(args):
     cal = load_calendar()
-    items = collect_items()
+    offline = bool(getattr(args, 'offline', False)) or os.environ.get('LEILOES_OFFLINE', '').strip().lower() in ('1', 'true', 'yes', 'on')
+    if offline and args.fetch:
+        print('offline: sem rede (PropertyOnion/FLWMI/RealAuction) — usando só cache local', flush=True)
+        args.fetch = False
+    fetch_bids = (not offline) and bool(getattr(args, 'fetch_bids', False) or args.fetch)
+    items = collect_items(fetch_bids=fetch_bids)
     if args.fetch: prefetch_all(items, args)
     today = args.data_date
     facts, sales_by_zip, cono = nal_index(items, today)
@@ -458,22 +465,50 @@ def build_items(args):
         lsq = (nf or {}).get('lsq') or (acres * 43560 if acres else None)
         cp = comps_for(sales_by_zip, zip5, uc, sqft, int(yr) if yr else None, lsq, nal.nstreet((nf or {}).get('addr') or street_of(x)), ty) if zip5 else None
         cest = cp.get('est') if cp else None
+        def _usd(v):
+            return f"US$ {v:,.0f}"
+        named = []
+        if av: named.append(('avaliação no leilão', av))
+        if mkt: named.append(('mercado (condado/PO)', mkt))
+        if ocpa_mkt: named.append(('mercado OCPA', ocpa_mkt))
+        if lake_mv: named.append(('mercado Lake', lake_mv))
+        if jv: named.append(('just value DOR', jv))
+        base_lbl = None
+        if named:
+            topn = max(named, key=lambda kv: kv[1])
+            bits = ', '.join(f"{n} {_usd(v)}" for n, v in named)
+            base_lbl = (f"{topn[0]} {_usd(topn[1])}" if len(named) == 1 else f"maior valor oficial = {topn[0]} {_usd(topn[1])} [{bits}]")
         if land:
-            val = base or avm; vsrc = ('maior valor de avaliação/mercado do condado' if base else ('AVM PropertyOnion' if avm else None))
+            if base:
+                val, vsrc = base, f"maior valor oficial do condado — {base_lbl}"
+            elif avm:
+                val, vsrc = avm, f"AVM PropertyOnion {_usd(avm)} (terreno, sem valor de condado)"
+            else:
+                val, vsrc = None, None
         elif base and avm:
-            val = min(base, avm); vsrc = 'menor entre valor do condado e AVM PropertyOnion'
+            chosen = min(base, avm)
+            which = 'o valor do condado' if base <= avm else 'o AVM PropertyOnion'
+            val = chosen
+            vsrc = f"menor entre {base_lbl} e AVM PropertyOnion {_usd(avm)} → vale {which} {_usd(chosen)}"
+        elif base:
+            val, vsrc = base, f"valor do condado, sem AVM — {base_lbl}"
+        elif avm:
+            val, vsrc = avm, f"AVM PropertyOnion {_usd(avm)} (sem valor de condado)"
         else:
-            val = base or avm
-            vsrc = ('valor do condado (sem AVM)' if base else 'AVM PropertyOnion (sem valor do condado)') if val else None
+            val, vsrc = None, None
         if not val and cest:
             val = cest; vsrc = 'comps DOR (estimativa)'
         pov = num(poe.get('pov')); pov_conf = num(poe.get('pov_conf'))
         county_for_pov = next((v for v in [mkt, ocpa_mkt, lake_mv, jv, av] if v), None)
         pov_as_arv = False
         if po_export.pov_ok_for_arv(pov, pov_conf, county_for_pov):
-            val = pov; vsrc = f'POV PropertyOnion (confiança {int(pov_conf)})'; pov_as_arv = True
+            val = pov
+            vsrc = f"POV PropertyOnion {_usd(pov)} (confiança {int(pov_conf)}; dentro de ~35% do condado {_usd(county_for_pov)}) — usado como ARV"
+            pov_as_arv = True
         elif not val and pov:
-            val = pov; vsrc = 'POV PropertyOnion (sem valor de condado)'; pov_as_arv = True
+            val = pov
+            vsrc = f"POV PropertyOnion {_usd(pov)} (sem valor de condado para comparar) — usado como ARV"
+            pov_as_arv = True
         if val and val < 1000: val = None
         ref = num(x.get('ob')) if src == 'TD' else num(x.get('fj')) if src == 'FC' else num(x.get('ref'))
         nobid = bool(it.get('po_only') and not ref)
@@ -874,6 +909,8 @@ def encrypt_page(plain, outdir, password_file):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--fetch', action='store_true', help='fetch missing PropertyOnion pages + FLWMI utilities into ./cache (polite)')
+    ap.add_argument('--fetch-bids', action='store_true', help='also query RealAuction for missing PO-only opening bids (skipped when --offline or LEILOES_OFFLINE=1)')
+    ap.add_argument('--offline', action='store_true', help='never contact RealAuction/PropertyOnion/FLWMI; local files + cache only (or set LEILOES_OFFLINE=1)')
     ap.add_argument('--threads', type=int, default=4, help='PropertyOnion fetch threads (each pauses between requests)')
     ap.add_argument('--no-images', action='store_true', help='(v3 compat; v4 never embeds images – photos are remote, lazy-loaded)')
     ap.add_argument('--fetch-market', action='store_true', help='download Redfin + Zillow ZIP files into ./cache/market')

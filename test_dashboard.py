@@ -66,7 +66,8 @@ with sync_playwright() as p:
     pg.click('#qs [data-sort="net"]'); pg.wait_for_timeout(300)
     nets = pg.evaluate(D + '.CUR.slice(0,30).map(r=>r.net??-1e12)')
     check(nets == sorted(nets, reverse=True), 'ordenar por Maior NET')
-    # filtro ROI mínimo
+    # filtro ROI mínimo (em Mais filtros)
+    pg.click('#fmorebtn'); pg.wait_for_timeout(200)
     pg.fill('#mroi', '50'); pg.dispatch_event('#mroi', 'input'); pg.wait_for_timeout(400)
     rois = pg.evaluate(D + '.CUR.map(r=>r.roi)'); check(rois and min(rois) >= 0.5, f'filtro ROI mín. 50% ({len(rois)} itens)')
     pg.click('#blink'); pg.wait_for_timeout(200)
@@ -79,7 +80,7 @@ with sync_playwright() as p:
     pg.click('#breset'); pg.wait_for_timeout(300)
     # painel de detalhes coerente com a tabela
     pg.click('#qs [data-sort="sc"]'); pg.wait_for_timeout(200)
-    rid = pg.evaluate(D + '.CUR.find(r=>r.t==="FC"&&r.net!=null&&r.imgs&&r.imgs.length&&r.sqft>0&&r.yr).id')
+    rid = pg.evaluate(D + '.CUR.find(r=>r.t==="FC"&&r.ref!=null&&r.net!=null&&r.imgs&&r.imgs.length&&r.sqft>0&&r.yr).id')
     tnet = pg.evaluate(f'{D}.ITEMS.find(r=>r.id==="{rid}").net')
     pg.evaluate(f'{D}.openDrawer("{rid}")'); pg.wait_for_timeout(500)
     dnet = pg.locator('#dplnet').inner_text()
@@ -190,6 +191,7 @@ with sync_playwright() as p:
     check(len(dl_lines) == 2 and 'deposito_usd' in dl_lines[0] and 'processo' in dl_lines[0], 'CSV do dia (lance máx., depósito, processo)')
     pg.click('#tabs [data-v="map"]'); pg.wait_for_timeout(3000)
     check(pg.locator('#map .leaflet-interactive').count() > 0, 'mapa com pontos')
+    check(pg.locator('.mapleg').count()>=1, 'legenda do mapa')
     z = pg.evaluate(f'{D}.zillowUrl({D}.ITEMS[0])'); check(z.startswith('https://www.zillow.com/homes/') and z.endswith('_rb/'), 'formato do link Zillow')
     check('US$' in pg.inner_text('#kpis') + pg.inner_text('#sumline') and 'R$' not in pg.inner_text('body'), 'moeda: só US$')
     check(not errs, f'sem erros de JavaScript {errs[:3]}')
@@ -217,6 +219,27 @@ with sync_playwright() as p:
     still = pg.evaluate(D + ".ITEMS.filter(r=>r.nobid).length")
     check(filled >= 1, f'PO-only com FJ/OB preenchido: {filled} (ainda nobid={still})')
     pg.click('#tabs [data-v="table"]'); pg.wait_for_timeout(200)
+    xbad = pg.evaluate("""(()=>{const d=window.__dash; const bad=[];
+      for(const r of d.ITEMS){ if(r.xbid==null||r.roi==null) continue;
+        const p=d.pnl(r,r.xbid); if(Math.abs((p.roi||0)-r.roi)>0.01) bad.push(r.id); }
+      return bad.slice(0,3);})()""")
+    check(not xbad, f'ROI da capa = P&L no lance realista ({xbad})')
+    td = pg.evaluate("""(()=>{const d=window.__dash; const rows=d.ITEMS.filter(r=>r.t==="TD"&&r.mb>1000&&r.ref!=null&&r.ref<r.mb*0.2&&r.xbid!=null);
+      const low=rows.filter(r=>r.xbid+1<r.ref || r.xbid+1<0.55*r.mb-1);
+      const gap=rows.filter(r=>r.roi0!=null && r.roi!=null && r.roi0>r.roi+0.5);
+      return {n:rows.length, low:low.length, gap:gap.length};})()""")
+    check(td['n']>20 and td['low']==0 and td['gap']>5, f'tax deed no lance realista {td}')
+    sus = pg.evaluate("""(()=>{const d=window.__dash; const s=d.ITEMS.filter(r=>r.suspect);
+      const bad=s.filter(r=>r.risk==="baixo" || (r.sc!=null && r.sc>60) || (r.val0!=null && r.val>r.val0+1));
+      return {n:s.length, bad:bad.length};})()""")
+    check(sus['n']>=1 and sus['bad']==0, f'valor suspeito {sus}')
+    check(pg.evaluate('window.__dash.ITEMS.every(r=>!r.titleNv || r.risk!=="baixo")'), 'título não verificado não é risco baixo')
+    check(pg.evaluate('window.__dash.ITEMS.filter(r=>r.hist&&r.hist.length).every(r=>r.fl.includes("rebid")&&r.risk!=="baixo")'), 'leilão anterior com flag')
+    check(pg.locator('#bgloss').count()==1, 'botão Glossário')
+    pg.fill('#q', 'zzzz-sem-match'); pg.dispatch_event('#q', 'input'); pg.wait_for_timeout(400)
+    check('Filtros ativos' in pg.inner_text('#fnotice'), 'aviso de filtros ativos')
+    pg.click('#fnotice-clear'); pg.wait_for_timeout(400)
+    check('Filtros ativos' not in (pg.locator('#fnotice').inner_text() or ''), 'limpar some com o aviso')
     # celular 390px
     m = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
     mp = m.new_page(); merr = []; mp.on('pageerror', lambda e: merr.append(str(e)))
@@ -226,6 +249,10 @@ with sync_playwright() as p:
     check(mp.locator('#tbl tbody tr').count() == 0 or not mp.locator('#v-table').is_visible(), 'celular: tabela larga oculta (cards no lugar)')
     check(mp.evaluate("getComputedStyle(document.querySelector('#typesbar')).position") == 'sticky', 'celular: chips de tipo fixos no topo (sticky)')
     check(mp.evaluate("getComputedStyle(document.querySelector('#ftoggle')).position") == 'fixed', 'celular: botão flutuante de filtros')
+    overlap = mp.evaluate("(()=>{const a=document.querySelector('#kstrip').getBoundingClientRect(); const b=document.querySelector('#ftoggle').getBoundingClientRect(); return !(b.right<a.left||b.left>a.right||b.bottom<a.top||b.top>a.bottom);})()")
+    check(overlap==False, 'celular: botão de filtros não cobre os KPIs')
+    clipped = mp.evaluate("[...document.querySelectorAll('#types .chip')].filter(e=>e.scrollWidth>e.clientWidth+2).length")
+    check(clipped==0, f'celular: chips de tipo sem corte ({clipped})')
     check(not mp.locator('#filters .fgrid').is_visible(), 'celular: filtros recolhidos')
     mp.click('#ftoggle'); mp.wait_for_timeout(300)
     sheet = mp.evaluate("(()=>{const r=document.querySelector('#filters').getBoundingClientRect();return [getComputedStyle(document.querySelector('#filters')).position, Math.round(r.bottom), Math.round(r.width)]})()")
