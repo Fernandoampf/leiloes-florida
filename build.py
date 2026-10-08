@@ -744,7 +744,7 @@ def render(items, stats, dropped, args):
 # ----------------------------------------------------------------------------- site / PWA assets (GitHub Pages)
 THEME = '#0d1b2a'          # header navy (template.html --navy); keep in sync with <meta name="theme-color">
 NAVY2, GOLD = '#1b2d45', '#c9a227'
-BG = '#f6f7f9'             # claro page background (template.html --bg): PWA splash / background_color
+BG = '#343b47'             # cinza2 page background (template.html --bg): PWA splash / background_color + password screen
 MANIFEST = {
     'name': 'LEILÃO – Leilões Flórida', 'short_name': 'LEILÃO',
     'description': 'Leilões de tax deed e foreclosure na Flórida – CHALLENGE CAPITAL',
@@ -799,7 +799,7 @@ def encrypt_page(plain, outdir, password_file):
             '--template-title', 'LEILÃO – Leilões Flórida', '--template-instructions', 'Acesso restrito. Digite a senha para abrir o painel.',
             '--template-placeholder', 'Senha', '--template-button', 'Entrar', '--template-remember', 'Lembrar neste aparelho',
             '--template-error', 'Senha incorreta.', '--template-toggle-show', 'Mostrar senha', '--template-toggle-hide', 'Ocultar senha',
-            '--template-color-primary', '#0d1b2a', '--template-color-secondary', '#f6f7f9']
+            '--template-color-primary', '#0d1b2a', '--template-color-secondary', BG]
     env = dict(os.environ, STATICRYPT_PASSWORD=pw)
     r = subprocess.run(cmd, env=env, cwd=HERE, capture_output=True, text=True)
     if r.returncode != 0: sys.exit('staticrypt failed: ' + (r.stderr or r.stdout)[-2000:])
