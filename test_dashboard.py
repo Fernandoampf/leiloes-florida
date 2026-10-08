@@ -236,6 +236,34 @@ with sync_playwright() as p:
     check(pg.evaluate('window.__dash.ITEMS.every(r=>!r.titleNv || r.risk!=="baixo")'), 'título não verificado não é risco baixo')
     check(pg.evaluate('window.__dash.ITEMS.filter(r=>r.hist&&r.hist.length).every(r=>r.fl.includes("rebid")&&r.risk!=="baixo")'), 'leilão anterior com flag')
     check(pg.locator('#bgloss').count()==1, 'botão Glossário')
+    lots = pg.evaluate("""(()=>{const d=window.__dash;
+      const lands=d.ITEMS.filter(r=>r.ty==="Lote"||r.ty==="Terreno");
+      const capped=lands.filter(r=>(r.lotBadges||[]).length);
+      const over=capped.filter(r=>r.sc!=null && r.sc>55);
+      const pasture=lands.find(r=>/LAKE PICKETT/i.test(r.addr||""));
+      const west=lands.filter(r=>/WEST AVE/i.test(r.addr||"") && /CLERMONT/i.test(r.addr||""));
+      const hwy=lands.find(r=>/HIGHWAY 27/i.test(r.addr||"") && /LEESBURG/i.test(r.addr||""));
+      const ranked=lands.slice().sort((a,b)=>(b.sc||0)-(a.sc||0));
+      const want=["ROYAL PALM","DALE DR","PALIFOX","ALTAMONTE","SANFORD","BALTIC"];
+      const ranks=want.map(w=>ranked.findIndex(r=>(r.addr||"").toUpperCase().includes(w)));
+      return {capped:capped.length, over:over.length, ranks,
+        pasture:pasture?{sc:pasture.sc,b:pasture.lotBadges}:null,
+        west:west.map(r=>({sc:r.sc,b:r.lotBadges})),
+        hwy:hwy?{sc:hwy.sc,sus:!!hwy.suspect,val:hwy.val,b:hwy.lotBadges}:null,
+        top:ranked.slice(0,6).map(r=>r.addr)};})()""")
+    check(lots["over"]==0 and lots["capped"]>30, f'lotes sem comps/gleba/uso comercial têm nota ≤55 ({lots["capped"]} limitados, acima={lots["over"]})')
+    check(lots["pasture"] and lots["pasture"]["sc"]<=55 and "big" in lots["pasture"]["b"], f'pastagem Lake Pickett limitada {lots["pasture"]}')
+    check(lots["west"] and all(w["sc"]<=55 and "use" in w["b"] for w in lots["west"]), f'West Ave comercial limitada {lots["west"]}')
+    check(lots["hwy"] and lots["hwy"]["sc"]<=55 and lots["hwy"]["sus"] and lots["hwy"]["val"]<200000, f'US-27 Leesburg suspeito e limitado {lots["hwy"]}')
+    check(all(i>=0 and i<12 for i in lots["ranks"]), f'os 6 lotes residenciais ficam no topo {lots["ranks"]} {lots["top"]}')
+    pg.click('#dchips [data-win="7"]'); pg.wait_for_timeout(400)
+    check('próximos 7 dias' in pg.inner_text('#fnotice'), 'filtro de data aparece no aviso')
+    span = pg.evaluate("""(()=>{const d1=document.querySelector('#d1').value, d2=document.querySelector('#d2').value;
+      const bad=window.__dash.CUR.filter(r=>r.date<d1||r.date>d2);
+      return {d1,d2,n:window.__dash.CUR.length,bad:bad.length, saved:!!localStorage.getItem('leilao_ui_v8')};})()""")
+    check(span["bad"]==0 and span["n"]>0 and span["saved"], f'próximos 7 dias recortam a lista e gravam a vista {span}')
+    pg.click('#dchips [data-win="0"]'); pg.wait_for_timeout(300)
+    check('próximos' not in (pg.locator('#fnotice').inner_text() or ''), 'Todas tira o período')
     pg.fill('#q', 'zzzz-sem-match'); pg.dispatch_event('#q', 'input'); pg.wait_for_timeout(400)
     check('Filtros ativos' in pg.inner_text('#fnotice'), 'aviso de filtros ativos')
     pg.click('#fnotice-clear'); pg.wait_for_timeout(400)
