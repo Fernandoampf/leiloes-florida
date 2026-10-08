@@ -1,85 +1,87 @@
 #!/usr/bin/env python3
 """
-CHALLENGE CAPITAL – Leilões Flórida :: dashboard builder
-=========================================================
-Regenerates  leiloes-florida.html  (single self-contained file, base64 thumbnails embedded)
-from the auction scans in /workspace/auc and /workspace/auc/statewide.
+CHALLENGE CAPITAL – Leilões Flórida :: dashboard builder (v4)
+==============================================================
+Builds the single-file dashboard from the public auction scans in /workspace/auc/statewide plus free public data:
+  - RealAuction (county clerk auction sites) previews: tax deeds (td/), foreclosures (fc/), past results (results/)
+  - Tranzon / U.S. Treasury land & property auctions (extra_*.json, extra_sources.py)
+  - PropertyOnion public property pages (details, AVM, rent, occupancy, mortgages, FEMA, photos)   -> po_fetch.py
+  - Florida DOR tax roll (NAL 2026P): use code, values, last sales, homestead + qualified sales for comps -> nal.py
+  - Florida Dept. of Health FLWMI: water (public/well) and wastewater (sewer/septic) per parcel     -> flwmi.py
+  - Redfin Data Center ZIP tracker, Zillow ZHVI and ZORI by ZIP (market, days on market, rents)
 
 Usage
-  python3 build.py                 # offline rebuild from data + ./cache (PropertyOnion details / photos)
-  python3 build.py --fetch         # also fetch missing PropertyOnion detail pages + photos into ./cache
-  python3 build.py --no-images     # no embedded photos (small file)
-  python3 build.py --data-date 2026-10-15 --budget 150000
-  python3 build.py --site           # GitHub Pages: writes index.html + manifest.webmanifest + icons/ + robots.txt
-                                   # index.html is password-protected with StaticCrypt (password read from
-                                   # --password-file, kept OUTSIDE the repo); plaintext goes to .plain/ (git-ignored)
+  python3 build.py                     # offline rebuild from data + ./cache  -> leiloes-florida.html
+  python3 build.py --fetch             # also fetch missing PropertyOnion pages, FLWMI utilities (polite, cached)
+  python3 build.py --data-date 2026-10-15
+  python3 build.py --site              # GitHub Pages: encrypted index.html + manifest.webmanifest + icons/ + robots.txt
+                                       # (password read from --password-file OUTSIDE the repo; plaintext -> .plain/)
+  python3 build.py --site --no-encrypt --out .plain/index.html   # local test copy (never commit)
+  python3 build.py --fetch-market      # refresh Redfin / Zillow ZIP files
 
-Weekly refresh: re-run the statewide scan scripts in /workspace/auc/statewide (cal.py, fetch.py, po.py,
-score.py) so td_scored.json / fc_*.json are current, then:  python3 build.py --fetch --data-date YYYY-MM-DD
+Refresh of the raw auction lists (weekly): in /workspace/auc/statewide run cal.py, fetch_more.py (or fetch.py per day),
+results.py (past results), extra_sources.py; NAL files: /workspace/auc/nal/dl.py. Then build.py --fetch.
 
-Nothing is invented: every number comes from RealAuction (county clerk auction sites), PropertyOnion or the
-county Property Appraiser data already in the scan files; missing values are shown as '—'. Repairs are an
-explicit, labelled estimate (age x size rule below).
+Nothing is invented: every number comes from the sources above; missing values are '—' and alerts say 'não verificado'.
+Repairs, holding, comps value and expected auction price are explicit, labelled estimates.
 """
-import argparse, ast, base64, csv, datetime as dt, gzip, io, json, math, os, re, sys, time, html
+import argparse, ast, base64, csv, datetime as dt, gzip, io, json, math, os, re, statistics, sys, time, html
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import rawdata, po_fetch, nal, flwmi
+
 AUC = '/workspace/auc'
 SW = os.path.join(AUC, 'statewide')
 CACHE = os.path.join(HERE, 'cache')
 ORLANDO = (28.5383, -81.3792)
 
-# ----------------------------------------------------------------------------- parameters (shown in the HTML)
-# Max bid = highest bid that still yields the minimum return (default 10%) after all costs.
-# These are the defaults of the editable "Premissas" panel in the HTML (the page recomputes everything client-side).
+# ----------------------------------------------------------------------------- parameters (defaults of the editable "Premissas")
 P = dict(
-    ret=10.0,               # minimum target return on cash invested (%)  -> "lance máx." / floor bid
-    flip=18.0,              # ROI at the reference bid needed for verdict FLIP (BidToFlip-style 'below 18%')
-    budget=150000,          # all-in budget (US$): bid + purchase costs + fees + repairs + holding
-    clerk=1.5,              # clerk / title / recording fees on purchase (% of bid)
-    docb=0.70,              # FL documentary stamp tax on the certificate/deed (% of bid)
-    fee=200,                # auction site / flat fees (US$)
-    qt=2500,                # quiet title (US$, tax deeds only)
-    qtm=3,                  # extra months for tax deeds (quiet title before resale)
-    ev=2500,                # eviction / cash-for-keys estimate (US$) when owner-occupied or tenant likely
-    evm=2,                  # extra months when eviction likely
-    months=6,               # base months until resale
-    hold=2.5,               # holding: property tax, insurance, utilities (% of resale value per year)
-    list=2.5, buyc=2.5, title=1.5, docs=0.70,   # sell side (% of resale): listing, buyer agent, title/escrow, doc stamps
-    yld=9.0,                # gross yield (rent x 12 / value) considered 'aluguel forte' (%)
+    ret=17.0,               # minimum target return on cash invested (%)  -> "lance máx." (Fernando)
+    tdxp=1,                 # tax deed: NET/ROI at the expected auction price (1) or at the opening bid (0)
+    flip=25.0,              # ROI at the reference bid for verdict FLIP (%); CONSIDERAR between ret and flip
+    lownet=25000,           # BidToFlip-style category 'lucro baixo' when NET below this (US$)
+    # ---- deductions: BidToFlip structure, realistic defaults (all editable in the page) ----
+    clerk1=3.0, clerk2=1.5,  # clerk fee: 3% of the first US$500 of the bid + 1.5% of the remainder
+    docb=0.70,              # FL documentary stamp tax on the deed (% of bid)
+    fee=0,                  # extra flat auction fees (US$)
+    qt=2500,                # quiet title (US$) – tax deeds and lots
+    qtm=0,                  # extra holding months for quiet title
+    ev=2500,                # eviction / cash-for-keys (US$) when occupied/tenant likely
+    evm=0,                  # extra months when eviction likely
+    rhb20=5, rhb15=10, rhb05=20, rhb95=30, rhbOld=40,   # rehab US$/sqft by year built (2020+, 2015-19, 2005-14, 1995-2004, older)
+    rhbMin=8000, rhbUnk=35000, rhbSqft=1500, rhbPool=5000, # minimum, unknown year, assumed sqft when unknown, pool
+    cont=10,                # rehab contingency (% of rehab)
+    months=6,               # holding months (built)
+    monthsLot=4,            # holding months (land)
+    usedom=0,               # 1 = exit time from Redfin ZIP days on market instead of fixed months
+    closem=1,               # closing months after an accepted offer (only when usedom=1)
+    htax=1.8,               # property tax %/yr of value when the real annual tax bill is unknown
+    hins=1.0,               # insurance %/yr of value while holding (built)
+    hutil=350,              # utilities / maintenance US$/month while holding (built)
+    hutilLot=50,            # US$/month for land (mowing)
+    clear=1500,             # land: clearing / survey (US$)
+    list=2.5, buyc=2.5, title=1.5, docs=0.70, misc=1500, wra=399,   # sell side: % of ARV + closing/misc + WRA (US$)
+    dep=5.0,                # deposit due at the auction (% of the bid) – RealAuction standard; confirm per county
+    yld=9.0,                # gross yield considered 'aluguel forte' (%)
     rebuild=175, depr=1.0,  # replacement cost: US$/sqft, depreciation %/year of age (max 60%)
-    refi=7.0, ltv=75, tax=1.8, ins=1.5, vac=10, mgmt=8,   # BRRRR: refi rate %, LTV %, tax %/yr, insurance %/yr, vacancy+maint % rent, mgmt % rent
-    min_value=10000,        # junk filter
+    refi=7.0, ltv=75, tax=1.8, ins=1.5, vac=10, mgmt=8,   # BRRRR
 )
+# BidToFlip-style age-tiered rehab (flat US$), used when there is no better estimate; +pool
+REHAB_TIERS = [(2020, 8000), (2015, 12000), (2005, 20000), (1995, 30000), (0, 40000)]
+REHAB_UNKNOWN = 25000
+REHAB_POOL = 5000
 
-def bid_calc(val, repairs, is_td, ref=None):
-    """Return-based max bid. Same formula as calc() in template.html (keep in sync).
-    invested = bid*(1+buy) + fees + quiet title + repairs + holding ; profit = val*(1-sell) - invested ; return = profit/invested"""
-    c = (P['clerk'] + P['docb']) / 100
-    months = P['months'] + (P['qtm'] if is_td else 0)
-    K = P['fee'] + (P['qt'] if is_td else 0) + repairs + val * P['hold'] / 100 / 12 * months
-    sell = (P['list'] + P['buyc'] + P['title'] + P['docs']) / 100
-    mb = (val * (1 - sell) / (1 + P['ret'] / 100) - K) / (1 + c)
-    cap = (P['budget'] - K) / (1 + c)
-    return mb, cap
-# repair estimate US$/sqft by year built (when no better info). Mobile homes use their own rate.
-REPAIR_RATES = [(2010, 8), (2000, 15), (1990, 20), (1975, 25), (1960, 30), (0, 35)]
-REPAIR_UNKNOWN_YEAR = 30
-REPAIR_MOBILE = 20
-REPAIR_MIN = 8000
-DEFAULT_SQFT = 1300
-
-# Bad foreclosures identified in the earlier review (junior lien / HOA foreclosure – senior mortgage survives,
-# or judgment far above budget). Shown with red EVITAR flag and score capped.
 AVOID = {
-    '15531 CITRUS HARVEST': 'Revisão anterior: excluído – lance/julgamento ~US$193k (acima do orçamento) e risco de hipoteca sênior.',
+    '15531 CITRUS HARVEST': 'Revisão anterior: lance/julgamento ~US$193k e risco de hipoteca sênior.',
     '897 TARAMUNDI': 'Revisão anterior: execução de valor baixo (provável HOA/2ª hipoteca) – hipoteca sênior sobrevive.',
     '2294 ALOHA BAY': 'Revisão anterior: execução de hipoteca júnior – 1ª hipoteca (~US$184k, 2019) sobrevive ao leilão.',
     '81 JAKE CT': 'Revisão anterior: execução de hipoteca júnior (Capital One) – 1ª hipoteca (~US$298k, 2019) sobrevive.',
 }
-
 COUNTY_NAMES = {'palmbeach': 'Palm Beach', 'miamidade': 'Miami-Dade', 'stlucie': 'St. Lucie', 'stjohns': 'St. Johns',
                 'indianriver': 'Indian River', 'santarosa': 'Santa Rosa', 'myorangeclerk': 'Orange', 'desoto': 'DeSoto'}
+
 # approximate county centres (used only when the property has no coordinates; distance then marked "~")
 COUNTY_LL = {
  'alachua': (29.67, -82.36), 'baker': (30.33, -82.28), 'bay': (30.24, -85.63), 'bradford': (29.95, -82.17),
@@ -142,80 +144,6 @@ def norm_street(s):
     s = (s or '').upper()
     s = re.sub(r'[^A-Z0-9 ]', ' ', s); return re.sub(r'\s+', ' ', s).strip()
 
-# ----------------------------------------------------------------------------- PropertyOnion fetch (optional)
-UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Safari/537.36"
-EXTRA = ['id','seo_url','images','prop_cntypicurl','prop_thumbnail','googlestreet_pic','prop_appraiserlink',
- 'usps_vacancy','vacantFlag','homesteadInd','ownerOccupied','landUseCode','mobileHomeInd','lbcs_structure_desc',
- 'lbcs_function_desc','lbcs_activity_desc','lbcs_site_desc','propertyClassID','countyLandUseCode','bedrooms','bathTotalCalc','sumLivingAreaSqFt',
- 'yearBuilt','effectiveYearBuilt','lotSizeAcres','lotSizeSqFt','zoning','marketTotalValue','marketValueLand','marketValueImprovement','currentAVMValue','vlowValue','vhighValue',
- 'vconfidenceScore','estimatedRentalValue','mtg1LoanAmt','mtg1Lender','mtg1RecordingDate','mtg2LoanAmt','mtg2Lender','mtg2RecordingDate',
- 'totalOpenLienNbr','totalOpenLienAmt','currentSalesPrice','currentSaleRecordingDate','ownerNAME1FULL','ownerNAME2FULL',
- 'mailingFullStreetAddress','mailingCity','mailingState','situsFullStreetAddress','situsCity','situsZIP5','situsLatitude','situsLongitude',
- 'fema_flood_zone','legalDescription','subdivisionName','buildingConditionCode','poolCode','apn','taxDeliquentYear']
-AUC_KEYS = ['auction_date','auction_status','listing_type','auction_openingbid','auction_fj','auction_caseno','auction_url',
- 'auction_plaintiffs','auction_defend','ownerOccupied']
-_S = None
-def session():
-    global _S
-    if _S is None:
-        import requests
-        _S = requests.Session(); _S.headers['User-Agent'] = UA
-    return _S
-
-def po_full(pid, slug, fetch=False):
-    p = os.path.join(CACHE, 'po_full', f'p_{pid}.json')
-    d = jload(p)
-    if d is not None or not fetch: return d
-    try:
-        h = session().get(f'https://propertyonion.com/property_search/properties/{slug}/{pid}', timeout=45).text
-        m = re.search(r'<script id="ng-state" type="application/json">(.*?)</script>', h, re.S)
-        if not m: return None          # transient – not cached, retried next run
-        pl = (json.loads(m.group(1)).get(f'property-detail-{pid}') or {}).get('payload') or {}
-        d = {k: pl.get(k) for k in EXTRA}
-        d['auctions'] = [{k: a.get(k) for k in AUC_KEYS} for a in (pl.get('auctionDetails') or [])]
-        d['fetched'] = time.strftime('%Y-%m-%d')
-        json.dump(d, open(p, 'w')); time.sleep(0.2)
-        return d
-    except Exception:
-        return None
-
-def po_search(street, zips, fetch=False):
-    q = re.sub(r'\s+3\d{4}$', '', street.strip()); q = re.sub(r'\s+(UNIT|APT|#|LT|LOT)\b.*$', '', q, flags=re.I).strip()
-    if not q or not re.match(r'^\d', q): return None, None
-    name = 's_' + re.sub(r'\W', '_', q) + '.json'
-    res = jload(os.path.join(CACHE, 'search', name))
-    if res is None: res = jload(os.path.join(SW, 'po', name))
-    if res is None and fetch:
-        try:
-            res = session().get('https://propertyonion.com/api/search/api/search-by-keywords', params={'keyword': q}, timeout=30).json()
-            json.dump(res, open(os.path.join(CACHE, 'search', name), 'w'))
-        except Exception: res = None
-    cands = [r['value'] for r in (res or []) if r.get('type') == 'Address']
-    for c in cands:
-        if zips and c.get('situsZIP5') == zips[-1]:
-            return c.get('propertyId') or c.get('id'), c.get('seoUrl') or c.get('seo_url')
-    if len(cands) == 1:
-        c = cands[0]; return c.get('propertyId') or c.get('id'), c.get('seoUrl') or c.get('seo_url')
-    return None, None
-
-def thumb(pid, url, fetch=False, width=400, height=300, quality=60):
-    p = os.path.join(CACHE, 'img', f'{pid}.jpg')
-    if os.path.exists(p): return p if os.path.getsize(p) > 0 else None
-    if not fetch or not url: return None
-    try:
-        from PIL import Image
-        r = session().get(url, timeout=40)
-        if r.status_code != 200 or len(r.content) < 500: raise Exception('http %s' % r.status_code)
-        im = Image.open(io.BytesIO(r.content)).convert('RGB')
-        w, h = im.size; tr = width / height
-        if w / h > tr: nw = int(h * tr); im = im.crop(((w - nw) // 2, 0, (w - nw) // 2 + nw, h))
-        else: nh = int(w / tr); im = im.crop((0, (h - nh) // 2, w, (h - nh) // 2 + nh))
-        im = im.resize((width, height), Image.LANCZOS)
-        im.save(p, 'JPEG', quality=quality, optimize=True, progressive=True)
-        return p
-    except Exception:
-        open(p, 'wb').close(); return None   # negative cache; delete empty file to retry
-
 # ----------------------------------------------------------------------------- calendar (auction time)
 def load_calendar():
     cal = jload(os.path.join(SW, 'calendars.json'), {})
@@ -234,227 +162,379 @@ def et_time(c):
         return f"{t2.strftime('%H:%M')} ET ({t.strftime('%H:%M')} CT)"
     return f"{t.strftime('%H:%M')} ET"
 
-# ----------------------------------------------------------------------------- raw item collection
-def collect(args):
-    items = []
-    td = jload(os.path.join(SW, 'td_scored.json'), [])
+# ----------------------------------------------------------------------------- DOR use codes (Florida DOR, Rule 12D-8.008)
+DOR_DESC = {'000': 'Terreno vago residencial', '001': 'Casa unifamiliar', '002': 'Mobile home', '003': 'Multifamiliar (10+ unid.)', '004': 'Condomínio',
+ '005': 'Cooperativa', '006': 'Residência p/ aposentados', '007': 'Residencial diverso', '008': 'Multifamiliar (<10 unid.)', '009': 'Área comum residencial',
+ '010': 'Terreno vago comercial', '011': 'Loja', '012': 'Loja/escritório/residência', '013': 'Loja de departamento', '014': 'Supermercado', '015': 'Shopping regional',
+ '016': 'Centro comercial', '017': 'Escritório (1 andar)', '018': 'Escritório (vários andares)', '019': 'Consultórios/clínica', '020': 'Terminal (aeroporto/marina/ônibus)',
+ '021': 'Restaurante', '022': 'Fast food / drive-in', '023': 'Banco', '024': 'Seguradora', '025': 'Serviços / reparos', '026': 'Posto de gasolina', '027': 'Concessionária / oficina',
+ '028': 'Estacionamento / parque de mobile homes', '029': 'Atacado / distribuição', '030': 'Floricultura / estufa', '031': 'Cinema drive-in', '032': 'Teatro / auditório',
+ '033': 'Bar / casa noturna', '034': 'Boliche / arena', '035': 'Atração turística', '036': 'Camping', '037': 'Hipódromo / pista', '038': 'Golfe', '039': 'Hotel / motel',
+ '040': 'Terreno vago industrial', '041': 'Indústria leve', '042': 'Indústria pesada', '043': 'Madeireira', '044': 'Processamento de alimentos', '045': 'Engarrafadora',
+ '046': 'Outros alimentos', '047': 'Mineração', '048': 'Armazém / depósito', '049': 'Pátio aberto / sucata', '050': 'Agrícola melhorado', '051': 'Lavoura', '052': 'Lavoura',
+ '053': 'Lavoura', '054': 'Silvicultura', '055': 'Silvicultura', '056': 'Silvicultura', '057': 'Silvicultura', '058': 'Silvicultura', '059': 'Silvicultura', '060': 'Pastagem',
+ '061': 'Pastagem', '062': 'Pastagem', '063': 'Pastagem', '064': 'Pastagem', '065': 'Pastagem', '066': 'Pomar / citros', '067': 'Aves / abelhas / peixes', '068': 'Laticínio',
+ '069': 'Plantas ornamentais', '070': 'Terreno vago institucional', '071': 'Igreja', '072': 'Escola privada', '073': 'Hospital privado', '074': 'Asilo', '075': 'Beneficente',
+ '076': 'Funerária / cemitério', '077': 'Clube / associação', '078': 'Sanatório', '079': 'Cultural', '080': 'Governo – vago', '081': 'Militar', '082': 'Floresta / parque público',
+ '083': 'Escola pública', '084': 'Faculdade', '085': 'Hospital público', '086': 'Condado', '087': 'Estado', '088': 'Federal', '089': 'Municipal', '090': 'Arrendamento de terra pública',
+ '091': 'Utilidade pública', '092': 'Mineração / petróleo', '093': 'Direitos de subsolo', '094': 'Faixa de domínio (rua/via)', '095': 'Rio / lago / submerso',
+ '096': 'Esgoto / aterro / brejo', '097': 'Recreação / parque', '098': 'Avaliação central (ferrovia/utilidade)', '099': 'Gleba não agrícola'}
+TYPES = ['Lote', 'Terreno', 'Casa', 'Townhouse', 'Condo', 'Mobile', 'Multifamily', 'Comercial', 'Outro']
+JUNK_UC = {'009', '094', '095', '096'}
+
+def type_from_dor(uc, acres, po_lu):
+    u = int(uc) if uc and uc.isdigit() else -1
+    if u < 0: return None
+    if u == 0: return 'Lote' if (acres is None or acres < 1) else 'Terreno'
+    if u == 1: return 'Townhouse' if po_lu == 'Townhouse' else 'Casa'
+    if u == 2: return 'Mobile'
+    if u in (3, 8): return 'Multifamily'
+    if u in (4, 5): return 'Townhouse' if po_lu == 'Townhouse' else 'Condo'
+    if u in (10, 40, 70, 80, 99) or 50 <= u <= 69: return 'Terreno'
+    if 11 <= u <= 39 or 41 <= u <= 49: return 'Comercial'
+    return 'Outro'
+
+def type_from_po(lu, acres, sqft, addr):
+    if not lu: return None
+    l = lu.lower()
+    if 'single' in l: return 'Casa'
+    if 'town' in l: return 'Townhouse'
+    if 'condo' in l: return 'Condo'
+    if 'mobile' in l or 'manufactured' in l: return 'Mobile'
+    if 'multi' in l or 'duplex' in l or 'apartment' in l: return 'Multifamily'
+    if l == 'land' or 'vacant' in l:
+        if sqft: return 'Condo' if re.search(r'#|\bUNIT\b|\bAPT\b', addr.upper()) else 'Outro'
+        return 'Lote' if (acres is None or acres < 1) else 'Terreno'
+    if 'agri' in l or 'farm' in l or 'timber' in l: return 'Terreno'
+    if any(k in l for k in ('commercial', 'retail', 'office', 'industrial', 'hotel', 'warehouse', 'business')): return 'Comercial'
+    return 'Outro'
+
+def type_fallback(it, po, sqft, acres):
+    o = it.get('ocpa')
+    if o and o.get('dor'): return type_from_dor(o['dor'][:2].zfill(3), acres, None)
+    lk = it.get('lake')
+    if lk and isinstance(lk.get('land'), str) and 'VACANT' in lk['land'].upper(): return 'Lote' if (acres is None or acres < 1) else 'Terreno'
+    pc = (po or {}).get('propertyClassID')
+    if pc == 'V': return 'Lote' if (acres is None or acres < 1) else 'Terreno'
+    if pc in ('C', 'I', 'O'): return 'Comercial'
+    if pc in ('E', 'F', 'A'): return 'Terreno' if pc == 'A' else 'Outro'
+    if sqft: return 'Casa'
+    if re.search(r'#|\bUNIT\b|\bAPT\b', it['raw'].get('addr', '').upper()): return 'Condo'
+    return 'Outro'
+
+def rehab_for(ty, yr, pool, units):
+    if ty in ('Lote', 'Terreno'): return 0, 'terreno – sem obra (limpeza/levantamento topográfico não incluídos)'
+    base = next(v for y, v in REHAB_TIERS if yr and yr >= y) if yr else REHAB_UNKNOWN
+    why = (f'faixa por idade (constr. {yr})' if yr else 'ano desconhecido') + f': US${base:,}'
+    mult = 1
+    if ty == 'Multifamily' and units and units > 1: mult = min(int(units), 4); why += f' × {mult} unid.'
+    if ty == 'Comercial': why += ' (comercial: estimativa fraca – vistoriar)'
+    est = base * mult
+    if pool: est += REHAB_POOL; why += f' + piscina US${REHAB_POOL:,}'
+    return est, why
+
+def use_group(uc):
+    return {'001': 'sfr', '004': 'condo', '005': 'condo', '002': 'mob', '003': 'multi', '008': 'multi', '000': 'land'}.get(uc, 'other' if uc else None)
+
+def comps_for(sales_by_zip, zp, uc, sqft, yr, lsq, addr_norm, ty):
+    """comparable qualified sales (DOR NAL) in the same ZIP + use group; estimate is clearly labelled."""
+    g = use_group(uc) if uc else {'Casa': 'sfr', 'Townhouse': 'sfr', 'Condo': 'condo', 'Mobile': 'mob', 'Multifamily': 'multi', 'Lote': 'land', 'Terreno': 'land'}.get(ty)
+    if not zp or not g or g == 'other': return None
+    rows = [s for s in sales_by_zip.get(zp, []) if use_group(s[1]) == g and nal.nstreet(s[8]) != addr_norm]
+    land = g == 'land'
+    if land:
+        rows = [s for s in rows if (s[10] == 'V') and s[7]]
+        if lsq: rows = [s for s in rows if 0.4 * lsq <= s[7] <= 2.5 * lsq]
+        rows.sort(key=lambda s: (abs(math.log((s[7] or 1) / (lsq or s[7] or 1))), -(s[3] * 12 + (s[4] or 0))))
+    else:
+        rows = [s for s in rows if s[5] and s[5] > 300 and s[10] != 'V']
+        if sqft: rows = [s for s in rows if 0.7 * sqft <= s[5] <= 1.4 * sqft]
+        if yr: rows = [s for s in rows if not s[6] or abs(s[6] - yr) <= 20]
+        rows.sort(key=lambda s: (abs((s[5] or 0) - (sqft or s[5] or 0)) / 100 + (abs((s[6] or yr or 0) - (yr or s[6] or 0)) / 10), -(s[3] * 12 + (s[4] or 0))))
+    sel = rows[:8]
+    if not sel: return None
+    out = dict(n=len(rows), g=g, l=[[s[8].title(), s[2], f'{s[3]}-{(s[4] or 0):02d}', s[5], s[6], s[7]] for s in sel])
+    if len(sel) >= 3:
+        if land:
+            pps = [s[2] / s[7] for s in sel if s[7]]
+            out['ppsf'] = statistics.median(pps); out['est'] = round(out['ppsf'] * lsq) if lsq else round(statistics.median([s[2] for s in sel]))
+        else:
+            pps = [s[2] / s[5] for s in sel]
+            out['ppsf'] = statistics.median(pps)
+            out['est'] = round(out['ppsf'] * sqft) if sqft else round(statistics.median([s[2] for s in sel]))
+    return out
+
+# ----------------------------------------------------------------------------- auction results (RealAuction past dates)
+def load_results():
+    """-> (stats dict, recent 3rd-party sales list). Basis: RealAuction 'Assessed Value' shown on the auction listing."""
+    import glob
+    rows = []
+    for f in glob.glob(os.path.join(SW, 'results', '*.json')):
+        host, date = os.path.basename(f)[:-5].rsplit('_', 1)
+        co = host.split('.')[0].replace('-', '').replace('myorangeclerk', 'orange')
+        try: data = json.load(open(f))
+        except Exception: continue
+        for r in data:
+            res = r.get('res') or {}
+            at = (r.get('Auction Type') or '').upper()
+            if not at: continue
+            t = 'TD' if 'TAX' in at else 'FC'
+            if 'realtaxdeed' in host and t != 'TD': continue
+            m = lambda k: rawdata.money(r.get(k))
+            ref = m('Opening Bid') if t == 'TD' else m('Final Judgment Amount')
+            av = m('Assessed Value') or m('Property App. Market Value')
+            st = 'sold' if res.get('A') == 'Auction Sold' else ('cxl' if re.search(r'cancel|bankrupt|redeem|postpon|reset|stay', str(res.get('B') or ''), re.I) else 'other')
+            sold = rawdata.money(res.get('D')) if st == 'sold' else None
+            to = res.get('ST') or ''
+            rows.append(dict(co=co, t=t, d=date.replace('-', '/'), addr=((r.get('Property Address') or '') + ' ' + (r.get('addr2') or '')).strip(),
+                             ref=ref, av=av, sold=sold, to=('3P' if '3rd' in to else 'PL' if 'Plaintiff' in to else ''), st=st, why=str(res.get('B') or '')[:60] if st != 'sold' else ''))
+    stats = {}
+    def add(key, r):
+        s = stats.setdefault(key, dict(n=0, sold=0, p3=0, pl=0, cxl=0, rav=[], rref=[]))
+        s['n'] += 1
+        if r['st'] == 'cxl': s['cxl'] += 1
+        if r['st'] == 'sold':
+            s['sold'] += 1
+            if r['to'] == '3P':
+                s['p3'] += 1
+                if r['av'] and r['sold']: s['rav'].append(r['sold'] / r['av'])
+                if r['ref'] and r['sold']: s['rref'].append(r['sold'] / r['ref'])
+            elif r['to'] == 'PL': s['pl'] += 1
+    for r in rows:
+        add(r['co'] + '|' + r['t'], r); add('*|' + r['t'], r)
+    def q(v, p):
+        v = sorted(v); return v[min(len(v) - 1, int(p * (len(v) - 1) + 0.5))] if v else None
+    for k, s in stats.items():
+        s['rav_med'], s['rav_p25'], s['rav_p75'] = q(s['rav'], .5), q(s['rav'], .25), q(s['rav'], .75)
+        s['rref_med'] = q(s['rref'], .5)
+        s['nrav'] = len(s['rav']); del s['rav']; del s['rref']
+        for kk in ('rav_med', 'rav_p25', 'rav_p75', 'rref_med'):
+            if s[kk] is not None: s[kk] = round(s[kk], 3)
+    dates = sorted({r['d'] for r in rows}, key=lambda d: (d[6:], d[:5]))
+    recent = sorted([r for r in rows if r['st'] == 'sold'], key=lambda r: (r['d'][6:], r['d'][:5]), reverse=True)
+    recent = [[r['co'], r['t'], iso(r['d']), r['addr'].title()[:60], r['ref'], r['av'], r['sold'], r['to']] for r in recent[:3000]]
+    return stats, recent, dict(rows=len(rows), first=iso(dates[0]) if dates else None, last=iso(dates[-1]) if dates else None)
+
+# ----------------------------------------------------------------------------- collection + enrichment
+def collect_items():
+    known = {}
+    for f in ('td_po.json', 'fc_po.json'):
+        for k, v in (jload(os.path.join(SW, f), {}) or {}).items():
+            if v and v.get('id'): known[k] = v
     ocpa = jload(os.path.join(SW, 'ocpa_td.json'), {})
     orange_en = jload(os.path.join(AUC, 'orange_enriched.json'), {})
     lake_en = jload(os.path.join(AUC, 'lake_enriched.json'), {})
-    stats = dict(td_total=len(td), td_noval=0, td_lowval=0)
-    for x in td:
-        po = x.get('po') or {}
-        if 'err' in po or 'nomatch' in po: po = {}
-        items.append(dict(src='TD', raw=x, po=po, ocpa=ocpa.get(x['aid']) or orange_en.get(x['aid']), lake=lake_en.get(x['aid'])))
-    fc_all = jload(os.path.join(SW, 'fc_all.json'), [])
-    fc_cand = {y['aid'] for y in jload(os.path.join(SW, 'fc_cand2.json'), [])}
-    fc_po = jload(os.path.join(SW, 'fc_po.json'), {})
-    stats['fc_total'] = len(fc_all); stats['fc_cand'] = len(fc_cand)
-    for x in fc_all:
-        a = x['addr'].upper()
-        avoid = next((k for k in AVOID if k in a), None)
-        if x['aid'] not in fc_cand and not avoid: continue
-        po = fc_po.get(x['aid']) or {}
-        if 'err' in po or 'nomatch' in po or not po.get('id'): po = {}
-        items.append(dict(src='FC', raw=x, po=po, avoid=avoid))
-    return items, stats
+    items = []
+    for src, x in rawdata.collect():
+        it = dict(src=src, raw=x, known=known.get(x['aid']))
+        if src == 'TD':
+            it['ocpa'] = ocpa.get(x['aid']) or orange_en.get(x['aid']); it['lake'] = lake_en.get(x['aid'])
+        a = x.get('addr', '').upper()
+        it['avoid'] = next((k for k in AVOID if k in a), None)
+        items.append(it)
+    return items
 
-# ----------------------------------------------------------------------------- per-item enrichment & scoring
-def classify(it, full, po):
-    lu = dictval((full or {}).get('landUseCode'))
-    sqft = num((full or po).get('sumLivingAreaSqFt'))
-    if lu:
-        m = {'Single Family': 'Casa', 'Townhouse': 'Townhouse', 'Condominium': 'Condo', 'Mobile': 'Mobile',
-             'Multifamily': 'Multifamiliar', 'Land': 'Lote'}.get(lu)
-        if m == 'Lote' and sqft:   # PO says land but has living area – unclear
-            return 'Condo' if re.search(r'#|\bUNIT\b|\bAPT\b', it['raw'].get('addr', '').upper()) else 'Indefinido'
-        if m: return m
-        return 'Outro'
-    o = it.get('ocpa')
-    if o and o.get('dor'):
-        d = o['dor'][:2]
-        return {'00': 'Lote', '01': 'Casa', '02': 'Mobile', '04': 'Condo', '08': 'Multifamiliar', '03': 'Multifamiliar'}.get(d, 'Outro')
-    lk = it.get('lake')
-    if lk and isinstance(lk.get('land'), str):
-        if 'VACANT' in lk['land'].upper(): return 'Lote'
-    pc = (po or {}).get('propertyClassID')
-    if pc == 'V': return 'Lote'
-    if pc in ('C', 'I', 'O', 'E', 'F', 'A'): return 'Outro'
-    if sqft: return 'Casa'
-    addr = it['raw'].get('addr', '').upper()
-    if re.search(r'#|\bUNIT\b|\bAPT\b', addr): return 'Condo'
-    return 'Indefinido'
+def zips_of(x): return re.findall(r'\b(3\d{4})\b', x.get('addr', ''))
+def street_of(x): return x.get('street') or re.sub(r'\s+3\d{4}\b.*$', '', x.get('addr', ''))
 
-def repairs_for(cat, sqft, yr):
-    if cat == 'Lote': return 0, 'lote – sem obra (limpeza/levantamento não incluídos)'
-    s = sqft or DEFAULT_SQFT
-    if cat == 'Mobile': rate = REPAIR_MOBILE
-    elif yr: rate = next(r for y, r in REPAIR_RATES if yr >= y)
-    else: rate = REPAIR_UNKNOWN_YEAR
-    est = max(REPAIR_MIN, round(s * rate / 500) * 500)
-    why = f"US${rate}/sqft × {int(s):,} sqft" + ('' if sqft else ' (área desconhecida: 1.300 sqft assumidos)') + ('' if yr or cat == 'Mobile' else ' (ano desconhecido)')
-    return est, why
+def prefetch_all(items, args):
+    print(f'PropertyOnion: {len(items)} itens (somente os que faltam no cache são baixados)…', flush=True)
+    po_fetch.prefetch([dict(street=street_of(it['raw']), zips=zips_of(it['raw']), known=it['known']) for it in items], threads=args.threads)
+
+def county_slug(c): return c.replace('myorangeclerk', 'orange').replace('-', '')
+
+def nal_index(items, today):
+    """match every item to the DOR roll of its county; returns (parcel facts by aid, sales by zip, county numbers)"""
+    by_c = {}
+    for it in items:
+        x = it['raw']; c = county_slug(x.get('county') or '')
+        if not c: continue
+        d = by_c.setdefault(c, dict(p=set(), a=set(), its=[]))
+        pid = nal.npid(x.get('parcel'))
+        if pid: d['p'].add(pid)
+        zs = zips_of(x)
+        st = nal.nstreet(re.sub(r'\s+(UNIT|APT|#)\s*\S+$', '', street_of(x)))
+        if st and zs: d['a'].add(st + '|' + zs[-1])
+        d['its'].append(it)
+    facts, sales, cono = {}, {}, {}
+    zfiles = nal.zips()
+    for c, d in sorted(by_c.items()):
+        if c not in zfiles: continue
+        m = re.search(r'_(\d{2})_', os.path.basename(zfiles[c])); cono[c] = m.group(1) if m else None
+        cd = nal.load(c, d['p'], d['a'])
+        if not cd: continue
+        P_ = cd['parcels']
+        for it in d['its']:
+            x = it['raw']; pid = nal.npid(x.get('parcel')); zs = zips_of(x)
+            st = nal.nstreet(re.sub(r'\s+(UNIT|APT|#)\s*\S+$', '', street_of(x)))
+            f = P_.get('p:' + pid) if pid else None
+            how = 'parcela'
+            if not f and st and zs: f = P_.get('a:' + st + '|' + zs[-1]); how = 'endereço'
+            if f: f = dict(f); f['how'] = how; facts[x['aid']] = f
+        for s in cd['sales']: sales.setdefault(s[0], []).append(s)
+    return facts, sales, cono
 
 def build_items(args):
     cal = load_calendar()
-    items, stats = collect(args)
-    picks = {x['aid'] for x in jload(os.path.join(SW, 'final_picks_raw.json'), [])}
+    items = collect_items()
+    if args.fetch: prefetch_all(items, args)
     today = args.data_date
-    out, dropped = [], {}
+    facts, sales_by_zip, cono = nal_index(items, today)
+    ares, _, _ = load_results()
+    seen = jload(os.path.join(CACHE, 'seen_v4.json'), {})
+    baseline = not seen                      # first v4 run: nothing is 'new'
+    mk = load_market()
+    zcounty = zip_county_map()
+    out, dropped, done, fw_jobs = [], {}, set(), []
     def drop(reason): dropped[reason] = dropped.get(reason, 0) + 1
-    seen = set()
     for it in items:
-        x, po = it['raw'], it['po']
-        src = it['src']
-        if x['aid'] in seen: continue
-        seen.add(x['aid'])
+        x, src = it['raw'], it['src']
+        key = src + x['aid']
+        if key in done: continue
+        done.add(key)
         d_iso = iso(x['date'])
         if d_iso < today: drop('leilão já passou'); continue
-        c = cal.get((x['host'], x['date'], src))
+        c = cal.get((x.get('host'), x['date'], src)) if src in ('TD', 'FC') else None
         if d_iso == today and c and c['active'] == 0: drop('leilão de hoje já encerrado'); continue
-        if not x.get('addr', '').strip(): drop('sem endereço (timeshare / múltiplas parcelas)'); continue
-        # PropertyOnion detail (cached) – also try search match for FC items without match
-        pid, slug = po.get('id'), po.get('seo_url')
-        if not pid and x.get('street'):
-            pid, slug = po_search(x['street'], re.findall(r'\b(3\d{4})\b', x['addr']), fetch=args.fetch)
-        full = po_full(pid, slug, fetch=args.fetch) if pid else None
-        if full and full.get('err'): full = None
-        P0 = full or po or {}
-        has_po = bool(pid and (full or po))
-        av = num(x.get('av'))
-        mkt = num(P0.get('marketTotalValue'))
-        o = it.get('ocpa')
-        ocpa_mkt = None
-        if o and o.get('vals'):
-            ocpa_mkt = num(o['vals'][0].get('marketValue'))
+        if not x.get('addr', '').strip() or not re.search(r'\d', x.get('addr', '')) and not x.get('parcel'):
+            drop('sem endereço nem parcela (timeshare / múltiplas parcelas)'); continue
+        pid, slug, full = po_fetch.resolve(street_of(x), zips_of(x), None, it['known'], fetch=False)
+        P0 = full or it['known'] or {}
+        has_po = bool(pid and P0)
+        nf = facts.get(x['aid'])
+        cs = county_slug(x.get('county') or '') or zcounty.get((zips_of(x) or [''])[-1], '')
+        if not cs: drop('condado desconhecido'); continue
+        # ---- values
+        av = num(x.get('av')); mkt = num(P0.get('marketTotalValue'))
+        o = it.get('ocpa'); ocpa_mkt = num(o['vals'][0].get('marketValue')) if (o and o.get('vals')) else None
         lk = it.get('lake'); lake_mv = num(lk.get('mv')) if lk else None
+        jv = num(nf.get('jv')) if nf else None
         avm = num(P0.get('currentAVMValue'))
-        cat = classify(it, full, po)
-        best = max([v for v in [av, mkt, ocpa_mkt, lake_mv, avm] if v] or [0])
-        if best == 0: drop('sem nenhum valor (avaliação/mercado/AVM)'); continue
-        if best < P['min_value']: drop('valor < US$10 mil'); continue
-        if cat == 'Outro': drop('comercial/industrial/outro (fora do foco casa/lote)'); continue
-        legal = (P0.get('legalDescription') or x.get('legal') or '')
-        lbcs = ' '.join(str(P0.get(k) or '') for k in ('lbcs_site_desc', 'lbcs_function_desc'))
-        if JUNK_RE.search(legal + ' ' + lbcs) and cat in ('Lote', 'Indefinido'): drop('lixo: retenção/drenagem/área comum/faixa'); continue
         acres = num(P0.get('lotSizeAcres'))
         if acres is None and num(P0.get('lotSizeSqFt')): acres = num(P0.get('lotSizeSqFt')) / 43560
-        if cat == 'Lote' and acres is not None and acres < 0.05: drop('lixo: lote-faixa (< 0,05 acre)'); continue
-        sqft = num(P0.get('sumLivingAreaSqFt')); yr = num(P0.get('yearBuilt'))
+        if acres is None and nf and nf.get('lsq'): acres = nf['lsq'] / 43560
+        sqft = num(P0.get('sumLivingAreaSqFt')) or (num(nf.get('lvg')) if nf else None)
+        yr = num(P0.get('yearBuilt')) or (num(nf.get('ayb')) if nf else None)
         if yr and yr < 1800: yr = None
+        lu = dictval(P0.get('landUseCode'))
+        uc = (nf or {}).get('uc')
+        ty = type_from_dor(uc, acres, lu) if uc else None
+        tsrc = 'DOR (código de uso do condado)' if ty else None
+        if not ty:
+            ty = type_from_po(lu, acres, sqft, x.get('addr', ''))
+            tsrc = 'PropertyOnion' if ty else None
+        if not ty:
+            ty = type_fallback(dict(it, raw=x), P0, sqft, acres); tsrc = 'inferido (dados incompletos)'
+        if src == 'PV' and x.get('desc'):
+            dsc = x['desc'].upper()
+            if re.search(r'WAREHOUSE|COMMERCIAL|LAUNDRY|OFFICE|RETAIL', dsc): ty = 'Comercial'
+            elif re.search(r'\bAC\b.*(DEVELOPMENT|PARCEL|SITE)|ACRE (WATERFRONT )?PARCEL|LAND', dsc) and not re.search(r'\d\s*BR', dsc): ty = 'Terreno' if (acres or 0) >= 1 or re.search(r'(\d+\.?\d*)\s*(\+/-|±)?\s*AC', dsc) else 'Lote'
+            elif re.search(r'\d\s*BR', dsc): ty = ty if ty in ('Casa', 'Mobile', 'Condo', 'Townhouse') else 'Casa'
+            tsrc = tsrc or 'descrição do leilão'
+        land = ty in ('Lote', 'Terreno')
         beds = num(P0.get('bedrooms')); baths = num(P0.get('bathTotalCalc'))
-        if cat == 'Lote': beds = baths = sqft = yr = None
-        # ---- value used for resale (conservative)
-        mvals = [v for v in [av, mkt, ocpa_mkt, lake_mv] if v]
+        if land: beds = baths = sqft = yr = None
+        mvals = [v for v in [av, mkt, ocpa_mkt, lake_mv, jv] if v]
         base = max(mvals) if mvals else None
-        if cat == 'Lote':
-            val = base or avm; vsrc = 'maior entre avaliação do condado e valor de mercado' if base else 'AVM'
+        legal = (P0.get('legalDescription') or x.get('legal') or (nf or {}).get('leg') or '')
+        lbcs = ' '.join(str(P0.get(k) or '') for k in ('lbcs_site_desc', 'lbcs_function_desc'))
+        junk = bool((uc in JUNK_UC) or (land and JUNK_RE.search(legal + ' ' + lbcs)) or (land and acres is not None and acres < 0.05))
+        # comps (DOR qualified sales)
+        zip5 = str(P0.get('situsZIP5') or '') or (nf or {}).get('zip') or (zips_of(x) or [''])[-1] or None
+        lsq = (nf or {}).get('lsq') or (acres * 43560 if acres else None)
+        cp = comps_for(sales_by_zip, zip5, uc, sqft, int(yr) if yr else None, lsq, nal.nstreet((nf or {}).get('addr') or street_of(x)), ty) if zip5 else None
+        cest = cp.get('est') if cp else None
+        if land:
+            val = base or avm; vsrc = ('maior valor de avaliação/mercado do condado' if base else ('AVM PropertyOnion' if avm else None))
         elif base and avm:
-            val = min(base, avm); vsrc = 'menor entre (valor de mercado/avaliação) e AVM'
+            val = min(base, avm); vsrc = 'menor entre valor do condado e AVM PropertyOnion'
         else:
-            val = base or avm; vsrc = 'somente avaliação do condado' if (base and not mkt and not ocpa_mkt) else ('somente AVM' if not base else 'valor de mercado (sem AVM)')
-        ref = num(x.get('ob')) if src == 'TD' else num(x.get('fj'))
-        repairs, rwhy = repairs_for(cat, sqft, yr)
-        mb, cap = bid_calc(val, repairs, src == 'TD')
-        sugg = max(0.0, min(mb, cap))
-        capped = mb > cap
-        fits = ref is not None and sugg >= ref and sugg > 0
-        # ---- location / distance
+            val = base or avm
+            vsrc = ('valor do condado (sem AVM)' if base else 'AVM PropertyOnion (sem valor do condado)') if val else None
+        if not val and cest:
+            val = cest; vsrc = 'comps DOR (estimativa)'
+        if val and val < 1000: val = None
+        ref = num(x.get('ob')) if src == 'TD' else num(x.get('fj')) if src == 'FC' else num(x.get('ref'))
+        pool = bool(dictval(P0.get('poolCode')))
+        units = (nf or {}).get('nu') or num(P0.get('sumResidentialUnits'))
+        repairs, rwhy = rehab_for(ty, int(yr) if yr else None, pool, units)
+        # ---- location
         lat, lon = num(P0.get('situsLatitude')), P0.get('situsLongitude')
         try: lon = float(lon) if lon is not None else None
         except Exception: lon = None
-        if lat and lon and 24 < lat < 31.2 and -88 < lon < -79.8:
+        util = None; gsrc = 'PropertyOnion'
+        co_no = cono.get(cs)
+        if nf and co_no:
+            util = flwmi.get_by_parcel(co_no, nf.get('pid'))
+            if util is not None and not util.get('_n'): util = None
+            if args.fetch and util is None: fw_jobs.append(('p', co_no, nf.get('pid')))
+        if not (lat and lon and 24 < lat < 31.2 and -88 < lon < -79.8):
+            lat = lon = None
+            if util and util.get('_lat'): lat, lon = round(util['_lat'], 6), round(util['_lon'], 6); gsrc = 'FDOH/DOR (centro da parcela)'
+        if util is None and lat and lon:
+            util = flwmi.get(lat, lon)
+            if util is not None and not util.get('_n'): util = None
+            if util is not None: util['_pt'] = 1
+            if args.fetch and util is None: fw_jobs.append(('g', lat, lon))
+        if lat and lon:
             dist = hav(ORLANDO, (lat, lon)); dapprox = False
         else:
-            lat = lon = None
-            cc = COUNTY_LL.get(x['county'].replace('myorangeclerk', 'orange'))
-            dist = hav(ORLANDO, cc) if cc else None; dapprox = True
-        # ---- auctions in PO for same date
+            cc = COUNTY_LL.get(cs); dist = hav(ORLANDO, cc) if cc else None; dapprox = True
+        # ---- PO auctions for same date
         same = [a for a in (P0.get('auctions') or []) if (a.get('auction_date') or '').startswith(d_iso)]
-        plaint = ' '.join(str(a.get('auction_plaintiffs') or '') for a in same)
+        plaint_raw = ' '.join(str(a.get('auction_plaintiffs') or '') for a in same)
         defend = ' '.join(str(a.get('auction_defend') or '') for a in same)
         status = [a.get('auction_status') for a in same]
         # ---- flags
         flags, notes = [], []
         occ_v = str(dictval(P0.get('ownerOccupied')) or '').lower()
-        owner = (P0.get('ownerNAME1FULL') or (o or {}).get('owner') or (lk or {}).get('owner') or x.get('owner') or '').strip()
+        owner = (P0.get('ownerNAME1FULL') or (nf or {}).get('own') or (o or {}).get('owner') or (lk or {}).get('owner') or x.get('owner') or '').strip()
         owner2 = P0.get('ownerNAME2FULL') or ''
-        mail = norm_street(P0.get('mailingFullStreetAddress')); situs = norm_street(P0.get('situsFullStreetAddress'))
-        occupied = occ_v in ('yes', 'owner occupied') or P0.get('homesteadInd') is True or (bool(mail) and mail == situs)
+        mail = norm_street(P0.get('mailingFullStreetAddress') or (nf or {}).get('oa')); situs = norm_street(P0.get('situsFullStreetAddress') or (nf or {}).get('addr'))
+        homestead = P0.get('homesteadInd') is True or bool((nf or {}).get('hm'))
+        occupied = occ_v in ('yes', 'owner occupied') or homestead or (bool(mail) and mail == situs)
         absentee = occ_v == 'absentee' or (bool(mail) and bool(situs) and mail != situs)
-        if cat == 'Lote': occupied = False; absentee = False
-        if occupied: flags.append('occ'); notes.append('Dono mora no imóvel: possível despejo (eviction) após a compra.')
-        if DECEASED_RE.search(owner + ' ' + owner2) or (src == 'FC' and re.search(r'DECEASED|ESTATE OF|UNKNOWN HEIRS', defend, re.I)):
-            flags.append('dec'); notes.append('Dono falecido/espólio: herdeiros podem contestar; checar título.')
+        if land: occupied = absentee = False
+        if occupied: flags.append('occ')
+        if DECEASED_RE.search(owner + ' ' + owner2) or (src == 'FC' and re.search(r'DECEASED|ESTATE OF|UNKNOWN HEIRS', defend, re.I)): flags.append('dec')
         usps_vac = P0.get('usps_vacancy') == 'Y' or str(dictval(P0.get('vacantFlag')) or '').upper() in ('Y', 'YES')
-        if absentee and not occupied and cat != 'Lote' and not usps_vac:
-            flags.append('ten'); notes.append('Dono não reside (correspondência em outro endereço): inquilino provável.')
-        if src == 'FC' and CODE_RE.search(defend):
-            flags.append('code'); notes.append('Município é réu na ação: possível multa/lien de code enforcement.')
+        if absentee and not occupied and not land and not usps_vac: flags.append('ten')
+        if src == 'FC' and CODE_RE.search(defend): flags.append('code')
+        hoa_pl = bool(src == 'FC' and HOA_RE.search(plaint_raw))
+        m1 = num(P0.get('mtg1LoanAmt')); m1d = (P0.get('mtg1RecordingDate') or '')[:4]
         mtg_surv = False
         if src == 'FC':
-            m1 = num(P0.get('mtg1LoanAmt')); m1d = (P0.get('mtg1RecordingDate') or '')[:4]
-            hoa_pl = bool(HOA_RE.search(plaint))
             if it.get('avoid'): mtg_surv = True
             elif hoa_pl and (m1 or 0) > 0: mtg_surv = True
             elif m1 and ref and m1d and m1d >= '2012' and m1 > 1.3 * ref:
                 lender_tok = set(re.findall(r'[A-Z]{4,}', (P0.get('mtg1Lender') or '').upper())) - {'BANK', 'MORTGAGE', 'NATIONAL', 'ASSOCIATION', 'TRUST', 'FINANCIAL', 'LOAN', 'CORP', 'CORPORATION', 'COMPANY', 'SERVICES', 'HOME', 'FUNDING'}
-                if not (lender_tok & set(re.findall(r'[A-Z]{4,}', plaint.upper()))): mtg_surv = True
-            if mtg_surv:
-                flags.append('mtg'); notes.append(f"Hipoteca sênior pode sobreviver (1ª hipoteca {('US$' + format(int(m1), ',')) if m1 else '?'} {m1d} > julgamento): confirmar no processo.")
-            if hoa_pl: flags.append('hoa'); notes.append('Autor da execução é associação (HOA/condomínio).')
-        if 'hoa' not in flags and cat == 'Condo':
-            flags.append('hoa'); notes.append('Condomínio/HOA: taxas mensais e possíveis débitos de associação.')
+                if not (lender_tok & set(re.findall(r'[A-Z]{4,}', plaint_raw.upper()))): mtg_surv = True
+            if mtg_surv: flags.append('mtg')
+            if hoa_pl: flags.append('hoa')
+            if ref and val and ref < 0.5 * val: flags.append('jr')
+        if 'hoa' not in flags and ty in ('Condo', 'Townhouse'): flags.append('hoa')
         fz = (P0.get('fema_flood_zone') or '').upper().strip()
-        if fz and re.match(r'^(A|V)', fz): flags.append('flood'); notes.append(f'Zona de enchente FEMA {fz}: seguro obrigatório se financiado.')
-        if occupied and ref and val and ref < (0.10 if src == 'TD' else 0.25) * val:
-            flags.append('red'); notes.append('Dívida pequena vs. valor e dono no imóvel: alta chance de resgate/cancelamento antes do leilão.')
-        unverified = not has_po or not (avm or mkt or ocpa_mkt)
-        if unverified: flags.append('unv'); notes.append('Dados não verificados (sem registro PropertyOnion ou valor só da avaliação do condado).')
-        if any(s and s.lower().startswith('cancel') for s in status):
-            flags.append('cxl'); notes.append('PropertyOnion marca este leilão como cancelado – confirmar no site do leilão.')
-        if usps_vac and cat != 'Lote': flags.append('vac')
+        if fz and re.match(r'^(A|V)', fz): flags.append('flood')
+        if occupied and ref and val and ref < (0.10 if src == 'TD' else 0.25) * val: flags.append('red')
+        if not has_po and not nf: flags.append('unv')
+        if any(s and s.lower().startswith('cancel') for s in status): flags.append('cxl')
+        if usps_vac and not land: flags.append('vac')
+        if junk: flags.append('junk')
+        if homestead and src == 'TD': flags.append('hmtd')
         if it.get('avoid'): flags.insert(0, 'avoid'); notes.insert(0, AVOID[it['avoid']])
-        if x['aid'] in picks: flags.append('pick')
-        if src == 'TD':
-            notes.append('Tax deed: hipotecas são extintas, mas o título normalmente exige quiet title (~US$2–3k, incluído nos custos).' if cat != 'Lote' else 'Tax deed de lote: verifique zoneamento, acesso e se é edificável.')
-        else:
-            notes.append('Foreclosure: lance de abertura não publicado – o banco costuma dar lance até o valor do julgamento.')
-        # ---- score
-        margin = (mb - ref) / val if (ref is not None and val) else 0
-        equity = (mb - ref) if ref is not None else 0
-        s_spread = 3.0 * min(1.0, max(0.0, margin) / 0.45) + 1.5 * min(1.0, max(0.0, equity) / 60000)
-        s_budget = 0.0 if not fits else (2.0 if not capped else (1.0 if mb <= 1.5 * cap else 0.5))
-        # (the 'imóvel caro p/ o orçamento' note is rendered by the page, since it depends on the editable premissas)
-        if d_iso == today:
-            notes.insert(0, 'Leilão HOJE – provavelmente já encerrado; confirme no site.')
-        if dist is None: s_prox = 0
-        else: s_prox = 1.5 if dist <= 25 else 1.2 if dist <= 50 else 0.9 if dist <= 75 else 0.6 if dist <= 100 else 0.3 if dist <= 150 else 0.0
-        conf = 0.0
-        if has_po: conf += 0.5
-        if avm or (cat == 'Lote' and (mkt or ocpa_mkt)): conf += 0.5
-        if (cat == 'Lote' and acres) or (cat != 'Lote' and sqft and yr): conf += 0.5
-        two = [v for v in [base, avm] if v] if cat != 'Lote' else [v for v in [av, mkt or ocpa_mkt or lake_mv] if v]
-        if len(two) == 2 and max(two) / min(two) <= 1.35: conf += 0.5
-        PEN = dict(occ=1.0, dec=0.75, ten=0.5, code=1.0, mtg=4.0, hoa=0.5, flood=0.5, red=1.0, unv=1.5, cxl=2.0)
-        pen = sum(PEN.get(f, 0) for f in flags)
-        score = max(0.0, min(10.0, s_spread + s_budget + s_prox + conf - pen))
-        if 'avoid' in flags or 'mtg' in flags: score = min(score, 1.5 if 'avoid' not in flags else 1.0)
-        # ---- links / photo
+        if d_iso == today: notes.insert(0, 'Leilão HOJE – provavelmente já encerrado; confirme no site.')
+        # ---- photos (remote URLs, lazy-loaded; nothing embedded)
+        imgs = []
+        for k in ('images', 'manual_img', 'prop_cntypicurl', 'googlestreet_pic', 'googlemap_pic', 'prop_hudpicurl', 'wholesaler_pic1', 'wholesaler_pic2', 'wholesaler_pic3'):
+            v = P0.get(k)
+            for u in (v if isinstance(v, list) else [v]):
+                if isinstance(u, str) and u.startswith('http') and u not in imgs and not re.search(r'maps\.googleapis\.com', u): imgs.append(u)
+        if x.get('img'): imgs.insert(0, x['img'])
+        # ---- links
         po_url = f'https://propertyonion.com/property_search/properties/{slug}/{pid}' if (pid and slug) else None
-        pa = (full or {}).get('prop_appraiserlink') or x.get('plink')
+        pa = P0.get('prop_appraiserlink') or x.get('plink')
         if pa and ('key=&' in pa or pa.endswith('/parcel/') or 'MULTIPLE' in pa): pa = None
-        img = None
-        if not args.no_images and pid:
-            imgs = (full or {}).get('images') or []
-            url = imgs[0] if imgs else None
-            pth = thumb(pid, url, fetch=args.fetch)
-            if pth:
-                img = 'data:image/jpeg;base64,' + base64.b64encode(open(pth, 'rb').read()).decode()
-            elif url:
-                img = url   # remote fallback
         addr = re.sub(r',\s*FL-?\s*', ', FL ', x['addr']).replace(' ,', ',').strip()
-        # ---- extra intel (only real fields; None when missing)
         def plist(sv):
             try:
                 v = ast.literal_eval(sv) if sv.strip().startswith('[') else [sv]
@@ -465,37 +545,85 @@ def build_items(args):
                             b=num(a.get('auction_openingbid')) or num(a.get('auction_fj')))
                        for a in (P0.get('auctions') or []) if (a.get('auction_date') or '')[:10] and not (a.get('auction_date') or '').startswith(d_iso)],
                       key=lambda h: h['d'], reverse=True)
-        zip5 = str(P0.get('situsZIP5') or '') or (re.findall(r'\b(3\d{4})\b', x['addr']) or [''])[-1] or None
-        city = dictval(P0.get('situsCity'))
+        city = dictval(P0.get('situsCity')) or (nf or {}).get('city')
         tdy = num(P0.get('taxDeliquentYear')); tdy = int(tdy) if tdy and 1990 < tdy <= int(today[:4]) else None
         lsp = num(P0.get('currentSalesPrice')); lsd = (P0.get('currentSaleRecordingDate') or '')[:10] or None
-        hoa_pl = bool(src == 'FC' and HOA_RE.search(plaint))
-        cond = dictval(P0.get('buildingConditionCode')); pool = dictval(P0.get('poolCode'))
+        if not lsp and nf and nf.get('s1') and nf['s1'][0] and nf['s1'][1]:
+            lsp = nf['s1'][0]; lsd = f"{nf['s1'][1]}-{(nf['s1'][2] or 1):02d}"
+        taxamt = num(P0.get('taxAmt')); taxamt = taxamt if taxamt and taxamt > 10 else None
+        front = num(P0.get('lotSizeFrontageFeet')); front = front if front and front > 5 else None
+        sewer = dictval(P0.get('sewerCode'))
+        # ---- expected auction price from county history (3rd-party sales, sold / assessed value)
+        st_c = ares.get(cs + '|' + src) if src in ('TD', 'FC') else None
+        st_s = ares.get('*|' + src) if src in ('TD', 'FC') else None
+        rs = st_c if (st_c and st_c.get('nrav', 0) >= 5) else st_s
+        xp = None
+        if rs and rs.get('rav_med') and av:
+            xp = dict(v=round(max(ref or 0, rs['rav_med'] * av)), r=rs['rav_med'], n=rs['nrav'], lvl='condado' if rs is st_c else 'estado',
+                      lo=round(max(ref or 0, (rs.get('rav_p25') or rs['rav_med']) * av)), hi=round(max(ref or 0, (rs.get('rav_p75') or rs['rav_med']) * av)))
+        zm = mk.get(zip5) if zip5 else None
+        dom = None
+        if zm and zm.get('rf') and zm['rf'][-1].get('dom') is not None and (zm['rf'][-1].get('sold') or 0) >= 3: dom = zm['rf'][-1]['dom']
+        zori = (zm or {}).get('zr')
+        rent = num(P0.get('estimatedRentalValue')); rsrc = 'PropertyOnion' if rent else None
+        if not rent and zori and not land and ty != 'Comercial': rent = zori; rsrc = 'Zillow ZORI (mediana do ZIP)'
+        first = seen.get(key) or ('0000-00-00' if baseline else today)
+        seen[key] = first
         rec = dict(
-            id=x['aid'], t=src, cat=cat, co=county_name(x['county']), cs=x['county'].replace('myorangeclerk', 'orange'),
-            date=d_iso, time=et_time(c), addr=addr, owner=owner or None, case=x.get('case'), parcel=x.get('parcel'),
-            ref=ref, av=av, mkt=mkt or ocpa_mkt or lake_mv, avm=avm, avmLo=num(P0.get('vlowValue')), avmHi=num(P0.get('vhighValue')),
-            rent=num(P0.get('estimatedRentalValue')), val=round(val), vsrc=vsrc,
+            id=key, t=src, ty=ty, tsrc=tsrc, uc=uc, ucd=DOR_DESC.get(uc) if uc else None, co=county_name(cs), cs=cs,
+            date=d_iso, time=et_time(c) if c else x.get('time'), addr=addr, owner=owner or None, case=x.get('case'), parcel=x.get('parcel'),
+            ref=ref, av=av, mkt=mkt or ocpa_mkt or lake_mv, jv=jv, avm=avm, avmLo=num(P0.get('vlowValue')), avmHi=num(P0.get('vhighValue')),
+            rent=rent, rsrc=rsrc, val=round(val) if val else None, vsrc=vsrc,
             beds=beds, baths=baths, sqft=sqft, yr=int(yr) if yr else None, ac=round(acres, 3) if acres else None,
-            zon=P0.get('zoning') or None, fz=fz or None, lat=lat, lon=lon,
-            dist=round(dist) if dist is not None else None, dap=dapprox,
-            rep=repairs, repw=rwhy, mb=round(mb), sug=round(sugg), cap=capped, fits=fits,
-            sc=round(score, 1), sp=round(margin * 100) if ref is not None else None,
-            eq=round(equity) if ref is not None else None, parts=dict(spread=round(s_spread, 2), budget=s_budget, prox=s_prox, conf=conf, pen=-pen),
-            fl=flags, note=' '.join(notes[:4]), links=dict(auc=x.get('detail'), po=po_url, pa=pa), img=img,
-            zip=zip5, city=str(city).title() if city else None, plaint=plaintiff, hist=hist[:8], tdy=tdy, lsp=lsp, lsd=lsd,
-            m1=num(P0.get('mtg1LoanAmt')), m1d=(P0.get('mtg1RecordingDate') or '')[:10] or None, m1l=P0.get('mtg1Lender') or None,
+            zon=P0.get('zoning') or None, fz=fz or None, lat=lat, lon=lon, gsrc=gsrc if lat else None,
+            dist=round(dist) if dist is not None else None, dap=dapprox, rep=repairs, repw=rwhy,
+            fl=flags, note=' '.join(notes[:3]) or None, links=dict(auc=x.get('detail'), po=po_url, pa=pa, list=x.get('url')),
+            imgs=imgs[:8], zip=zip5, city=str(city).title() if city else None, plaint=plaintiff, hist=hist[:8], tdy=tdy, lsp=lsp, lsd=lsd,
+            m1=m1, m1d=(P0.get('mtg1RecordingDate') or '')[:10] or None, m1l=P0.get('mtg1Lender') or None,
             m2=num(P0.get('mtg2LoanAmt')), m2d=(P0.get('mtg2RecordingDate') or '')[:10] or None,
-            olA=num(P0.get('totalOpenLienAmt')), olN=num(P0.get('totalOpenLienNbr')), hoaPl=hoa_pl,
-            cond=cond, pool=pool, eyb=int(num(P0.get('effectiveYearBuilt'))) if num(P0.get('effectiveYearBuilt')) and num(P0.get('effectiveYearBuilt')) > 1800 else None,
-            pa_only=(vsrc == 'somente AVM'), hasPO=has_po, ap=P0.get('apn') or None,
+            olA=num(P0.get('totalOpenLienAmt')), olN=num(P0.get('totalOpenLienNbr')), hoaPl=hoa_pl, hm=homestead,
+            pool=pool, eyb=int(num(P0.get('effectiveYearBuilt'))) if num(P0.get('effectiveYearBuilt')) and num(P0.get('effectiveYearBuilt')) > 1800 else None,
+            hasPO=has_po, nalm=(nf or {}).get('how'), tax=taxamt, front=front, sewer=sewer, units=units,
+            util=({k: util.get(k) for k in ('WW', 'WW_UPD', 'WW_SRC_TYP', 'DW', 'DW_UPD', 'DW_SRC_TYP', 'PARCELNO', 'LANDUSE', 'BLT_STATUS', 'GIS_ACRE')} | {'pt': util.get('_pt', 0)}) if util else None,
+            comps=cp, xp=xp, dom=dom, desc=x.get('desc'), plat=x.get('platform'), pmax=x.get('pmax') if x.get('pmax') not in (None, 'Hidden') else None,
+            new=first == today, first=first if first != '0000-00-00' else None, muni=dictval(P0.get('municipality')),
         )
+        rec = {k: v for k, v in rec.items() if v not in (None, '', [], {})}
+        rec.setdefault('fl', []); rec.setdefault('links', {})
         out.append(rec)
+    if args.fetch and fw_jobs:
+        import requests
+        from concurrent.futures import ThreadPoolExecutor
+        print(f'FLWMI (água/esgoto): {len(fw_jobs)} consultas…', flush=True)
+        def job(j):
+            s = requests.Session(); s.headers['User-Agent'] = 'Mozilla/5.0 (X11; Linux x86_64) leiloes-florida dashboard (personal research)'
+            if j[0] == 'p': flwmi.get_by_parcel(j[1], j[2], fetch=True, sess=s)
+            else: flwmi.get(j[1], j[2], fetch=True, sess=s)
+        with ThreadPoolExecutor(3) as ex: list(ex.map(job, fw_jobs))
+        print('  (utilidades baixadas – rode o build de novo sem --fetch para incorporá-las, ou elas entram na próxima execução)', flush=True)
+    json.dump(seen, open(os.path.join(CACHE, 'seen_v4.json'), 'w'))
+    stats = dict(total=len(items), kept=len(out), nal=sum(1 for r in out if r.get('nalm')), po=sum(1 for r in out if r.get('hasPO')))
     return out, stats, dropped
+
+def zip_county_map():
+    """ZIP -> county slug from the Zillow files (CountyName column)."""
+    out = {}
+    for fn in ('zillow_zori_zip.csv', 'zillow_zhvi_zip.csv'):
+        p = os.path.join(CACHE, 'market', fn)
+        if not os.path.exists(p): continue
+        with open(p, encoding='utf-8') as f:
+            rd = csv.reader(f); h = next(rd)
+            try: iz, ist, ic = h.index('RegionName'), h.index('State'), h.index('CountyName')
+            except ValueError: continue
+            for row in rd:
+                if row[ist] != 'FL': continue
+                out.setdefault(row[iz].zfill(5), re.sub(r'[^a-z]', '', row[ic].lower().replace(' county', '')))
+    return out
 
 # ----------------------------------------------------------------------------- ZIP market data (free public bulk files)
 MKT = os.path.join(CACHE, 'market')
 REDFIN_URL = 'https://redfin-public-data.s3.us-west-2.amazonaws.com/redfin_market_tracker/zip_code_market_tracker.tsv000.gz'
+ZORI_URL = 'https://files.zillowstatic.com/research/public_csvs/zori/Zip_zori_uc_sfrcondomfr_sm_month.csv'
 ZHVI_URL = 'https://files.zillowstatic.com/research/public_csvs/zhvi/Zip_zhvi_uc_sfrcondo_tier_0.33_0.67_sm_sa_month.csv'
 
 def fetch_market():
@@ -509,6 +637,8 @@ def fetch_market():
             first = False
     with requests.get(ZHVI_URL, timeout=120) as r:
         open(os.path.join(MKT, 'zillow_zhvi_zip.csv'), 'wb').write(r.content)
+    with requests.get(ZORI_URL, timeout=120) as r:
+        open(os.path.join(MKT, 'zillow_zori_zip.csv'), 'wb').write(r.content)
 
 def _f(v):
     try:
@@ -519,7 +649,8 @@ def load_market():
     """Compact FL ZIP market dict {zip: {rf:{...}, zh:{...}}} (cached in cache/market/market_fl.json)."""
     comp = os.path.join(MKT, 'market_fl.json')
     rf_raw, zh_raw = os.path.join(MKT, 'redfin_zip_fl.tsv'), os.path.join(MKT, 'zillow_zhvi_zip.csv')
-    raws = [p for p in (rf_raw, zh_raw) if os.path.exists(p)]
+    zr_raw = os.path.join(MKT, 'zillow_zori_zip.csv')
+    raws = [p for p in (rf_raw, zh_raw, zr_raw) if os.path.exists(p)]
     if os.path.exists(comp) and all(os.path.getmtime(comp) >= os.path.getmtime(p) for p in raws):
         return jload(comp, {})
     out, src = {}, {}
@@ -551,6 +682,15 @@ def load_market():
                 z = row[h.index('RegionName')].zfill(5)
                 out.setdefault(z, {})['zh'] = dict(end=months[-13:], v=[_f(row[i]) for i in mi])
         src['zillow'] = dict(end=months[-1], name='Zillow Research – ZHVI por ZIP (casas+condos, faixa média, ajustado sazonalmente)', url='https://www.zillow.com/research/data/')
+    if os.path.exists(zr_raw):
+        with open(zr_raw, encoding='utf-8') as f:
+            rd = csv.reader(f); h = next(rd); months = [c for c in h if re.match(r'\d{4}-\d{2}-\d{2}$', c)]
+            for row in rd:
+                if row[h.index('State')] != 'FL': continue
+                z = row[h.index('RegionName')].zfill(5)
+                v = next((_f(row[h.index(c)]) for c in reversed(months[-6:]) if _f(row[h.index(c)])), None)
+                if v: out.setdefault(z, {})['zr'] = round(v)
+        src['zori'] = dict(end=months[-1], name='Zillow Research – ZORI (aluguel típico observado por ZIP)', url='https://www.zillow.com/research/data/')
     out['_src'] = src
     if out: json.dump(out, open(comp, 'w'))
     return out
@@ -570,20 +710,36 @@ def resale_temp(rf):
     lab = 'HOT' if sc >= 70 else 'WARM' if sc >= 50 else 'COOL' if sc >= 30 else 'COLD'
     return dict(sc=sc, lab=lab, dom=r.get('dom'), sold=r.get('sold'), end=r.get('end'), thin=(r.get('sold') or 0) < 5)
 
+
 # ----------------------------------------------------------------------------- HTML
+def load_events(today):
+    ev = jload(os.path.join(SW, 'events.json'), [])
+    seen, out = set(), []
+    for h, d, k, n, t in ev:
+        c = h.split('.')[0].replace('-', '').replace('myorangeclerk', 'orange')
+        di = iso(d); kk = 'TD' if k == 'Tax Deed' else 'FC'
+        if di < today or (c, di, kk) in seen: continue
+        seen.add((c, di, kk)); out.append([di, county_name(c), kk, n, t])
+    return sorted(out)
+
 def render(items, stats, dropped, args):
     tpl = open(os.path.join(HERE, 'template.html'), encoding='utf-8').read()
     mk = load_market()
     zips = {}
     for it in items:
         z = it.get('zip')
-        if z and z in mk and z not in zips:
-            zips[z] = dict(mk[z]); zips[z]['rt'] = resale_temp(mk[z].get('rf'))
+        if z and z in mk and z not in zips and mk[z].get('rf'):
+            zips[z] = dict(rf=mk[z]['rf'], zh=mk[z].get('zh'), zr=mk[z].get('zr')); zips[z]['rt'] = resale_temp(mk[z].get('rf'))
+    ares, recent, rmeta = load_results()
     meta = dict(dataDate=args.data_date, built=time.strftime('%Y-%m-%d %H:%M'), params=P, zips=zips, mktSrc=mk.get('_src', {}),
-                repairRates=REPAIR_RATES, repairUnknown=REPAIR_UNKNOWN_YEAR, repairMobile=REPAIR_MOBILE,
-                repairMin=REPAIR_MIN, stats=stats, dropped=dropped, orlando=ORLANDO)
-    data = json.dumps(dict(meta=meta, items=items), ensure_ascii=False, separators=(',', ':')).replace('</', '<\\/')
-    return tpl.replace('/*__DATA__*/null', data)
+                rehabTiers=REHAB_TIERS, rehabUnknown=REHAB_UNKNOWN, rehabPool=REHAB_POOL, stats=stats, dropped=dropped, orlando=ORLANDO,
+                events=load_events(args.data_date), ares=ares, recent=recent, rmeta=rmeta, types=TYPES, version='v4')
+    data = json.dumps(dict(meta=meta, items=items), ensure_ascii=False, separators=(',', ':'))
+    if args.no_compress:
+        blob = 'J:' + data.replace('</', '<\\/')
+    else:
+        blob = 'G:' + base64.b64encode(gzip.compress(data.encode('utf-8'), 9)).decode()
+    return tpl.replace('/*__DATA__*/null', blob), len(data)
 
 # ----------------------------------------------------------------------------- site / PWA assets (GitHub Pages)
 THEME = '#0d1b2a'          # header navy (template.html --navy); keep in sync with <meta name="theme-color">
@@ -649,15 +805,17 @@ def encrypt_page(plain, outdir, password_file):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--fetch', action='store_true', help='fetch missing PropertyOnion details/photos into ./cache')
-    ap.add_argument('--no-images', action='store_true')
-    ap.add_argument('--fetch-market', action='store_true', help='download Redfin + Zillow ZIP market files into ./cache/market')
-    ap.add_argument('--data-date', default='2026-10-08')
-    ap.add_argument('--budget', type=float, default=P['budget'])
+    ap.add_argument('--fetch', action='store_true', help='fetch missing PropertyOnion pages + FLWMI utilities into ./cache (polite)')
+    ap.add_argument('--threads', type=int, default=4, help='PropertyOnion fetch threads (each pauses between requests)')
+    ap.add_argument('--no-images', action='store_true', help='(v3 compat; v4 never embeds images – photos are remote, lazy-loaded)')
+    ap.add_argument('--fetch-market', action='store_true', help='download Redfin + Zillow ZIP files into ./cache/market')
+    ap.add_argument('--data-date', default=dt.date.today().isoformat())
+    ap.add_argument('--budget', type=float, default=None, help='(v3 compat, ignored: no budget cap in v4)')
     ap.add_argument('--out', default=None, help='output HTML (default leiloes-florida.html, or index.html with --site)')
     ap.add_argument('--site', action='store_true', help='GitHub Pages build: encrypted index.html + manifest/icons/robots.txt next to build.py')
     ap.add_argument('--password-file', default=PASSWORD_FILE, help='StaticCrypt password file (keep outside the repo)')
     ap.add_argument('--no-encrypt', action='store_true', help='with --site: write plaintext index.html (NOT for publishing)')
+    ap.add_argument('--no-compress', action='store_true', help='embed plain JSON instead of gzip+base64 (debug)')
     args = ap.parse_args()
     encrypt = args.site and not args.no_encrypt
     if encrypt and not os.path.exists(args.password_file):
@@ -665,22 +823,24 @@ def main():
     if args.out is None:
         args.out = os.path.join(HERE, '.plain', 'index.html') if encrypt else os.path.join(HERE, 'index.html' if args.site else 'leiloes-florida.html')
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
-    P['budget'] = args.budget
-    for d in ('po_full', 'img', 'search', 'market'): os.makedirs(os.path.join(CACHE, d), exist_ok=True)
+    for d in ('po_full', 'search', 'market', 'nal', 'flwmi'): os.makedirs(os.path.join(CACHE, d), exist_ok=True)
     if args.fetch_market: fetch_market()
     items, stats, dropped = build_items(args)
-    items.sort(key=lambda r: (-r['sc'], r['date']))
-    html_s = render(items, stats, dropped, args)
+    items.sort(key=lambda r: (r['date'], r['id']))
+    html_s, raw_len = render(items, stats, dropped, args)
     open(args.out, 'w', encoding='utf-8').write(html_s)
     if args.site:
         write_site_assets(HERE)
         if encrypt:
             encrypt_page(args.out, HERE, args.password_file)
-            print(f"encrypted -> {os.path.join(HERE, 'index.html')}  {os.path.getsize(os.path.join(HERE, 'index.html'))/1e6:.1f} MB (StaticCrypt)")
-    print(f"wrote {args.out}  {os.path.getsize(args.out)/1e6:.1f} MB  items={len(items)}  with_photo={sum(1 for i in items if i['img'])}")
-    print('dropped:', json.dumps(dropped, ensure_ascii=False))
-    for r in items[:10]:
-        print(f"{r['sc']:4}  {r['t']} {r['cat']:<8} {r['date']} {r['addr'][:45]:<45} ref={r['ref']} val={r['val']} sug={r['sug']} fl={r['fl']}")
+            print(f"encrypted -> {os.path.join(HERE, 'index.html')}  {os.path.getsize(os.path.join(HERE, 'index.html'))/1e6:.2f} MB (StaticCrypt)")
+    from collections import Counter
+    print(f"wrote {args.out}  {os.path.getsize(args.out)/1e6:.2f} MB (JSON {raw_len/1e6:.1f} MB before gzip)  items={len(items)}")
+    print('por tipo:', dict(Counter(r['ty'] for r in items).most_common()))
+    print('por leilão:', dict(Counter(r['t'] for r in items)), ' condados:', len({r['cs'] for r in items}))
+    print('com foto:', sum(1 for r in items if r.get('imgs')), ' NAL:', stats['nal'], ' PO:', stats['po'], ' água/esgoto:', sum(1 for r in items if r.get('util')),
+          ' comps:', sum(1 for r in items if (r.get('comps') or {}).get('est')), ' coords:', sum(1 for r in items if r.get('lat')))
+    print('removidos:', json.dumps(dropped, ensure_ascii=False))
 
 if __name__ == '__main__':
     main()
