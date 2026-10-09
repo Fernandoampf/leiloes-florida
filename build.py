@@ -514,6 +514,7 @@ def build_items(args):
         beds = num(P0.get('bedrooms')) or num(poe.get('beds'))
         baths = num(P0.get('bathTotalCalc')) or num(poe.get('baths'))
         if not sqft and poe.get('sqft'): sqft = num(poe.get('sqft'))
+        raw_sqft, raw_yr = sqft, yr
         if land: beds = baths = sqft = yr = None
         if poe.get('cmv') and not mkt: mkt = num(poe.get('cmv'))
         mvals = [v for v in [av, mkt, ocpa_mkt, lake_mv, jv] if v]
@@ -583,6 +584,7 @@ def build_items(args):
                 lce['conf'] = max(0, lce['conf'] - 15); lce['pen'] = 'diverge mais de 40% do just value ÷ 0,85 (−15 na confiança)'
                 lce['confTxt'] = 'alta' if lce['conf'] >= 70 else 'média' if lce['conf'] >= 50 else 'baixa'
             if lce['conf'] >= 60 and (cs, nal.npid(x.get('parcel') or '')) not in manual:
+                lce['cp0'] = cp; lce['vsrc0'] = vsrc
                 lce['prev'] = round(val) if val else None; lce['prevSrc'] = vsrc; lce['used'] = True
                 val = lce['est']; pov_as_arv = False
                 vsrc = (f"comps locais — {lce['lvlTxt']}: mediana de {lce['n']} vendas qualificadas (últimos 18 meses, ajustadas no tempo) = {_usd(val)}; "
@@ -780,6 +782,22 @@ def build_items(args):
             pmax=x.get('pmax') if x.get('pmax') not in (None, 'Hidden') else None,
             new=first == today, first=first if first != '0000-00-00' else None, muni=dictval(P0.get('municipality')),
         )
+        # ---- type conflict: DOR says vacant land, other sources say something is built there
+        if land:
+            why = []
+            if util and str(util.get('BLT_STATUS') or '').upper() == 'BLT': why.append('FDOH (inventário de água/esgoto) marca a parcela como CONSTRUÍDA (BLT)' + (f", esgoto: {util.get('WW')}" if util.get('WW') else ''))
+            eyb_v = num(P0.get('effectiveYearBuilt'))
+            if eyb_v and eyb_v > 1800: why.append(f'PropertyOnion: ano efetivo de construção {int(eyb_v)}')
+            if raw_yr and raw_yr > 1800: why.append(f'ano de construção informado: {int(raw_yr)}')
+            if raw_sqft and raw_sqft > 200: why.append(f'área construída informada: {int(raw_sqft)} sqft')
+            if re.search(r'\b(HOMES?|BUILDERS?|CONSTRUCTION|CONTRACTING|HOMEBUILDERS?)\b', (owner or '').upper()): why.append(f'dono é construtora: {owner}')
+            if why:
+                rec['tconf'] = [f"DOR: código de uso {uc or '—'} ({DOR_DESC.get(uc, 'terreno') if uc else 'terreno'}) → classificado como {ty}"] + why
+                rec['fl'] = list(rec.get('fl') or []) + ['tconf']
+                if lce and lce.get('used'):      # lot-only comps are not reliable when there may be a house on it
+                    rec['val'] = lce.get('prev'); rec['vsrc'] = lce.get('vsrc0'); rec['comps'] = lce.get('cp0')
+                    lce['used'] = False; lce['why'] = 'conflito de tipo: comps de lote não usados'
+        if lce: lce.pop('cp0', None); lce.pop('vsrc0', None)
         man = manual.get((cs, nal.npid(x.get('parcel') or '')))
         if man:
             m = {k: man.get(k) for k in ('low', 'mid', 'high', 'ceiling', 'pass', 'date', 'sources', 'notes', 'holdYr', 'qt', 'legal')}
