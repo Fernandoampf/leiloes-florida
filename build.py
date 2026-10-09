@@ -76,9 +76,9 @@ P = dict(
     # return ladder (Fernando, out/2026): cheap lots need a higher % because fixed costs weigh more
     lotS=15000, lotSroi=40, lotSnet=3000,   # land, all-in up to US$ 15k: ROI ≥ 40% and NET ≥ US$ 3k
     lotM=60000, lotMroi=25,                 # land, all-in up to US$ 60k: ROI ≥ 25% (above: the general minimum)
-    supAdd=10,              # land in a high-supply subdivision: +10 ROI points on the ladder
+    supAdd=0,               # land in a high-supply subdivision: extra ROI points on the ladder – 0 since out/2026: the
+                            # supply discount on the resale value and the longer holding already price that risk (no double count)
     netHouse=25000,         # built: NET ≥ US$ 25k besides the ROI minimum
-    caixa=5000,             # cash available (US$) for the "cabe no caixa" filter – Chase 5557 on 01/10/2026
     dep=5.0,                # deposit due at the auction (% of the bid) – RealAuction standard; confirm per county
     yld=9.0,                # gross yield considered 'aluguel forte' (%)
     rebuild=175, depr=1.0,  # replacement cost: US$/sqft, depreciation %/year of age (max 60%)

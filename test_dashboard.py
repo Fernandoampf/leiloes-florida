@@ -137,9 +137,9 @@ with sync_playwright() as p:
     pg.click('#w-reset'); pg.wait_for_timeout(200)
     check(pg.locator('#dplnet').inner_text() == before, 'desfazer edições do imóvel')
     pg.fill('#dpl [data-pk="hutil"]', '400'); pg.wait_for_timeout(150); pg.click('#plsave'); pg.wait_for_timeout(300)
-    check((json.loads(pg.evaluate("localStorage.getItem('leilao_premissas_v6')") or '{}')).get('hutil') == 400, 'salvar custos como padrão (localStorage)')
+    check((json.loads(pg.evaluate("localStorage.getItem('leilao_premissas_v7')") or '{}')).get('hutil') == 400, 'salvar custos como padrão (localStorage)')
     pg.evaluate(f'{D}.openDrawer("{rid}")'); pg.wait_for_timeout(300); pg.click('#pldef'); pg.wait_for_timeout(300)
-    check(pg.evaluate("localStorage.getItem('leilao_premissas_v6')") is None and pg.evaluate(D + '.PR.hutil') == 350, 'voltar aos padrões originais')
+    check(pg.evaluate("localStorage.getItem('leilao_premissas_v7')") is None and pg.evaluate(D + '.PR.hutil') == 350, 'voltar aos padrões originais')
     pg.evaluate(f'{D}.openDrawer("{rid}")'); pg.wait_for_timeout(300)
     # what-if exactly like BidToFlip: every line follows bid / ARV / rehab / months live
     row = '''(t=>{const tr=[...document.querySelectorAll('#dpl tr')].find(x=>x.cells[0]&&x.cells[0].textContent.startsWith(t));return tr?tr.cells[1].textContent:null;})'''
@@ -186,9 +186,9 @@ with sync_playwright() as p:
     pg.evaluate(f'{D}.applyPrem({{...{D}.PR, ret:25}})'); pg.wait_for_timeout(300)
     mb20 = pg.evaluate(f'{D}.ITEMS.find(r=>r.id==="{rid}").mb')
     check(mb20 < mb10, f'premissa retorno 25% reduz lance máx. ({mb10:.0f} → {mb20:.0f})')
-    check(pg.evaluate("localStorage.getItem('leilao_premissas_v6')") is not None, 'premissas salvas (v6)')
+    check(pg.evaluate("localStorage.getItem('leilao_premissas_v7')") is not None, 'premissas salvas (v7)')
     pg.evaluate(f'{D}.applyPrem({{...{D}.PDEF}})'); pg.wait_for_timeout(300)
-    check(pg.evaluate("localStorage.getItem('leilao_premissas_v6')") is None, 'padrões restaurados')
+    check(pg.evaluate("localStorage.getItem('leilao_premissas_v7')") is None, 'padrões restaurados')
     # CSV
     with pg.expect_download() as dl: pg.click('#bcsv')
     lines = open(dl.value.path(), encoding='utf-8-sig').read().splitlines()
