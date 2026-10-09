@@ -54,8 +54,8 @@ P = dict(
     rhb20=5, rhb15=10, rhb05=20, rhb95=30, rhbOld=40,   # rehab US$/sqft by year built (2020+, 2015-19, 2005-14, 1995-2004, older)
     rhbMin=8000, rhbUnk=35000, rhbSqft=1500, rhbPool=5000, # minimum, unknown year, assumed sqft when unknown, pool
     cont=10,                # rehab contingency (% of rehab)
-    months=6,               # holding months (built)
-    monthsLot=4,            # holding months (land)
+    months=5,               # holding months (built)
+    monthsLot=3,            # holding months (land)
     usedom=0,               # 1 = exit time from Redfin ZIP days on market instead of fixed months
     closem=1,               # closing months after an accepted offer (only when usedom=1)
     htax=1.8,               # property tax %/yr of value when the real annual tax bill is unknown
@@ -64,7 +64,8 @@ P = dict(
     hutilLot=50,            # US$/month for land (mowing)
     clear=500,              # land: mowing / clean-up (US$); survey is normally the buyer's cost on a lot sale
     qtLot=1200,             # land: title certification for resale (US$) instead of a US$ 2.5k quiet-title suit
-    list=2.5, buyc=2.5, title=1.5, docs=0.70, misc=1500, wra=399,   # sell side: % of ARV + closing/misc + WRA (US$)
+    list=2.5, buyc=2.5, docs=0.70, misc=1000, wra=399,   # sell side: brokers % of ARV, seller doc stamps, closing/misc US$, flat sale fee (BidToFlip; built only)
+    titleP=100,             # owner's title policy on resale: % of the FL promulgated rate (seller pays; buyer-pays counties = 0)
     dep=5.0,                # deposit due at the auction (% of the bid) – RealAuction standard; confirm per county
     yld=9.0,                # gross yield considered 'aluguel forte' (%)
     rebuild=175, depr=1.0,  # replacement cost: US$/sqft, depreciation %/year of age (max 60%)
@@ -309,7 +310,7 @@ def load_results():
     for k, s in stats.items():
         s['rav_med'], s['rav_p25'], s['rav_p75'] = q(s['rav'], .5), q(s['rav'], .25), q(s['rav'], .75)
         s['rref_med'] = q(s['rref'], .5)
-        s['nrav'] = len(s['rav']); del s['rav']; del s['rref']
+        s['nrav'] = len(s['rav']); s['nrref'] = len(s['rref']); del s['rav']; del s['rref']
         for kk in ('rav_med', 'rav_p25', 'rav_p75', 'rref_med'):
             if s[kk] is not None: s[kk] = round(s[kk], 3)
     dates = sorted({r['d'] for r in rows}, key=lambda d: (d[6:], d[:5]))
@@ -362,6 +363,22 @@ def pid_variants(parcel):
         q = nal.npid(m.group(3) + m.group(2) + m.group(1) + m.group(4))
         if q and q not in out: out.append(q)
     return out
+
+MTG_RATE = [(2025, 6.6), (2023, 6.8), (2022, 5.3), (2020, 3.0), (2013, 4.1), (2011, 4.2), (2008, 5.2), (2001, 6.3), (0, 7.5)]   # avg 30-yr fixed, %/yr
+
+def mtg_balance(orig, rec_date, today):
+    """estimated balance of a 30-year fixed loan today -> (balance, explanation). No date: the original amount (conservative)."""
+    if not orig: return None, ''
+    m = re.match(r'(\d{4})-(\d{2})', str(rec_date or ''))
+    if not m: return orig, f'Saldo: sem data de registro, usando o valor original US$ {orig:,.0f} (conservador).'
+    y, mo = int(m.group(1)), int(m.group(2))
+    ty, tm = int(today[:4]), int(today[5:7])
+    k = max(0, (ty - y) * 12 + (tm - mo))
+    rate = next(r for yy, r in MTG_RATE if y >= yy) / 100 / 12
+    n = 360
+    if k >= n: return 0.0, f'Saldo: hipoteca de {y} já quitada pelo prazo de 30 anos.'
+    bal = orig * ((1 + rate) ** n - (1 + rate) ** k) / ((1 + rate) ** n - 1)
+    return bal, f'Saldo estimado US$ {bal:,.0f}: original US$ {orig:,.0f} de {y}, amortizado 30 anos a {rate * 1200:.1f}% a.a. ({k} meses).'
 
 def nal_index(items, today):
     """match every item to the DOR roll of its county; returns (parcel facts by aid, sales by zip, county numbers)"""
@@ -543,6 +560,11 @@ def build_items(args):
             val = pov
             vsrc = f"POV PropertyOnion {_usd(pov)} (sem valor de condado para comparar) — usado como ARV"
             pov_as_arv = True
+        jv85 = None
+        if (val and base and val == base and not pov_as_arv and not avm and not (cp and (cp.get('n') or 0) >= 3 and cest)):
+            # Florida just value is set ~15% under market (cost-of-sale deduction, F.S. 193.011(8)); with nothing better, gross it up
+            jv85 = val; val = base / 0.85
+            vsrc = f"{vsrc} ÷ 0,85 = {_usd(val)} (só valor do condado: o just value fica ~15% abaixo do mercado, F.S. 193.011(8))"
         if val and val < 1000: val = None
         ref = num(x.get('ob')) if src == 'TD' else num(x.get('fj')) if src == 'FC' else num(x.get('ref'))
         nobid = bool(it.get('po_only') and not ref)
@@ -608,24 +630,21 @@ def build_items(args):
             if hoa_pl: flags.append('hoa')
             if ref and val and ref < 0.5 * val: flags.append('jr')
         if 'hoa' not in flags and ty in ('Condo', 'Townhouse'): flags.append('hoa')
-        # Surviving-lien estimate (PropertyOnion + plaintiff heuristics) – conservative
-        surv_amt = None; surv_why = None
+        # Surviving-lien estimate (PropertyOnion + plaintiff heuristics). Deducts the ESTIMATED CURRENT BALANCE of the 1st
+        # mortgage (original amount amortised over 30 years from its recording date); without a date, the original amount.
+        # 'Judgment < 50% of value' alone no longer implies a surviving 1st (old, mostly paid loans look the same): it stays a warning.
+        surv_amt = None; surv_why = None; surv_orig = None
         olA_v = num(P0.get('totalOpenLienAmt')) or (num(poe.get('liens_amt')) if poe else None)
+        m1_bal, m1_how = mtg_balance(m1, P0.get('mtg1RecordingDate'), today)
         if src == 'FC':
             if hoa_pl and (m1 or olA_v):
-                surv_amt = m1 or olA_v
-                surv_why = 'Execução de HOA/condomínio: a 1ª hipoteca (ou liens PO) provavelmente SOBREVIVE ao leilão.'
-                if 'mtg' not in flags: flags.append('mtg')
-                if 'surv' not in flags: flags.append('surv')
-            elif 'jr' in flags and (m1 or olA_v):
-                # julgamento << valor = tipico HOA/2ª; herda 1ª hipoteca
-                surv_amt = m1 or olA_v
-                surv_why = 'JR-LIEN: julgamento bem abaixo do valor – tipico de HOA/2ª hipoteca; a 1ª pode sobreviver.'
+                surv_amt = m1_bal if m1 else olA_v; surv_orig = m1 if m1 else None
+                surv_why = 'Execução de HOA/condomínio: a 1ª hipoteca (ou liens PO) provavelmente SOBREVIVE ao leilão. ' + (m1_how if m1 else 'Valor: liens em aberto do PropertyOnion.')
                 if 'mtg' not in flags: flags.append('mtg')
                 if 'surv' not in flags: flags.append('surv')
             elif mtg_surv and m1:
-                surv_amt = m1
-                surv_why = 'Indício de execução júnior: 1ª hipoteca recente (PO) maior que o julgamento e autor ≠ credor da 1ª.'
+                surv_amt = m1_bal; surv_orig = m1
+                surv_why = 'Indício de execução júnior: 1ª hipoteca recente (PO) maior que o julgamento e autor ≠ credor da 1ª. ' + m1_how
                 if 'surv' not in flags: flags.append('surv')
         elif src == 'TD':
             if CODE_RE.search(defend or '') or (olA_v and not m1 and 'code' in flags):
@@ -680,8 +699,14 @@ def build_items(args):
         rs = st_c if (st_c and st_c.get('nrav', 0) >= 5) else st_s
         xp = None
         if rs and rs.get('rav_med') and av:
-            xp = dict(v=round(max(ref or 0, rs['rav_med'] * av)), r=rs['rav_med'], n=rs['nrav'], lvl='condado' if rs is st_c else 'estado',
+            xp = dict(v=round(max(ref or 0, rs['rav_med'] * av)), va=round(rs['rav_med'] * av), r=rs['rav_med'], n=rs['nrav'], lvl='condado' if rs is st_c else 'estado',
                       lo=round(max(ref or 0, (rs.get('rav_p25') or rs['rav_med']) * av)), hi=round(max(ref or 0, (rs.get('rav_p75') or rs['rav_med']) * av)))
+        # foreclosures: 3rd parties often win BELOW the judgment (the bank accepts less) -> sold/judgment ratio
+        rj = None
+        if src == 'FC':
+            rj_c = st_c if (st_c and st_c.get('nrref', 0) >= 5 and st_c.get('rref_med')) else None
+            rj_s = rj_c or (st_s if (st_s and st_s.get('rref_med')) else None)
+            if rj_s: rj = dict(r=rj_s['rref_med'], n=rj_s.get('nrref'), lvl='condado' if rj_s is rj_c else 'estado')
         zm = mk.get(zip5) if zip5 else None
         dom = None
         if zm and zm.get('rf') and zm['rf'][-1].get('dom') is not None and (zm['rf'][-1].get('sold') or 0) >= 3: dom = zm['rf'][-1]['dom']
@@ -700,7 +725,8 @@ def build_items(args):
             povAsArv=pov_as_arv or None, clv=num(poe.get('clv')) if poe else None,
             prevSale=poe.get('prev_sale_type') if poe else None,
             nobid=nobid or None, poeHow=(poe.get('how') if poe else None),
-            survAmt=round(surv_amt) if surv_amt else None, survWhy=surv_why,
+            survAmt=round(surv_amt) if surv_amt else None, survWhy=surv_why, survOrig=round(surv_orig) if surv_orig else None,
+            rj=rj, jv85=round(jv85) if jv85 else None,
             survDeduct=True if (surv_amt and hoa_pl and src=='FC') else None,
             beds=beds, baths=baths, sqft=sqft, yr=int(yr) if yr else None, ac=round(acres, 3) if acres else None,
             zon=P0.get('zoning') or None, fz=fz or None, lat=lat, lon=lon, gsrc=gsrc if lat else None,

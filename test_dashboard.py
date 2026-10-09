@@ -52,10 +52,21 @@ with sync_playwright() as p:
     pg.click('#types [data-cat=""]'); pg.wait_for_timeout(200)
     check(pg.evaluate(D + '.ITEMS.filter(r=>r.ty==="Lote"||r.ty==="Terreno").length') > 200, 'lotes/terrenos incluídos (>200)')
     # vereditos e categorias
-    vds = set(pg.evaluate(D + '.ITEMS.map(r=>r.vd)')); check(vds <= {'FLIP', 'CONSIDERAR', 'PASSAR'} and 'FLIP' in vds, f'vereditos {vds}')
-    okv = pg.evaluate(D + '.ITEMS.filter(r=>r.roi!=null&&!r.fl.some(f=>f==="avoid"||f==="mtg")).every(r=>r.vd===(r.roi>=0.25?"FLIP":r.roi>=0.17?"CONSIDERAR":"PASSAR"))')
-    check(okv, 'veredito: FLIP ≥ 25%, CONSIDERAR 17–25%, PASSAR < 17%')
-    check('ABAIXO 17%' in pg.evaluate(D + '.ITEMS.map(r=>r.kat).join()'), 'categoria “ABAIXO 17%”')
+    vds = set(pg.evaluate(D + '.ITEMS.map(r=>r.vd)')); check(vds <= {'FLIP', 'CONSIDERAR', 'DISPUTADO', 'PASSAR'} and {'FLIP','DISPUTADO','PASSAR'} <= vds, f'vereditos {vds}')
+    bad = pg.evaluate(D + '''.ITEMS.filter(r=>r.roi!=null&&r.mb!=null).filter(r=>{
+        const room = r.mb>0, over = r.ref!=null && r.ref>r.mb+1;
+        if(r.vd==='FLIP'||r.vd==='CONSIDERAR') return !(room && !over && !(r.xbid>r.mb+1) && (r.vd==='FLIP'?r.roi>=0.25:r.roi<0.25));
+        if(r.vd==='PASSAR') return !( !room || (r.t!=='FC' && over) );
+        if(r.vd==='DISPUTADO') return !( room && ((r.t==='FC' && over) || r.xbid>r.mb+1) );
+        return true; }).map(r=>r.addr+' '+r.vd).slice(0,5)''')
+    check(not bad, f'veredito por espaço de lance: SEM ESPAÇO / DISPUTADO / FLIP ≥ 25% / CONSIDERAR {bad}')
+    check(pg.evaluate(D + '.ITEMS.filter(r=>r.t==="FC"&&r.vd==="PASSAR"&&r.mb>0&&r.ref>r.mb+1).length') == 0, 'foreclosure com julgamento acima do lance máx. é DISPUTADO, não SEM ESPAÇO')
+    kats = pg.evaluate(D + '.ITEMS.map(r=>r.kat).join()'); check('SEM ESPAÇO' in kats and 'DISPUTADO' in kats, 'categorias “SEM ESPAÇO” e “DISPUTADO”')
+    check(pg.evaluate(D + '.ITEMS.filter(r=>r.fl.includes("mtg")&&r.roi!=null&&r.mb>0&&!(r.ref>r.mb)&&!(r.xbid>r.mb+1)).every(r=>r.vd!=="PASSAR")'), 'hipoteca que sobrevive não é PASSAR automático')
+    check(pg.evaluate(D + '.ITEMS.filter(r=>r.survOrig).every(r=>r.survAmt<=r.survOrig)'), 'dívida que sobrevive = saldo estimado (≤ valor original)')
+    jvb = pg.evaluate(D + '.ITEMS.filter(r=>r.jv85&&!r.suspect&&!r.povAsArv).filter(r=>Math.abs((r.val0!=null?r.val0:r.val)-r.jv85/0.85)>1).map(r=>[r.addr,r.val0,r.val,r.jv85]).slice(0,3)')
+    check(not jvb and pg.evaluate(D + '.ITEMS.filter(r=>r.jv85).length') > 100, f'ARV só com just value = just value ÷ 0,85 {jvb}')
+    check(pg.locator('#fvd option[value="DISPUTADO"]').count()==1 and 'disputados' in pg.inner_text('#kpis').lower(), 'filtro e KPI DISPUTADO')
     kats = set(pg.evaluate(D + '.ITEMS.map(r=>r.katk)')); check({'viavel', 'jmax', 'abaixo'} <= kats, f'categorias {kats}')
     # fórmula: no lance máximo o ROI é exatamente o mínimo
     bad = pg.evaluate('''(()=>{const d=window.__dash;let bad=[];for(const r of d.ITEMS){ if(r.mb==null||r.mb<=0) continue;
@@ -100,15 +111,18 @@ with sync_playwright() as p:
     check('Depósito no leilão' in pg.inner_text('#ddep'), 'depósito de 5% no painel')
     check(pg.locator('#dstrat > div').count() == 2, 'estratégias FLIP e HOLD/BRRRR')
     pl = pg.evaluate("document.querySelector('#dpl').textContent")
-    for t in ('Preço de venda (ARV)', 'Lance vencedor', 'Taxas do clerk', 'Doc stamps na compra', 'Total da aquisição', 'Reforma', 'Contingência', 'Posse', 'Taxa fixa WRA', 'Comissão do corretor vendedor', 'Comissão do corretor comprador', 'Título / escrow', 'Doc stamps na venda', 'Fechamento / diversos', 'Lucro líquido', '/mês'):
+    for t in ('Preço de venda (ARV)', 'Lance vencedor', 'Taxas do clerk', 'Doc stamps na compra', 'Total da aquisição', 'Reforma', 'Contingência', 'Posse', 'Taxa fixa de venda (BidToFlip)', 'Comissão do corretor vendedor', 'Comissão do corretor comprador', 'Seguro de título do proprietário', 'Doc stamps na venda', 'Fechamento / diversos', 'Lucro líquido', '/mês'):
         check(t in pl, f'P&L: linha “{t}”')
-    check('US$ 399' in pl, 'P&L: WRA US$ 399')
+    check('US$ 399' in pl, 'P&L: taxa fixa de venda US$ 399')
     check(pg.locator('#drepc').count() == 1 and ('RECONSTRUÇÃO' in pg.evaluate("document.querySelector('#drep').textContent")), 'custo de reposição com selo acima/abaixo')
     # clerk fee: 3% of first 500 + 1.5% of rest; formula reproduces BidToFlip example
     ex = pg.evaluate('''(()=>{const d=window.__dash; const r={...d.ITEMS.find(x=>x.id===%r), val:2214600, rep:8000, tax:null, fl:[], t:'FC', ty:'Casa'}; const o={...d.base(r), arv:2214600, rehab:8000, months:4, lien:0}; const p=d.pnl(r,1550220,o); return [Math.round(p.clerk), Math.round(p.docb), Math.round(p.sell.buyc), Math.round(p.sell.title), Math.round(p.sell.docs), p.sell.wra, Math.round(p.sell.list), p.sell.misc, Math.round(p.cont)];})()''' % rid)
-    check(ex[:6] == [23261, 10852, 55365, 33219, 15502, 399], f'deduções no formato BidToFlip (clerk, doc stamps, comprador, título, doc stamps venda, WRA) {ex[:6]}')
-    check(ex[6] == 55365 and ex[7] == 1500 and ex[8] == 800, f'padrões realistas: vendedor 2,5%, fechamento US$ 1.500, contingência 10% {ex[6:]}')
-    defs = pg.evaluate(D + '.PDEF'); check(defs['months'] == 6 and defs['monthsLot'] == 4 and defs['hins'] == 1 and defs['hutil'] == 350 and defs['rhbUnk'] == 35000, 'padrões: posse 6 meses (lote 4), seguro 1%, US$ 350/mês, reforma desconhecida US$ 35 mil')
+    check(ex[:6] == [23261, 10852, 55365, 8112, 15502, 399], f'deduções (clerk, doc stamps, comprador, título promulgado FL, doc stamps venda, taxa fixa) {ex[:6]}')
+    check(ex[6] == 55365 and ex[7] == 1000 and ex[8] == 800, f'padrões: vendedor 2,5%, fechamento US$ 1.000, contingência 10% {ex[6:]}')
+    tt = pg.evaluate('''(()=>{const d=window.__dash; const h=d.ITEMS.find(x=>x.co==='Orange'&&x.ty==='Casa'); const m=d.ITEMS.find(x=>x.co==='Miami-Dade'&&x.ty==='Casa'); const l=d.ITEMS.find(x=>(x.ty==='Lote')&&x.val);
+      const T=(r,a)=>{const o={...d.base(r),arv:a}; return Math.round(d.pnl(r,100000,o).sell.title);}; return [T(h,300000), m?T(m,300000):0, Math.round(d.pnl(l,l.xbid||1000,d.base(l)).sell.wra)];})()''')
+    check(tt == [1575, 0, 0], f'título promulgado US$ 1.575 em US$ 300 mil, zero em Miami-Dade, sem taxa fixa em lote {tt}')
+    defs = pg.evaluate(D + '.PDEF'); check(defs['months'] == 5 and defs['monthsLot'] == 3 and defs['hins'] == 1 and defs['hutil'] == 350 and defs['rhbUnk'] == 35000 and defs['misc'] == 1000 and defs['titleP'] == 100, 'padrões: posse 5 meses (lote 3), seguro 1%, US$ 350/mês, reforma desconhecida US$ 35 mil, fechamento US$ 1.000')
     # every P&L line editable, live recalculation
     n_in = pg.locator('#dpl .pin').count(); check(n_in >= 14, f'P&L editável ({n_in} campos)')
     before = pg.locator('#dplnet').inner_text()
@@ -119,9 +133,9 @@ with sync_playwright() as p:
     pg.click('#w-reset'); pg.wait_for_timeout(200)
     check(pg.locator('#dplnet').inner_text() == before, 'desfazer edições do imóvel')
     pg.fill('#dpl [data-pk="hutil"]', '400'); pg.wait_for_timeout(150); pg.click('#plsave'); pg.wait_for_timeout(300)
-    check((json.loads(pg.evaluate("localStorage.getItem('leilao_premissas_v4')") or '{}')).get('hutil') == 400, 'salvar custos como padrão (localStorage)')
+    check((json.loads(pg.evaluate("localStorage.getItem('leilao_premissas_v5')") or '{}')).get('hutil') == 400, 'salvar custos como padrão (localStorage)')
     pg.evaluate(f'{D}.openDrawer("{rid}")'); pg.wait_for_timeout(300); pg.click('#pldef'); pg.wait_for_timeout(300)
-    check(pg.evaluate("localStorage.getItem('leilao_premissas_v4')") is None and pg.evaluate(D + '.PR.hutil') == 350, 'voltar aos padrões originais')
+    check(pg.evaluate("localStorage.getItem('leilao_premissas_v5')") is None and pg.evaluate(D + '.PR.hutil') == 350, 'voltar aos padrões originais')
     pg.evaluate(f'{D}.openDrawer("{rid}")'); pg.wait_for_timeout(300)
     # what-if exactly like BidToFlip: every line follows bid / ARV / rehab / months live
     row = '''(t=>{const tr=[...document.querySelectorAll('#dpl tr')].find(x=>x.cells[0]&&x.cells[0].textContent.startsWith(t));return tr?tr.cells[1].textContent:null;})'''
@@ -168,9 +182,9 @@ with sync_playwright() as p:
     pg.evaluate(f'{D}.applyPrem({{...{D}.PR, ret:25}})'); pg.wait_for_timeout(300)
     mb20 = pg.evaluate(f'{D}.ITEMS.find(r=>r.id==="{rid}").mb')
     check(mb20 < mb10, f'premissa retorno 25% reduz lance máx. ({mb10:.0f} → {mb20:.0f})')
-    check(pg.evaluate("localStorage.getItem('leilao_premissas_v4')") is not None, 'premissas salvas (v4)')
+    check(pg.evaluate("localStorage.getItem('leilao_premissas_v5')") is not None, 'premissas salvas (v5)')
     pg.evaluate(f'{D}.applyPrem({{...{D}.PDEF}})'); pg.wait_for_timeout(300)
-    check(pg.evaluate("localStorage.getItem('leilao_premissas_v4')") is None, 'padrões restaurados')
+    check(pg.evaluate("localStorage.getItem('leilao_premissas_v5')") is None, 'padrões restaurados')
     # CSV
     with pg.expect_download() as dl: pg.click('#bcsv')
     lines = open(dl.value.path(), encoding='utf-8-sig').read().splitlines()

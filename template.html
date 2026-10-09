@@ -198,7 +198,7 @@ dialog::backdrop{background:rgba(10,16,28,.6)}
 .kpi{cursor:pointer;border-color:#5a6476}.kpi.on{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
 .tabs{flex-wrap:wrap}
 .cat.viavel{background:#2f5543;color:#b4f5cf;border:1px solid #a3d9b5}.cat.abaixo{background:#50323a;color:#ffc9c9;border:1px solid #f1b0b0}.cat.lucro{background:#5a4a2c;color:#ffe08a;border:1px solid #f0cd8a}.cat.semdados{color:var(--mut);border:1px solid var(--line)}
-.vd.CONSIDERAR{background:#f59e0b;color:#1d1300;border:1px solid #d97706}.vd.PASSAR{background:#c62828;color:#fff;border:1px solid #b91c1c}
+.vd.CONSIDERAR{background:#f59e0b;color:#1d1300;border:1px solid #d97706}.vd.PASSAR{background:#c62828;color:#fff;border:1px solid #b91c1c}.vd.DISPUTADO{background:#6d5bd0;color:#fff;border:1px solid #8b7cf0}.cat.disp{background:#3d3566;color:#ddd6ff;border:1px solid #a99cf2}
 .ty{display:inline-block;border-radius:4px;padding:0 6px;font-size:10.5px;font-weight:800;background:#2f5258;color:#b9f0f7;border:1px solid #a7d8e2;border-color:#4f97a3}
 .fsw{width:14px;height:14px;border-radius:50%;border:1px solid #9aa5b5;background:transparent;cursor:pointer;padding:0;display:inline-block;vertical-align:middle;border-color:#b4bdca}
 .fsw.gold{background:var(--gold);border-color:var(--gold)}.fsw.green{background:var(--green);border-color:var(--green)}.fsw.red{background:var(--red);border-color:var(--red)}.fsw.blue{background:var(--blue);border-color:var(--blue)}
@@ -448,7 +448,7 @@ select option{background:#2a303b;color:#eef1f5}
   <div class="fmain">
    <label class="w2">Buscar endereço / cidade / ZIP / condado / processo / autor<input id="q" type="search" placeholder="digite para filtrar…"></label>
    <label title="Condado do leilão">Condado<select id="fco"><option value="">Todos</option></select></label>
-   <label title="FLIP ≥ 25% · CONSIDERAR 17–25% · PASSAR &lt; 17% (no lance realista)">Veredito<select id="fvd"><option value="">Todos</option><option>FLIP</option><option>CONSIDERAR</option><option>PASSAR</option></select></label>
+   <label title="FLIP / CONSIDERAR: preço esperado ≤ lance máx. de 17% (ROI ≥ 25% / ≥ 17%) · DISPUTADO: há espaço até o lance máx., mas o preço esperado (ou o julgamento do foreclosure) está acima · SEM ESPAÇO: tax deed com lance inicial acima do lance máx., ou nenhum lance dá 17%">Veredito<select id="fvd"><option value="">Todos</option><option>FLIP</option><option>CONSIDERAR</option><option value="DISPUTADO">DISPUTADO</option><option value="PASSAR">SEM ESPAÇO</option></select></label>
    <label class="ck" title="Sem alerta grave, HOA, ocupação, JR-LIEN, leilão anterior, título não verificado grave…"><input type="checkbox" id="bclean"> Negócios limpos</label>
   </div>
   <button class="btn sm" id="fmorebtn" type="button">Mais filtros</button>
@@ -565,8 +565,8 @@ const median = a=>{ const v=a.filter(x=>x!=null&&isFinite(x)).sort((x,y)=>x-y); 
 const isLand = r=> r.ty==='Lote'||r.ty==='Terreno';
 
 const FL = {
- avoid:{l:'EVITAR',c:'red',d:'Revisão anterior identificou problema grave (ex.: execução de hipoteca júnior/HOA – hipoteca sênior sobrevive). Veredito PASSAR, nota máx. 10.'},
- mtg:{l:'Hipoteca sobrevive?',c:'red',d:'Foreclosure em que o autor parece ser credor júnior/HOA e há 1ª hipoteca maior e recente (≥2012, >1,3× o julgamento) de outro credor – o comprador herdaria a dívida. Reserva p/ dívidas = 1ª hipoteca; veredito PASSAR, nota máx. 15. Indício: confirmar no processo.'},
+ avoid:{l:'EVITAR',c:'red',d:'Revisão anterior identificou problema grave (ex.: execução de hipoteca júnior/HOA – hipoteca sênior sobrevive). Desconta a dívida estimada e tira 15 pontos da nota (não é mais PASSAR automático).'},
+ mtg:{l:'Hipoteca sobrevive?',c:'red',d:'Foreclosure em que o autor parece ser credor júnior/HOA e há 1ª hipoteca maior e recente (≥2012, >1,3× o julgamento) de outro credor – o comprador herdaria a dívida. Reserva p/ dívidas = saldo estimado da 1ª hipoteca (amortizada 30 anos desde o registro); −10 na nota, sem PASSAR automático. Indício: confirmar no processo.'},
  jr:{l:'JR-LIEN?',c:'red',d:'Julgamento menor que metade do valor: normalmente execução de HOA/condomínio ou de hipoteca júnior, em que a 1ª hipoteca SOBREVIVE ao leilão. O NET mostrado pode ser ilusório até confirmar o autor e as dívidas no processo (Clerk).'},
  occ:{l:'OO',c:'amb',d:'Dono mora no imóvel (owner-occupied/homestead ou correspondência no próprio imóvel): despejo provável (custo e meses extras nas premissas).'},
  ten:{l:'Inquilino?',c:'amb',d:'Dono com correspondência em outro endereço e imóvel não marcado como vago: inquilino provável (despejo/cash-for-keys).'},
@@ -598,12 +598,12 @@ const PF=[
  ['Compra (Flórida)',[['clerk1','Taxa do clerk: % sobre os primeiros US$ 500',0.1],['clerk2','Taxa do clerk: % sobre o restante do lance',0.1],['docb','Doc stamps na compra (% do lance)',0.05],['qt','Quiet title – tax deed construído (US$)',100],['qtLot','Título do lote: certificação de título p/ revenda (US$)',100],['fee','Taxas extras do leilão (US$)',50],['ev','Despejo / cash-for-keys se ocupado (US$)',100],['dep','Depósito no leilão (% do lance)',0.5]]],
  ['Reforma (por idade e tamanho)',[['rhb20','Construído 2020+ (US$/sqft)',1],['rhb15','2015–2019 (US$/sqft)',1],['rhb05','2005–2014 (US$/sqft)',1],['rhb95','1995–2004 (US$/sqft)',1],['rhbOld','Antes de 1995 (US$/sqft)',1],['rhbMin','Reforma mínima (US$)',500],['rhbUnk','Ano desconhecido (US$)',1000],['rhbSqft','Área presumida se desconhecida (sqft)',50],['rhbPool','Piscina (+US$)',500],['cont','Contingência (% da reforma)',1]]],
  ['Posse',[['months','Meses de posse – construído',1],['monthsLot','Meses de posse – terreno',1],['htax','Imposto predial se o real não for conhecido (% do valor/ano)',0.1],['hins','Seguro (% do valor/ano)',0.1],['hutil','Contas/manutenção por mês – construído (US$)',10],['hutilLot','Manutenção por mês – terreno (US$)',10],['clear','Terreno: roçada / limpeza (US$)',100],['qtm','+ meses p/ quiet title',1],['evm','+ meses se houver despejo',1],['usedom','Usar dias no mercado do ZIP no lugar dos meses (1 = sim)',1],['closem','Meses de fechamento (só com dias no mercado)',0.5]]],
- ['Venda (sobre o ARV)',[['list','Comissão corretor vendedor (%)',0.1],['buyc','Comissão corretor comprador (%)',0.1],['title','Título / escrow (%)',0.1],['docs','Doc stamps na venda (%)',0.05],['misc','Fechamento / diversos (US$)',100],['wra','WRA – taxa fixa (US$)',1]]],
+ ['Venda (sobre o ARV)',[['list','Comissão corretor vendedor (%)',0.1],['buyc','Comissão corretor comprador (%)',0.1],['titleP','Seguro de título do proprietário: % da tabela promulgada FL (vendedor paga; 0 em Miami-Dade, Broward, Sarasota, Collier)',5],['docs','Doc stamps na venda (%)',0.05],['misc','Fechamento / diversos (US$)',100],['wra','Taxa fixa de venda (BidToFlip, origem não confirmada) – só construído (US$)',1]]],
  ['Aluguel, BRRRR e reconstrução',[['yld','Yield bruto p/ “aluguel forte” (%)',0.5],['refi','Taxa do refinanciamento (% a.a.)',0.1],['ltv','LTV do refi (% do ARV)',1],['tax','Imposto predial BRRRR (% do valor/ano, est.)',0.1],['ins','Seguro BRRRR (% do valor/ano, est.)',0.1],['vac','Vacância + manutenção (% do aluguel)',1],['mgmt','Administração (% do aluguel)',1],['rebuild','Reconstrução (US$/sqft)',5],['depr','Depreciação (% por ano de idade, máx. 60%)',0.1]]]
 ];
 const PKEYS=PF.flatMap(g=>g[1].map(f=>f[0]));
-const PDEF={}; const PFALL={tdxp:1,usedom:0,closem:1,hutilLot:50,months:6,monthsLot:4,rhb20:5,rhb15:10,rhb05:20,rhb95:30,rhbOld:40,rhbMin:8000,rhbUnk:35000,rhbSqft:1500,rhbPool:5000,cont:10,misc:1500,clear:500,qtLot:1200,wra:399,clerk1:3,clerk2:1.5}; PKEYS.forEach(k=>PDEF[k]=isFinite(+P[k])?+P[k]:(PFALL[k]??0));
-const PKEY='leilao_premissas_v4';
+const PDEF={}; const PFALL={tdxp:1,usedom:0,closem:1,hutilLot:50,months:5,monthsLot:3,rhb20:5,rhb15:10,rhb05:20,rhb95:30,rhbOld:40,rhbMin:8000,rhbUnk:35000,rhbSqft:1500,rhbPool:5000,cont:10,misc:1000,clear:500,qtLot:1200,wra:399,titleP:100,clerk1:3,clerk2:1.5}; PKEYS.forEach(k=>PDEF[k]=isFinite(+P[k])?+P[k]:(PFALL[k]??0));
+const PKEY='leilao_premissas_v5';   // v5 (out/2026): título promulgado, fechamento US$ 1 mil, 5/3 meses – reseta premissas antigas
 let PR={...PDEF};
 (()=>{const sv=LS.get(PKEY,null); if(sv) PKEYS.forEach(k=>{if(typeof sv[k]==='number'&&isFinite(sv[k])&&sv[k]>=0) PR[k]=sv[k];});})();
 const custom=()=>PKEYS.some(k=>PR[k]!==PDEF[k]);
@@ -648,6 +648,11 @@ function base(r,Q){
  const ex=exitParts(r,rh.v,ev,Q);
  return {td, ev, arv:r.val, rehab:rh.v, rehabWhy:rh.why, months:ex.months, mparts:ex.parts, rent:r.rent||0, lien, refi:Q.refi, ppsf:Q.rebuild, rebuild:null, pr:Q};
 }
+// Owner's title policy on resale: Florida promulgated rate (F.A.C. 69O-186.003) – US$ 5.75 per 1,000 up to 100k, 5.00 per 1,000 to 1M,
+// 2.50 above. Seller pays by custom everywhere except Miami-Dade, Broward, Sarasota and Collier (buyer pays there → 0).
+// Lee, Charlotte and Manatee: sources disagree; treated as seller-pays (conservative).
+const TITLE_BUYER_PAYS=['Miami-Dade','Broward','Sarasota','Collier'];
+function titlePrem(arv,r){ if(!arv) return 0; if(r && TITLE_BUYER_PAYS.includes(r.co)) return 0; const a=Math.max(0,arv); return Math.max(100, Math.min(a,100000)*5.75/1000 + Math.max(0,Math.min(a,1e6)-100000)*5/1000 + Math.max(0,a-1e6)*2.5/1000); }
 const clerkFee = (bid,Q)=>{ Q=Q||PR; return bid<=0 ? 0 : bid<=500 ? bid*Q.clerk1/100 : 500*Q.clerk1/100+(bid-500)*Q.clerk2/100; };
 function pnl(r,bid,o){
  o=o||base(r); const Q=o.pr||PR, land=isLand(r);
@@ -655,7 +660,7 @@ function pnl(r,bid,o){
  const cont=o.rehab*Q.cont/100;
  const hm=holdMonth(r,arv,Q), hold=hm.total*o.months;
  const fees={fee:Q.fee, qt:needQT(r)?(land?Q.qtLot:Q.qt):0, ev:o.ev?Q.ev:0, clear:land?Q.clear:0}; const flat=fees.fee+fees.qt+fees.ev+fees.clear;
- const sell={list:arv*Q.list/100,buyc:arv*Q.buyc/100,title:arv*Q.title/100,docs:arv*Q.docs/100,misc:arv?(land?Math.min(Q.misc,Math.max(500,arv*0.03)):Q.misc):0,wra:arv?Q.wra:0};
+ const sell={list:arv*Q.list/100,buyc:arv*Q.buyc/100,title:titlePrem(arv,r)*Q.titleP/100,docs:arv*Q.docs/100,misc:arv?(land?Math.min(Q.misc,Math.max(500,arv*0.03)):Q.misc):0,wra:(arv&&!land)?Q.wra:0};
  const sellT=sell.list+sell.buyc+sell.title+sell.docs+sell.misc+sell.wra;
  const inv=acq+o.rehab+cont+hold+flat+o.lien, net=arv-sellT-inv, roi=inv>0?net/inv:null;
  return {bid,arv,clerk,docb,acq,rehab:o.rehab,cont,hold,hm,months:o.months,fees,flat,lien:o.lien,sell,sellT,inv,net,roi};
@@ -730,21 +735,58 @@ function roiNote(r){
  return '<div class="mini" title="Se o leilão fechasse no lance inicial ou no julgamento, sem disputa. Não use este número para decidir.">ROI no lance inicial: '+pct(r.roi0)+'</div>';
 }
 function realisticBid(r,o){
+ r.belowJ=false;
  const optimistic = PR.tdxp===0 && (r.t==='TD' || r.nobid);
  let x = r.ref!=null ? +r.ref : 0;
  if(!optimistic){
-  // historical county price = (sold ÷ auction assessed value) × this item's assessed value. That ratio comes from a
-  // handful of sales of every type, so on lots (assessed ≪ just value) it can exceed the property's own value
-  // (e.g. Hernando 1.28× state ratio → bid above ARV). No rational third party pays that: cap it at a share of ARV
-  // (Marion Ocala lots, JV US$ 14.5k, actually sold to third parties for US$ 6.1–10k ≈ 0.42–0.69 of JV).
-  if(r.xp && r.xp.v){ const cap=o.arv ? o.arv*(isLand(r)?XP_CAP_LAND:XP_CAP) : Infinity; x=Math.max(x, Math.min(+r.xp.v, cap)); }
   const fmb = XBID_MB[r.t]!=null ? XBID_MB[r.t] : 0.55;
   const far = XBID_ARV[r.t]!=null ? XBID_ARV[r.t] : 0.28;
+  if(r.t==='FC' && o.arv){
+   // Foreclosure: the judgment is NOT a hard minimum – the bank often lets the property go for less (our results: about half of
+   // the 3rd-party wins were below the judgment). Expected price = the LOWEST of: judgment (× county sold/judgment ratio when
+   // that is < 1), county historical price (sold ÷ assessed × assessed), and the investor 70% rule (70% ARV − rehab).
+   // That only happens when the debt is above what the property is worth to the bank (REO net ≈ 85% ARV − rehab);
+   // below that, the bank credit-bids up to the judgment and it stays the floor (old rule).
+   const hist = (r.xp && r.xp.va) ? Math.min(+r.xp.va, o.arv*(isLand(r)?XP_CAP_LAND:XP_CAP)) : null;
+   const r70 = isLand(r) ? XP_CAP_LAND*o.arv : 0.70*o.arv-(o.rehab||0);   // lots: same 65% ceiling as the historical price
+   const bankNet = 0.85*o.arv-(o.rehab||0);
+   const alts = [hist, r70>0?r70:null].filter(v=>v!=null);
+   const low = alts.length ? Math.min.apply(null,alts) : null;
+   if(r.ref==null) x = low!=null ? low : 0;
+   else if(+r.ref <= bankNet || low==null) x = Math.max(+r.ref, hist||0);
+   else x = Math.min(+r.ref * (r.rj && r.rj.r<1 ? r.rj.r : 1), low);
+   r.belowJ = r.ref!=null && x < +r.ref;
+  } else if(r.xp && r.xp.v){
+   // historical county price = (sold ÷ auction assessed value) × this item's assessed value. That ratio comes from a
+   // handful of sales of every type, so on lots (assessed ≪ just value) it can exceed the property's own value
+   // (e.g. Hernando 1.28× state ratio → bid above ARV). No rational third party pays that: cap it at a share of ARV
+   // (Marion Ocala lots, JV US$ 14.5k, actually sold to third parties for US$ 6.1–10k ≈ 0.42–0.69 of JV).
+   const cap=o.arv ? o.arv*(isLand(r)?XP_CAP_LAND:XP_CAP) : Infinity; x=Math.max(x, Math.min(+r.xp.v, cap));
+  }
   if(r.mb!=null && r.mb>0) x=Math.max(x, fmb*r.mb);
   if(o.arv) x=Math.max(x, far*o.arv);
  }
  return x>0 ? Math.round(x) : null;
 }
+// Verdict (out/2026): is there ROOM to bid at the 17% max bid?
+//  PASSAR (sem espaço) – no bid gives 17%, or a TAX DEED whose opening bid (hard minimum) is above the max bid.
+//  DISPUTADO – room exists but the expected price is above the max bid, or a FORECLOSURE judgment above the max bid
+//              (the bank may accept less than the judgment).
+//  FLIP / CONSIDERAR – expected price at or below the max bid; ROI at the expected price ≥ 25% / ≥ 17%.
+function verdict(r){
+ if(r.roi==null || r.mb==null) return {vd:'PASSAR', why:'sem dados'};
+ if(!(r.mb>0)) return {vd:'PASSAR', why:'nenhum lance dá '+nf(PR.ret)+'%'};
+ if(r.t!=='FC' && r.ref!=null && r.ref>r.mb+1) return {vd:'PASSAR', why:'lance inicial '+money(r.ref)+' acima do lance máx. '+money(r.mb)};
+ if(r.t==='FC' && r.ref!=null && r.ref>r.mb+1) return {vd:'DISPUTADO', why:'julgamento '+money(r.ref)+' acima do lance máx. – banco pode aceitar menos que o julgamento', sub:'banco pode aceitar menos'};
+ if(r.xbid!=null && r.xbid>r.mb+1) return {vd:'DISPUTADO', why:'preço esperado '+money(r.xbid)+' acima do lance máx. – há espaço até '+money(r.mb)+', mas é provável perder na disputa'};
+ return {vd: r.roi>=PR.flip/100 ? 'FLIP' : 'CONSIDERAR', why:'preço esperado '+money(r.xbid)+' ≤ lance máx. '+money(r.mb)};
+}
+function vdTxt(r,long){
+ if(r.vd==='DISPUTADO') return long ? 'DISPUTADO – lance até '+money(r.mb) : 'DISPUTADO';
+ if(r.vd==='PASSAR') return r.vdWhy==='sem dados' ? 'PASSAR' : 'SEM ESPAÇO';
+ return r.vd;
+}
+function vdHtml(r,long){ return '<span class="vd '+r.vd+'" title="'+esc(r.vdWhy||'')+'">'+vdTxt(r,long)+'</span>'+(long&&r.vdSub?'<span class="mini c-amber" style="margin-left:4px">'+esc(r.vdSub)+'</span>':''); }
 function evaluate(r){
  applySanity(r);
  if(r.hist && r.hist.length && !r.fl.includes('rebid')) r.fl.push('rebid');
@@ -808,7 +850,6 @@ function evaluate(r){
   const distP=r.dist==null?2:r.dist<=25?5:r.dist<=50?4:r.dist<=100?3:r.dist<=150?2:1;
   const pen=Math.min(30,r.fl.filter(f=>HI.includes(f)).length*10);
   let s=clamp(roiP+netP+rehP+yrP+confP+headP+mktP+distP-pen,0,100);
-  if(r.fl.includes('avoid')) s=Math.min(s,10); else if(r.fl.includes('mtg')||r.fl.includes('surv')) s=Math.min(s,15);
   r.sc=Math.round(s); r.sp={roi:roiP,net:netP,rehab:rehP,ano:yrP,conf:confP,folga:headP,mercado:mktP,dist:distP,risco:-pen}; r.scKind='BidToFlip adaptada';
  } else if(isLand(r) && scoreRoi!=null){
   const dim=(x,k)=>1-Math.exp(-Math.max(0,x)/k);
@@ -825,10 +866,10 @@ function evaluate(r){
   r.sp={roi:roiP,net:netP,comps:compP,dist:distP,tam:sizeP,risk:riskP,falta:-falta};
   r.scKind='lote: curva de ROI/NET (não satura em 40% / US$ 50 mil)';
  } else { r.sc=r.scR; r.sp=r.spR; r.scKind='radar do Fernando'; }
- const sev=r.fl.some(f=>SEVERE.includes(f));
- r.vd = r.roi==null ? 'PASSAR' : sev ? 'PASSAR' : r.roi>=PR.flip/100 ? 'FLIP' : r.roi>=PR.ret/100 ? 'CONSIDERAR' : 'PASSAR';
- r.kat = r.roi==null ? 'SEM DADOS' : r.jmax ? 'J>MAX' : r.roi<PR.ret/100 ? 'ABAIXO '+nf(PR.ret)+'%' : r.net<PR.lownet ? 'LUCRO BAIXO' : 'VIÁVEL';
- r.katk = r.roi==null ? 'semdados' : r.jmax ? 'jmax' : r.roi<PR.ret/100 ? 'abaixo' : r.net<PR.lownet ? 'lucro' : 'viavel';
+ // surviving liens: deducted in the P&L (estimated balance) + warning + moderate score penalty – no automatic PASS
+ const V=verdict(r); r.vd=V.vd; r.vdWhy=V.why; r.vdSub=V.sub||null;
+ r.kat = r.roi==null ? 'SEM DADOS' : r.vd==='PASSAR' ? 'SEM ESPAÇO' : r.vd==='DISPUTADO' ? 'DISPUTADO' : r.jmax ? 'J>MAX' : r.net<PR.lownet ? 'LUCRO BAIXO' : 'VIÁVEL';
+ r.katk = r.roi==null ? 'semdados' : r.vd==='PASSAR' ? 'abaixo' : r.vd==='DISPUTADO' ? 'disp' : r.jmax ? 'jmax' : r.net<PR.lownet ? 'lucro' : 'viavel';
  r.clean = !r.fl.some(f=>HI.includes(f)||MD.includes(f)||f==='junk') && !r.suspect;
  const lot=lotLimits(r);
  r.lotBadges=lot?lot.badges:[];
@@ -838,7 +879,9 @@ function evaluate(r){
   if(r.clean) s+=4;
   if(r.hist&&r.hist.length) s-=Math.min(12, 4*r.hist.length);
   if(r.suspect) s=Math.min(s-20, 60);
-  if(r.fl.includes('avoid')) s=Math.min(s,10); else if(r.fl.includes('mtg')||r.fl.includes('surv')) s=Math.min(s,15);
+  if(r.fl.includes('avoid')) s-=15; else if(!built && (r.fl.includes('mtg')||r.fl.includes('surv'))) s-=10;   // built: −10 per HI flag above
+  if(r.vd==='DISPUTADO') s=Math.min(s-10,60);   // can try up to the max bid, but likely to lose: never above FLIP/CONSIDERAR deals
+  if(r.vd==='PASSAR') s=Math.min(s,35);
   if(lot && !lot.qualify) s=Math.min(s,55);
   r.sc=Math.round(clamp(s,0,100));
  }
@@ -1083,10 +1126,10 @@ function kstrip(list){
 let LAST_HJR=false;
 function kpis(list){
  const viable=list.filter(r=>r.katk==='viavel'), cons=list.filter(r=>r.vd==='CONSIDERAR');
- const jm=list.filter(r=>r.jmax).length, below=list.filter(r=>r.katk==='abaixo').length, rent=list.filter(r=>r.strongRent).length;
+ const jm=list.filter(r=>r.jmax).length, below=list.filter(r=>r.katk==='abaixo').length, disp=list.filter(r=>r.katk==='disp').length, rent=list.filter(r=>r.strongRent).length;
  const vnet=viable.reduce((s,r)=>s+r.net,0), varv=viable.reduce((s,r)=>s+r.val,0), avgroi=viable.length?viable.reduce((s,r)=>s+r.roi,0)/viable.length:null;
- const K=[['',list.length,'Nesta lista','c-gold'],['viavel',viable.length,'Viáveis','c-green'],['jmax',jm,'J>MAX','c-amber'],['abaixo',below,'Abaixo de '+nf(PR.ret)+'%','c-red'],['rent',rent,'Aluguel forte','c-green'],['cons',cons.length,'Considerar','c-amber'],['viavel',mshort(vnet),'NET viável','c-mut']];
- $('#kpis').innerHTML=K.map(([k,v,l,c],i)=>'<div class="kpi'+((S.kat===k&&(i<6))?' on':'')+'" data-kat="'+k+'"><b class="'+c+'">'+(typeof v==='number'?nf(v):v)+'</b><span>'+l+'</span></div>').join('');
+ const K=[['',list.length,'Nesta lista','c-gold'],['viavel',viable.length,'Viáveis','c-green'],['jmax',jm,'J>MAX','c-amber'],['disp',disp,'Disputados','c-mut'],['abaixo',below,'Sem espaço','c-red'],['rent',rent,'Aluguel forte','c-green'],['cons',cons.length,'Considerar','c-amber'],['viavel',mshort(vnet),'NET viável','c-mut']];
+ $('#kpis').innerHTML=K.map(([k,v,l,c],i)=>'<div class="kpi'+((S.kat===k&&(i<7))?' on':'')+'" data-kat="'+k+'"><b class="'+c+'">'+(typeof v==='number'?nf(v):v)+'</b><span>'+l+'</span></div>').join('');
  $('#sumline').innerHTML='<span title="Passam no tipo e nos filtros"><b>'+nf(list.length)+'</b>nesta lista</span><span title="Soma do ARV dos viáveis"><b class="c-gold">'+mshort(varv)+'</b>pipeline</span><span title="ROI no lance realista"><b class="c-blue">'+pct(avgroi)+'</b>ROI médio viável</span><span><b>'+nf(list.filter(r=>r.val==null).length)+'</b>sem valor</span><span class="mini">Capa = lance realista. O ROI no lance inicial fica só numa nota pequena.</span>';
 }
 $('#kpis').addEventListener('click',e=>{const k=e.target.closest('[data-kat]'); if(!k) return; S.kat = S.kat===k.dataset.kat ? '' : k.dataset.kat; apply();});
@@ -1136,7 +1179,7 @@ const COLS=[
  ['mb',()=>'Lance máx. ('+nf(PR.ret)+'%)',r=>'<b>'+money(r.mb)+'</b><div class="mini">depósito '+money(r.dep)+'</div>','mb',1,'num'],
  ['net','NET',r=>'<b class="'+(r.net>=0?'c-green':'c-red')+'" title="No lance realista '+esc(money(r.xbid))+'">'+money(r.net)+'</b>','net',1,'num'],
  ['roi','ROI',r=>'<span class="'+(r.roi>=PR.flip/100?'c-green':r.roi>=PR.ret/100?'c-amber':'c-red')+'" title="Lance realista '+esc(money(r.xbid))+'">'+pct(r.roi)+'</span>'+roiNote(r),'roi',1,'num'],
- ['vd','Veredito',r=>'<span class="vd '+r.vd+'">'+r.vd+'</span>'+(TRK[r.id]&&TRK[r.id].s?'<div class="mini c-gold">'+STL[TRK[r.id].s]+'</div>':''),'vd',1],
+ ['vd','Veredito',r=>vdHtml(r,false)+(r.vd==='DISPUTADO'?'<div class="mini">até '+money(r.mb)+'</div>':'')+(TRK[r.id]&&TRK[r.id].s?'<div class="mini c-gold">'+STL[TRK[r.id].s]+'</div>':''),'vd',1],
  ['plaint','Autor / titular',r=>'<div style="max-width:190px;overflow:hidden;text-overflow:ellipsis" title="'+esc(r.plaint||'')+'">'+esc(r.plaint||'—')+'</div>',null,1],
  ['xp','Preço esperado',r=>r.xp?money(r.xp.v)+'<div class="mini" title="ROI se o martelo cair no preço histórico do condado">ROI hist. '+pct(r.roiXp)+'</div>':'—','xroi',0,'num'],
  ['rent','Aluguel / yield',r=>r.rent?money(r.rent)+'<div class="mini">'+pct(r.yld)+' · cap '+pct(r.cap)+'</div>':'—','yld',0,'num'],
@@ -1162,7 +1205,7 @@ function renderTable(reset){
 }
 function card(r){
  const ph=firstImg(r)?'<img loading="lazy" referrerpolicy="no-referrer" src="'+esc(firstImg(r))+'" alt="">':'<div class="thx" style="width:100%;height:100%;border-radius:0">'+(isLand(r)?r.ty+' – sem foto':'Sem foto')+'</div>';
- return '<article class="card" data-id="'+r.id+'"><div class="ph">'+ph+'<div class="tl"><span class="cat '+r.katk+'">'+r.kat+'</span><span class="vd '+r.vd+'">'+r.vd+'</span><span class="bdg">'+TYPES[r.t]+'</span><span class="ty">'+r.ty+'</span></div><div class="tr"><span class="sc '+scCls(r.sc)+'">'+(r.sc==null?'—':r.sc)+'</span></div><div class="bl">🗓 '+whenLbl(r.date)+'</div></div>'+
+ return '<article class="card" data-id="'+r.id+'"><div class="ph">'+ph+'<div class="tl"><span class="cat '+r.katk+'">'+r.kat+'</span>'+vdHtml(r,true)+'<span class="bdg">'+TYPES[r.t]+'</span><span class="ty">'+r.ty+'</span></div><div class="tr"><span class="sc '+scCls(r.sc)+'">'+(r.sc==null?'—':r.sc)+'</span></div><div class="bl">🗓 '+whenLbl(r.date)+'</div></div>'+
   '<div class="bd"><div style="display:flex;justify-content:space-between;gap:8px"><div class="pa">'+esc(r.addr)+'</div><span>'+flagBtn(r)+' <button class="star'+(FAV.has(r.id)?' on':'')+'" data-star="'+r.id+'">'+(FAV.has(r.id)?'★':'☆')+'</button> <button class="btn sm" data-cand="'+r.id+'" title="Meus candidatos" style="padding:2px 6px;font-size:11px">'+(CAND[r.id]?'✓':'＋')+'</button></span></div><div class="pf">'+facts(r)+' · '+esc(r.co)+' · '+distLbl(r)+'</div>'+
   '<div class="pf"><b>'+whenLbl(r.date)+'</b> · caixa <b>'+money(r.cash)+'</b> <span class="mini" title="Depósito de 5% + taxa do clerk + doc stamps, no lance realista">(lance '+money(r.xbid)+')</span></div>'+
   '<div class="kv4"><div><span title="Lucro no lance realista">NET</span><b class="'+(r.net>=0?'c-green':'c-red')+'">'+money(r.net)+'</b></div><div><span title="ROI no lance realista">ROI</span><b>'+pct(r.roi)+'</b></div><div><span>'+refLbl(r)+'</span><b>'+money(r.ref)+'</b></div><div><span title="Maior lance que ainda rende o retorno mínimo">Lance máx. ('+pctp(PR.ret,0)+')</span><b>'+money(r.mb)+'</b></div><div><span title="'+esc(r.vsrc||'ARV')+'">Valor (POV/ARV)</span><b>'+money(r.val)+'</b></div><div><span title="Aluguel forte = yield bruto acima da premissa">Aluguel / yield</span><b>'+(r.rent?money(r.rent)+' · '+pct(r.yld):'—')+'</b></div></div>'+
@@ -1181,7 +1224,7 @@ function loadLeaflet(cb){
  const css=document.createElement('link'); css.rel='stylesheet'; css.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'; document.head.appendChild(css);
  const s=document.createElement('script'); s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'; s.onload=cb; s.onerror=()=>{$('#map').innerHTML='<div class="mapmsg">Não foi possível carregar o mapa (sem internet?).</div>';}; document.head.appendChild(s);
 }
-const VCOL={FLIP:'#16a34a',CONSIDERAR:'#f59e0b',PASSAR:'#dc2626'};
+const VCOL={FLIP:'#16a34a',CONSIDERAR:'#f59e0b',DISPUTADO:'#a78bfa',PASSAR:'#dc2626'};
 function renderMap(){
  loadLeaflet(()=>{
   if(!MAP){
@@ -1197,7 +1240,7 @@ function renderMap(){
    const leg=L.control({position:'bottomleft'});
    leg.onAdd=function(){
     const d=L.DomUtil.create('div','mapleg');
-    d.innerHTML='<b>Pinos</b><br><i style="background:#16a34a"></i>FLIP<br><i style="background:#f59e0b"></i>CONSIDERAR<br><i style="background:#dc2626"></i>PASSAR<br><i style="background:#0e7490"></i>borda = lote/terreno<br><span style="color:#e0b43c">— —</span> 25 / 50 / 100 mi de Orlando';
+    d.innerHTML='<b>Pinos</b><br><i style="background:#16a34a"></i>FLIP<br><i style="background:#f59e0b"></i>CONSIDERAR<br><i style="background:#a78bfa"></i>DISPUTADO<br><i style="background:#dc2626"></i>SEM ESPAÇO<br><i style="background:#0e7490"></i>borda = lote/terreno<br><span style="color:#e0b43c">— —</span> 25 / 50 / 100 mi de Orlando';
     L.DomEvent.disableClickPropagation(d);
     return d;
    };
@@ -1210,8 +1253,8 @@ function renderMap(){
   } else setTimeout(()=>MAP.invalidateSize(), 60);
   if(LAYER) LAYER.remove(); LAYER=L.layerGroup().addTo(MAP);
   const pts=CUR.filter(r=>r.lat!=null&&r.lon!=null);
-  pts.forEach(r=>L.circleMarker([r.lat,r.lon],{radius:isLand(r)?5:7,color:isLand(r)?'#0e7490':'#0d1b2a',weight:1.2,fillColor:VCOL[r.vd],fillOpacity:.9}).addTo(LAYER).bindPopup('<b>'+esc(r.addr)+'</b><br>'+r.ty+' · '+r.vd+' · ROI '+pct(r.roi)+' · '+distLbl(r)+'<br>'+whenLbl(r.date)+' · caixa '+money(r.cash)+'<br><a href="#" data-open="'+r.id+'">abrir detalhes</a>'));
-  $('#mapnote').textContent=pts.length+' de '+CUR.length+' imóveis desta lista (filtros ativos valem no mapa) têm coordenadas. ORL = Orlando; anéis de 25/50/100 mi. Verde FLIP, laranja CONSIDERAR, vermelho PASSAR; borda azul = lote/terreno.';
+  pts.forEach(r=>L.circleMarker([r.lat,r.lon],{radius:isLand(r)?5:7,color:isLand(r)?'#0e7490':'#0d1b2a',weight:1.2,fillColor:VCOL[r.vd],fillOpacity:.9}).addTo(LAYER).bindPopup('<b>'+esc(r.addr)+'</b><br>'+r.ty+' · '+vdTxt(r,true)+' · ROI '+pct(r.roi)+' · '+distLbl(r)+'<br>'+whenLbl(r.date)+' · caixa '+money(r.cash)+'<br><a href="#" data-open="'+r.id+'">abrir detalhes</a>'));
+  $('#mapnote').textContent=pts.length+' de '+CUR.length+' imóveis desta lista (filtros ativos valem no mapa) têm coordenadas. ORL = Orlando; anéis de 25/50/100 mi. Verde FLIP, laranja CONSIDERAR, lilás DISPUTADO, vermelho SEM ESPAÇO; borda azul = lote/terreno.';
  });
 }
 
@@ -1407,7 +1450,7 @@ function renderDay(){
   '<div class="daypr"><h2 style="margin:0">Leilões Flórida · lista do dia '+(DAY.d?fdate(DAY.d):'(todas as datas)')+'</h2><p>Gerado em '+new Date().toLocaleString('pt-BR')+' · retorno mínimo '+pctp(PR.ret)+' · valores em US$ · estimativas, conferir no Clerk.</p></div>'+
   '<p class="mini noprint">'+L.length+' imóveis · soma dos lances máximos '+money(totb)+' · soma dos depósitos ('+pctp(PR.dep,0)+') '+money(tot)+'. Lance máximo = maior lance com retorno de '+pctp(PR.ret)+'. Imprima direto do celular (Compartilhar → Imprimir → salvar PDF).</p>'+
   (L.length?'<div class="tblwrap"><table class="itbl" id="daytbl"><thead><tr><th>Data / hora</th><th>Condado</th><th>Tipo</th><th>Endereço</th><th>Processo / parcela</th><th class="n">Julg./lance</th><th class="n">Valor (POV)</th><th class="n">Lance máx.</th><th class="n">Depósito</th><th class="n">Preço esperado</th><th>Veredito</th><th>Alertas</th><th>Links</th></tr></thead><tbody>'+
-   L.map(r=>'<tr class="ck" data-id="'+r.id+'"><td>'+fdate(r.date)+'<div class="mini">'+esc(r.time||'')+'</div></td><td>'+esc(r.co)+'</td><td>'+TYPES[r.t]+'<div class="mini">'+r.ty+'</div></td><td style="white-space:normal">'+esc(r.addr)+'</td><td class="mini" style="white-space:normal">'+esc(r.case||'—')+'<br>'+esc(r.parcel||'')+'</td><td class="n">'+money(r.ref)+'</td><td class="n">'+money(r.val)+'</td><td class="n"><b>'+money(r.mb)+'</b></td><td class="n">'+money(r.dep)+'</td><td class="n">'+(r.xp?money(r.xp.v):'—')+'</td><td><span class="vd '+r.vd+'">'+r.vd+'</span></td><td class="mini" style="white-space:normal">'+esc(r.fl.map(f=>FL[f]?FL[f].l:f).join(', ')||'—')+(TRK[r.id]&&TRK[r.id].n?'<br>📝 '+esc(TRK[r.id].n.slice(0,120)):'')+'</td><td class="mini">'+(r.links.auc||r.links.list?'<a href="'+esc(r.links.auc||r.links.list)+'" target="_blank" rel="noopener">Leilão</a> ':'')+(r.links.pa?'<a href="'+esc(r.links.pa)+'" target="_blank" rel="noopener">PA</a> ':'')+'<a href="'+esc(gmapsUrl(r))+'" target="_blank" rel="noopener">Mapa</a></td></tr>').join('')+
+   L.map(r=>'<tr class="ck" data-id="'+r.id+'"><td>'+fdate(r.date)+'<div class="mini">'+esc(r.time||'')+'</div></td><td>'+esc(r.co)+'</td><td>'+TYPES[r.t]+'<div class="mini">'+r.ty+'</div></td><td style="white-space:normal">'+esc(r.addr)+'</td><td class="mini" style="white-space:normal">'+esc(r.case||'—')+'<br>'+esc(r.parcel||'')+'</td><td class="n">'+money(r.ref)+'</td><td class="n">'+money(r.val)+'</td><td class="n"><b>'+money(r.mb)+'</b></td><td class="n">'+money(r.dep)+'</td><td class="n">'+(r.xp?money(r.xp.v):'—')+'</td><td>'+vdHtml(r,true)+'</td><td class="mini" style="white-space:normal">'+esc(r.fl.map(f=>FL[f]?FL[f].l:f).join(', ')||'—')+(TRK[r.id]&&TRK[r.id].n?'<br>📝 '+esc(TRK[r.id].n.slice(0,120)):'')+'</td><td class="mini">'+(r.links.auc||r.links.list?'<a href="'+esc(r.links.auc||r.links.list)+'" target="_blank" rel="noopener">Leilão</a> ':'')+(r.links.pa?'<a href="'+esc(r.links.pa)+'" target="_blank" rel="noopener">PA</a> ':'')+'<a href="'+esc(gmapsUrl(r))+'" target="_blank" rel="noopener">Mapa</a></td></tr>').join('')+
    '</tbody></table></div>':'<p class="c-mut" style="padding:20px;text-align:center">Nenhum imóvel. Marque ☆ favoritos ou cores na lista, ou escolha “Lista filtrada atual”.</p>')+'</section>';
  $('#dayd').onchange=e=>{DAY.d=e.target.value; renderDay();};
  $('#days').onchange=e=>{DAY.src=e.target.value; renderDay();};
@@ -1596,7 +1639,7 @@ function openDrawer(id){
   galHtml(r)+
   '<div class="dlinks"><a class="btn gold" id="dzil" href="'+esc(zillowUrl(r))+'" target="_blank" rel="noopener">🏠 Zillow</a><a class="btn gold" id="drea" href="'+esc(realtorUrl(r))+'" target="_blank" rel="noopener">🏠 Realtor.com</a><a class="btn" href="'+esc(gmapsUrl(r))+'" target="_blank" rel="noopener">📍 Google Maps</a><a class="btn" href="'+esc(svUrl(r))+'" target="_blank" rel="noopener">🚶 Street View</a>'+(L.pa?'<a class="btn" href="'+esc(L.pa)+'" target="_blank" rel="noopener">🏛 Property Appraiser</a>':'')+(L.auc||L.list?'<a class="btn" href="'+esc(L.auc||L.list)+'" target="_blank" rel="noopener">⚖ Clerk / Leilão</a>':'')+(L.po?'<a class="btn" href="'+esc(L.po)+'" target="_blank" rel="noopener">PropertyOnion</a>':'')+'<button class="btn gold" id="dshare">🔗 Copiar link</button><button class="btn '+(CAND[r.id]?'':'gold')+'" id="dcand">'+(CAND[r.id]?'✓ Candidato':'＋ Candidato')+'</button></div>'+
   ((r.fl.includes('surv')||r.survAmt)?('<div class="survbox" id="survbox"><b>⚠ Hipoteca pode sobreviver</b>'+(r.survAmt?' – est. <b>'+money(r.survAmt)+'</b>':'')+'. '+esc(r.survWhy||FL.surv.d)+' <span class="mini">ESTIMATIVA – confirmar com title search. Toggle no P&L para deduzir/omitir.</span></div>'):'')+
-  '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="sc '+scCls(r.sc)+'" title="'+esc(r.scKind)+'">'+(r.sc==null?'—':r.sc)+'</span><span class="cat '+r.katk+'">'+r.kat+'</span><span class="vd '+r.vd+'">'+r.vd+'</span><span class="bdg">'+TYPES[r.t]+(r.plat?' · '+esc(r.plat):'')+'</span><span class="ty">'+TYPEL[r.ty]+'</span><span class="bdg">🗓 '+whenLbl(r.date)+' · '+fdate(r.date)+'</span><span class="bdg">'+distLbl(r)+'</span><span class="bdg" title="Caixa no lance realista">caixa '+money(r.cash)+'</span>'+rtBadge(r.rt)+badges(r)+'</div>'+
+  '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="sc '+scCls(r.sc)+'" title="'+esc(r.scKind)+'">'+(r.sc==null?'—':r.sc)+'</span><span class="cat '+r.katk+'">'+r.kat+'</span>'+vdHtml(r,true)+'<span class="bdg">'+TYPES[r.t]+(r.plat?' · '+esc(r.plat):'')+'</span><span class="ty">'+TYPEL[r.ty]+'</span><span class="bdg">🗓 '+whenLbl(r.date)+' · '+fdate(r.date)+'</span><span class="bdg">'+distLbl(r)+'</span><span class="bdg" title="Caixa no lance realista">caixa '+money(r.cash)+'</span>'+rtBadge(r.rt)+badges(r)+'</div>'+
   '<div class="pf">'+facts(r)+(r.rent?' · aluguel est. '+money(r.rent)+'/mês ('+esc(r.rsrc||'')+')':'')+(r.case?' · Processo <b>'+esc(r.case)+'</b>':'')+'</div>'+
   '<div class="intel" id="ddep"></div>'+
   '<div class="strat" id="dstrat"></div>'+
@@ -1716,9 +1759,10 @@ function drCalc(){
    '<tr class="h"><td colspan="2">Venda</td></tr>'+
    '<tr><td>Comissão do corretor vendedor <span class="mini">'+pin('list','%')+'</span></td><td>'+z(p.sell.list)+'</td></tr>'+
    '<tr><td>Comissão do corretor comprador <span class="mini">'+pin('buyc','%')+'</span></td><td>'+z(p.sell.buyc)+'</td></tr>'+
-   '<tr><td>Título / escrow <span class="mini">'+pin('title','%')+'</span></td><td>'+z(p.sell.title)+'</td></tr>'+
+   '<tr><td>Seguro de título do proprietário <span class="mini">'+(TITLE_BUYER_PAYS.includes(r.co)?'(no condado de '+esc(r.co)+' o comprador paga)':'tabela promulgada FL × '+pin('titleP','%'))+'</span></td><td>'+z(p.sell.title)+'</td></tr>'+
    '<tr><td>Doc stamps na venda <span class="mini">'+pin('docs','%')+'</span></td><td>'+z(p.sell.docs)+'</td></tr>'+
-   '<tr><td>Fechamento / diversos <span class="mini">'+pin('misc','$')+'</span></td><td>'+z(p.sell.misc)+'</td></tr>'+
+   '<tr><td>Fechamento / diversos <span class="mini">'+(land?'3% do ARV, entre US$ 500 e ':'')+pin('misc','$')+'</span></td><td>'+z(p.sell.misc)+'</td></tr>'+
+   (land?'':'<tr><td>Taxa fixa de venda (BidToFlip) <span class="mini">'+pin('wra','$')+' – origem não confirmada; só construído</span></td><td>'+z(p.sell.wra)+'</td></tr>')+
    '<tr class="t"><td>Total dos custos de venda</td><td>'+neg(p.sellT)+'</td></tr>'+
    '<tr class="big"><td class="'+(p.net>=0?'pos':'neg')+'">Lucro líquido</td><td class="'+(p.net>=0?'pos':'neg')+'" id="dplnet">'+money(p.net)+' · '+pct(p.roi)+' ROI</td></tr>'+
    '<tr><td class="mini" colspan="2">ROI = lucro ÷ custo all-in de '+money(p.inv)+' (aquisição + reforma + contingência + posse + extras). Depósito no leilão ('+pctp(Q.dep,0)+'): '+money(bid*Q.dep/100)+'.</td></tr>'+
@@ -1751,14 +1795,14 @@ function renderHow(){
  '<tr><td>Compra</td><td>Doc stamps '+pctp(PR.docb,2)+' do lance + clerk '+pctp(PR.clerk1)+' dos primeiros US$ 500 + '+pctp(PR.clerk2)+' do restante'+(PR.fee?' + taxas '+money(PR.fee):'')+'</td><td>Tarifas legais da Flórida (iguais ao BidToFlip).</td></tr>'+
  '<tr><td>Reforma</td><td>US$/sqft por ano de construção: 2020+ '+money(PR.rhb20)+' · 2015–19 '+money(PR.rhb15)+' · 2005–14 '+money(PR.rhb05)+' · 1995–2004 '+money(PR.rhb95)+' · antes de 1995 '+money(PR.rhbOld)+'; mínimo '+money(PR.rhbMin)+'; ano desconhecido '+money(PR.rhbUnk)+'; área desconhecida = '+nf(PR.rhbSqft)+' sqft; piscina +'+money(PR.rhbPool)+'; <b>contingência '+pctp(PR.cont,0)+'</b> da reforma. Terreno: zero.</td><td>Escala com idade <i>e</i> tamanho (uma casa grande custa mais); imóveis de leilão são comprados sem vistoria, por isso a contingência.</td></tr>'+
  '<tr><td>Posse</td><td>'+nf(PR.months)+' meses (terreno '+nf(PR.monthsLot)+') × (imposto anual real ÷ 12 – ou '+pctp(PR.htax)+' do valor/ano – + seguro '+pctp(PR.hins)+' do valor/ano + contas/manutenção '+money(PR.hutil)+'/mês; terreno '+money(PR.hutilLot)+'/mês sem seguro)</td><td>Compra, obra, anúncio e fechamento raramente cabem em 4 meses; seguro de imóvel vago na Flórida é caro.'+(PR.usedom?' <b>Premissa ativa:</b> meses pelo prazo de saída do ZIP.':' O prazo de saída do ZIP (Redfin) aparece como sensibilidade.')+'</td></tr>'+
- '<tr><td>Venda (sobre o ARV)</td><td>Corretor vendedor '+pctp(PR.list)+' + comprador '+pctp(PR.buyc)+' + título/escrow '+pctp(PR.title)+' + doc stamps '+pctp(PR.docs,2)+' + fechamento/diversos '+money(PR.misc)+' + WRA '+money(PR.wra)+'</td><td>Venda pelo MLS normalmente paga as duas comissões.</td></tr>'+
+ '<tr><td>Venda (sobre o ARV)</td><td>Corretor vendedor '+pctp(PR.list)+' + comprador '+pctp(PR.buyc)+' + seguro de título do proprietário pela tabela promulgada da Flórida (US$ 5,75/mil até US$ 100 mil, US$ 5/mil acima; ≈ US$ 1.575 num imóvel de US$ 300 mil) × '+pctp(PR.titleP,0)+' – zero em Miami-Dade, Broward, Sarasota e Collier, onde o comprador paga; Lee, Charlotte e Manatee tratados como vendedor paga (fontes divergem) + doc stamps '+pctp(PR.docs,2)+' (vendedor paga na Flórida) + fechamento/diversos '+money(PR.misc)+' (lote: 3% do ARV, entre US$ 500 e '+money(PR.misc)+') + taxa fixa de venda '+money(PR.wra)+' (herdada do BidToFlip, origem não confirmada; só construído)</td><td>Venda pelo MLS normalmente paga as duas comissões.</td></tr>'+
  '<tr><td>Extras</td><td>Quiet title '+money(PR.qt)+' (tax deed construído); lote: certificação de título '+money(PR.qtLot)+' + roçada/limpeza '+money(PR.clear)+' (agrimensura fica com o comprador); fechamento do lote = 3% do ARV entre US$ 500 e '+money(PR.misc)+'; preço histórico do condado limitado a '+Math.round(XP_CAP_LAND*100)+'% do ARV em lote ('+Math.round(XP_CAP*100)+'% construído); despejo/cash-for-keys '+money(PR.ev)+' se ocupado/inquilino; liens que sobrevivem (1ª hipoteca quando há indício)</td><td>Título segurável, posse e dívidas que ficam com o comprador.</td></tr></table>'+
  '<p><b>NET</b> = ARV − custos de venda − (lance + compra + reforma + contingência + posse + liens que sobrevivem + extras) · <b>ROI</b> = NET ÷ custo total (all-in).</p>'+
- '<p><b>Lance realista (capa do ROI, do NET, da nota e da ordenação Melhor nota).</b> O lance inicial do tax deed é só o imposto e infla o ROI. O lance da capa é o <b>maior</b> entre: (1) lance inicial ou julgamento; (2) preço esperado do histórico do condado, quando existe; (3) fração do lance máximo de '+pctp(PR.ret,0)+' — tax deed 55%, foreclosure 70%, leilão privado 50%, governo 45%; (4) fração do ARV — tax deed 28%, foreclosure 40%, privado 30%, governo 25%. Premissa “Tax deed: NET/ROI no preço esperado” = 0 desliga esse piso e volta ao lance inicial. O ROI no lance inicial fica só numa nota pequena. Caixa para o lance = depósito de '+pctp(PR.dep,0)+' + clerk + doc stamps nesse lance realista.</p>'+
+ '<p><b>Lance realista (capa do ROI, do NET, da nota e da ordenação Melhor nota).</b> O lance inicial do tax deed é só o imposto e infla o ROI. <b>Foreclosure:</b> o julgamento não é piso – quando ele passa do que o imóvel vale para o banco (≈ 85% do ARV − reforma), o preço esperado é o <b>menor</b> entre o julgamento (× razão vendido/julgamento do condado, se < 1), o preço histórico do condado e a regra dos 70% (70% do ARV − reforma); se o julgamento está abaixo disso, o banco dá lance até ele e o julgamento continua sendo o piso. Depois valem os pisos (3) e (4). <b>Tax deed e demais:</b> o lance da capa é o <b>maior</b> entre: (1) lance inicial ou julgamento; (2) preço esperado do histórico do condado, quando existe; (3) fração do lance máximo de '+pctp(PR.ret,0)+' — tax deed 55%, foreclosure 70%, leilão privado 50%, governo 45%; (4) fração do ARV — tax deed 28%, foreclosure 40%, privado 30%, governo 25%. Premissa “Tax deed: NET/ROI no preço esperado” = 0 desliga esse piso e volta ao lance inicial. O ROI no lance inicial fica só numa nota pequena. Caixa para o lance = depósito de '+pctp(PR.dep,0)+' + clerk + doc stamps nesse lance realista.</p>'+
  '<h4>2. Lance máximo e escada</h4><p><b>Lance máximo = o maior lance que ainda dá '+pctp(PR.ret)+' de ROI</b> (forma fechada da mesma conta, incluindo a taxa escalonada do clerk). Escada no detalhe: '+pctp(PR.ret,0)+' (mínimo), 25%, 30%'+([25,30].includes(PR.flip)?'':', '+pctp(PR.flip,0)+' (FLIP)')+', 70% do ARV − reforma, break-even, preço esperado e julgamento. <b>Depósito</b> = '+pctp(PR.dep,0)+' do lance.</p>'+
  '<h4>3. Veredito e categoria</h4><table><tr><th>Item</th><th>Regra</th></tr>'+
- '<tr><td>Veredito</td><td><b>FLIP</b> ROI ≥ '+pctp(PR.flip)+' · <b>CONSIDERAR</b> '+pctp(PR.ret)+'–'+pctp(PR.flip)+' · <b>PASSAR</b> abaixo de '+pctp(PR.ret)+', sem valor, ou com risco grave (EVITAR / hipoteca sobrevive).</td></tr>'+
- '<tr><td>Categoria (estilo BidToFlip)</td><td><b>J>MAX</b> julgamento acima de 70% do ARV − reforma › <b>ABAIXO '+nf(PR.ret)+'%</b> ROI abaixo do mínimo › <b>LUCRO BAIXO</b> NET abaixo de '+money(PR.lownet)+' › <b>VIÁVEL</b>. Sem valor = SEM DADOS.</td></tr>'+
+ '<tr><td>Veredito</td><td>Pergunta: <b>há espaço para dar lance?</b> <b>SEM ESPAÇO</b> = nenhum lance dá '+pctp(PR.ret)+', ou tax deed com lance inicial (mínimo obrigatório) acima do lance máx. · <b>DISPUTADO – lance até US$ X</b> = foreclosure com julgamento acima do lance máx. (o banco muitas vezes aceita menos que o julgamento: nos resultados, cerca de metade das vitórias de terceiros foi abaixo do julgamento) ou preço esperado acima do lance máx. · <b>FLIP</b> / <b>CONSIDERAR</b> = preço esperado ≤ lance máx., ROI no preço esperado ≥ '+pctp(PR.flip)+' / ≥ '+pctp(PR.ret)+'. Hipoteca que sobrevive desconta o saldo estimado e reduz a nota, sem PASSAR automático.</td></tr>'+
+ '<tr><td>Categoria (estilo BidToFlip)</td><td><b>SEM ESPAÇO</b> / <b>DISPUTADO</b> = veredito › <b>J>MAX</b> julgamento acima de 70% do ARV − reforma › <b>LUCRO BAIXO</b> NET abaixo de '+money(PR.lownet)+' › <b>VIÁVEL</b>. Sem valor = SEM DADOS.</td></tr>'+
  '<tr><td>JR-LIEN?</td><td>Foreclosure com julgamento menor que 50% do valor (típico de HOA/2ª hipoteca – a 1ª pode sobreviver).</td></tr></table>'+
  '<h4>4. Nota 0–100</h4><p>A nota usa o <b>ROI realista</b>. Casa ganha +3 e negócio limpo +4 (casa fica à frente de condo no empate). <b>Casas, townhouses, condos, mobile e multifamily:</b> ROI (0–30, cheio com 40%) + NET (0–10, cheio com US$ 75 mil) + reforma baixa (0–15) + idade (3–15) + confiança do valor (0–10) + folga até o lance máximo (0–5) + revenda do ZIP (0–10) + distância de Orlando (1–5; mais perto pesa mais) − 10 por risco alto (máx. −30). EVITAR: máx. 10 · hipoteca que sobrevive: máx. 15.<br><b>Lotes e terrenos:</b> curva com retorno decrescente (ROI e NET não estouram em 40% / US$ 50 mil) + acordo com comps + distância + tamanho. Nota alta só com uso 000 (vago residencial), até ~2 acres e ≥3 comps. Sem comps, gleba &gt;5 acres ou uso comercial/agrícola: teto 55 e selo. Comercial e outros: a conta antiga. <b>Valor suspeito:</b> −20 e teto 60. <b>Já foi a leilão:</b> −4 por vez (máx. −12). Título ou liens não verificados nunca aparecem como risco baixo (fica “risco médio: não verificado”). Filtro padrão: <b>Residencial</b>.</p>'+
  '<h4>4b. Valor suspeito</h4><p>Se o ARV/POV passar de 2× a estimativa por comps (ou o contrário), se o mercado PO for mais de 2× o just value/avaliação (um mercado de US$ 122 ou muito menor que o just value é ignorado, não derruba o valor), ou se o ARV passar de 2× o valor oficial (avaliação no leilão, mercado ou just value — o maior, não um campo isolado), entra o selo <b>Valor suspeito</b> e o ROI usa o <b>menor</b> número. O texto do valor descreve a regra que realmente escolheu o número (qual fonte entrou no “menor entre condado e AVM”, ou o POV).</p>'+
@@ -1774,7 +1818,7 @@ $('#legend').innerHTML='<table><tr><th>Selo</th><th>Significado</th></tr>'+Objec
 
 // ---------------------------------------------------------------- init
 
-const GLOSS=[['POV','PropertyOnion Value — estimativa de valor de mercado do PropertyOnion.'],['ARV','After Repair Value — valor de revenda depois da reforma. É o número Valor de mercado (POV/ARV) da conta.'],['J>MAX','Julgamento acima de 70% do ARV menos a reforma: pouco espaço para lance.'],['FJ','Final judgment — julgamento no foreclosure. Costuma ser o lance do autor.'],['OB','Opening bid — lance inicial do tax deed (em geral só o imposto, não o preço de venda).'],['BRRRR','Buy, Rehab, Rent, Refinance, Repeat — conta de aluguel no painel.'],['Aluguel forte','Yield bruto (aluguel x 12 dividido pelo ARV) na meta das premissas ou acima.'],['Cor marcada','Bolinha colorida salva neste aparelho (dourado, verde comprar, vermelho passar, azul observar).'],['JR-LIEN','Julgamento bem abaixo do valor: indício de HOA ou hipoteca júnior; a 1ª pode sobreviver.'],['xroi','ROI no lance realista (capa). ROI hist. é se o martelo cair no preço esperado do condado.'],['Lance realista','O maior entre lance inicial/julgamento, preço histórico, fração do lance máx. de 17% e fração do ARV.'],['Caixa','Dinheiro para o lance realista: depósito de 5% + taxa do clerk + doc stamps.'],['Negócios limpos','Sem alerta grave, HOA, ocupação, leilão anterior ou valor suspeito.'],['Valor suspeito','ARV e comps, ou ARV e condado, divergem mais de 2x. A conta usa o menor.'],['Sem comps','Lote sem 3 vendas comparáveis de terreno. Nota no máximo 55.'],['Gleba grande','Terreno com mais de 5 acres. Nota no máximo 55.'],['Uso comercial/agrícola','Uso que não é terreno vago residencial (000). Nota no máximo 55.'],['Base vs arquivo','Arquivo = todos. Todos/base = depois de ocultar faixas e execuções de HOA e dos filtros. Residencial = casa, townhouse e condo.']];
+const GLOSS=[['POV','PropertyOnion Value — estimativa de valor de mercado do PropertyOnion.'],['ARV','After Repair Value — valor de revenda depois da reforma. É o número Valor de mercado (POV/ARV) da conta.'],['J>MAX','Julgamento acima de 70% do ARV menos a reforma: pouco espaço para lance.'],['FJ','Final judgment — julgamento no foreclosure. Costuma ser o lance do autor.'],['OB','Opening bid — lance inicial do tax deed (em geral só o imposto, não o preço de venda).'],['BRRRR','Buy, Rehab, Rent, Refinance, Repeat — conta de aluguel no painel.'],['Aluguel forte','Yield bruto (aluguel x 12 dividido pelo ARV) na meta das premissas ou acima.'],['Cor marcada','Bolinha colorida salva neste aparelho (dourado, verde comprar, vermelho passar, azul observar).'],['JR-LIEN','Julgamento bem abaixo do valor: indício de HOA ou hipoteca júnior. Só alerta – não desconta dívida sozinho (hipotecas antigas quase quitadas dão o mesmo sinal).'],['xroi','ROI no lance realista (capa). ROI hist. é se o martelo cair no preço esperado do condado.'],['Lance realista','Tax deed: o maior entre lance inicial, preço histórico, fração do lance máx. de 17% e fração do ARV. Foreclosure: se o julgamento passa de ~85% do ARV − reforma, o menor entre julgamento, preço histórico e 70% do ARV − reforma (o banco pode aceitar menos).'],['SEM ESPAÇO','Nenhum lance dá 17%, ou tax deed com lance inicial (mínimo obrigatório) acima do lance máx.'],['DISPUTADO','Há espaço até o lance máx. de 17%, mas o preço esperado está acima dele – ou foreclosure com julgamento acima do lance máx. (o banco pode aceitar menos que o julgamento). Dá para tentar até o valor indicado; é provável perder.'],['Seguro de título','Apólice do proprietário na revenda pela tabela promulgada da Flórida (US$ 5,75/mil até US$ 100 mil, US$ 5/mil acima). Vendedor paga; zero em Miami-Dade, Broward, Sarasota e Collier.'],['Taxa fixa de venda','US$ 399 herdados do BidToFlip (antes “WRA”); origem não confirmada, editável nas Premissas, só em construído.'],['Just value ÷ 0,85','Sem comps, AVM nem POV, o ARV é o just value do condado ÷ 0,85: por lei o just value fica ~15% abaixo do mercado (F.S. 193.011(8)).'],['Saldo da hipoteca','Hipoteca que sobrevive é descontada pelo saldo estimado: valor original amortizado em 30 anos desde o registro (sem data: valor original).'],['Caixa','Dinheiro para o lance realista: depósito de 5% + taxa do clerk + doc stamps.'],['Negócios limpos','Sem alerta grave, HOA, ocupação, leilão anterior ou valor suspeito.'],['Valor suspeito','ARV e comps, ou ARV e condado, divergem mais de 2x. A conta usa o menor.'],['Sem comps','Lote sem 3 vendas comparáveis de terreno. Nota no máximo 55.'],['Gleba grande','Terreno com mais de 5 acres. Nota no máximo 55.'],['Uso comercial/agrícola','Uso que não é terreno vago residencial (000). Nota no máximo 55.'],['Base vs arquivo','Arquivo = todos. Todos/base = depois de ocultar faixas e execuções de HOA e dos filtros. Residencial = casa, townhouse e condo.']];
 if($('#bgloss')) $('#bgloss').onclick=()=>{ $('#glossb').innerHTML='<table><tr><th>Termo</th><th>Significado</th></tr>'+GLOSS.map(([k,v])=>'<tr><td><b>'+esc(k)+'</b></td><td>'+esc(v)+'</td></tr>').join('')+'</table>'; $('#gloss').showModal(); };
 
 (function loadUI(){
