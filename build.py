@@ -420,6 +420,42 @@ def load_manual():
     if not os.path.exists(p): return {}
     return {(e['county'], nal.npid(e['parcel'])): e for e in json.load(open(p)).get('items', [])}
 
+def load_manual_subs():
+    """subdivision-level market notes (asking prices / days on market) -> {(county, SUBDIVISION NAME): entry}"""
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'valuations_manual.json')
+    if not os.path.exists(p): return {}
+    return {(e['county'], e['sub'].upper()): e for e in json.load(open(p)).get('subdivisions', [])}
+
+LIST_SHARE = 0.05   # without listing data, assume ~5% of the vacant lots are on the market at any time (estimate)
+def supply_adjust(lce, val, msub):
+    """Land oversupply / slow absorption: months of supply = lots for sale ÷ lot sales per month (NAL, last 12 months).
+    -> (new value or None, supply dict or None)"""
+    x = (lce or {}).get('ctx') or {}
+    ab = x.get('abs') or {}
+    pct, nvac, ntot = x.get('pctBuilt'), x.get('nVac') or 0, x.get('nTot') or 0
+    if pct is None or ntot < 50 or not nvac: return None, None
+    s12 = ab.get('lots') or 0
+    forsale = round(nvac * LIST_SHARE); est_fs = True
+    if msub and msub.get('listings'): forsale = msub['listings']; est_fs = False
+    mos = (forsale / (s12 / 12)) if s12 else None          # None = no sale in 12 months
+    sup = dict(pct=pct, nVac=nvac, nTot=ntot, s12=s12, rate=round(s12 / nvac, 4), forsale=forsale, estFs=est_fs,
+               mos=round(mos, 1) if mos is not None else None, sBuilt=ab.get('built'), nBuilt=ab.get('nBuilt'))
+    if msub: sup.update(ask=msub.get('asking_low'), dom=msub.get('dom_days'), src=msub.get('source'), date=msub.get('date'), notes=msub.get('notes'))
+    if pct > 80: sup.update(sev='normal'); return None, sup          # built-out: infill lot, no discount
+    if mos is None or mos > 24: sev, disc, months = 'alta', (0.60 if pct <= 15 or mos is None or mos > 48 else 0.65), 12
+    elif mos > 12: sev, disc, months = 'alta', 0.70, 9
+    elif mos > 6: sev, disc, months = 'moderada', 0.85, 6
+    else: sup.update(sev='normal'); return None, sup
+    domf = (math.ceil(msub['dom_days'] / 30) + 3) if (msub and msub.get('dom_days')) else 0   # observed days on market + buy/list/close
+    if domf > months: months = domf
+    sup['domFloor'] = domf or None
+    basev = min(v for v in (lce.get('est'), lce.get('lo'), val) if v) if lce.get('lvl') else val
+    if not basev: return None, None
+    newv = round(basev * disc)
+    if msub and msub.get('asking_low'): newv = min(newv, round(msub['asking_low']))
+    sup.update(sev=sev, disc=disc, months=months, base=round(basev))
+    return newv, sup
+
 def build_items(args):
     cal = load_calendar()
     offline = bool(getattr(args, 'offline', False)) or os.environ.get('LEILOES_OFFLINE', '').strip().lower() in ('1', 'true', 'yes', 'on')
@@ -431,7 +467,7 @@ def build_items(args):
     if args.fetch: prefetch_all(items, args)
     today = args.data_date
     facts, sales_by_zip, cono, lcd = nal_index(items, today)
-    manual = load_manual()
+    manual = load_manual(); msubs = load_manual_subs()
     ares, _, _ = load_results()
     seen = jload(os.path.join(CACHE, 'seen_v4.json'), {})
     baseline = not seen                      # first v4 run: nothing is 'new'
@@ -798,6 +834,43 @@ def build_items(args):
                     rec['val'] = lce.get('prev'); rec['vsrc'] = lce.get('vsrc0'); rec['comps'] = lce.get('cp0')
                     lce['used'] = False; lce['why'] = 'conflito de tipo: comps de lote não usados'
         if lce: lce.pop('cp0', None); lce.pop('vsrc0', None)
+        # ---- land supply (oversupplied subdivisions sell slowly and under closed-sale medians)
+        if land and lce and not rec.get('tconf') and rec.get('val') and (cs, nal.npid(x.get('parcel') or '')) not in manual:
+            sub_nm = ((lce.get('ctx') or {}).get('sub') or '').upper()
+            msub = msubs.get((cs, sub_nm))
+            nv, sup = supply_adjust(lce, rec['val'], msub)
+            if sup: rec['sup'] = sup
+            if nv:
+                sup['prev'] = rec['val']; rec['val'] = nv; rec['holdM'] = sup['months']
+                rec['vsrc'] = (f"oferta {sup['sev']} na subdivisão ({sup['pct']}% construída, {sup['nVac']:,} lotes vagos, {sup['s12']} vendas de lote em 12 meses ≈ {sup['mos'] if sup['mos'] is not None else '∞'} meses de estoque): "
+                               f"{'P25 dos comps locais' if lce.get('lvl') else 'valor'} {_usd(sup['base'])} × {sup['disc']:.2f}"
+                               + (f"; anúncios a partir de {_usd(sup['ask'])}, {sup['dom']}+ dias no mercado" if sup.get('ask') else '')
+                               + f" = {_usd(nv)}; posse {sup['months']} meses")
+                rec['fl'] = list(rec.get('fl') or []) + (['supH'] if sup['sev'] == 'alta' else ['supM'])
+            if sup and sup.get('rate') is not None and sup['rate'] < 0.03 and sup['nVac'] > 100 and sup['pct'] <= 80:
+                rec['fl'] = list(rec.get('fl') or []) + ['absL']
+        # ---- builders buying lots in this subdivision / ZIP (NAL: vacant-lot sales in 12 months to builder-owned companies)
+        bx = ((lce or {}).get('ctx') or {}).get('bld') if land else None
+        if bx and not rec.get('tconf'):
+            bsub = (bx.get('sub') or [0, 0, []]); bzip = (bx.get('zip') or [0, 0, []])
+            if bsub[0] >= 5 or (bzip[0] >= 25 and bzip[1] >= 10):
+                n_, where = (bsub[0], 'subdivisão') if bsub[0] >= 5 else (bzip[0], 'ZIP ' + (bx.get('zk') or ''))
+                rec['bld'] = dict(n=n_, where=where, sub=bsub, zip=bzip, zk=bx.get('zk'))
+                rec['fl'] = list(rec.get('fl') or []) + ['bldA']
+                sup = rec.get('sup')
+                if (cs, nal.npid(x.get('parcel') or '')) not in manual:
+                    if sup and sup.get('disc'):        # builders absorb lots: soften the oversupply discount and holding
+                        sup['discB'] = min(1.0, sup['disc'] + 0.10); sup['monthsB'] = max(3, sup['months'] - 3, sup.get('domFloor') or 0)
+                        nv = round(sup['base'] * sup['discB'])
+                        if sup.get('ask'): nv = min(nv, round(sup['ask']))
+                        rec['val'] = nv; rec['holdM'] = sup['monthsB']
+                        rec['vsrc'] += f" · construtoras ativas ({n_} compras de lote em 12 meses na {where}): fator {sup['discB']:.2f} e posse {sup['monthsB']} meses → {_usd(nv)}"
+                    else:
+                        rec['holdM'] = 2
+                        if lce and lce.get('used') and rec.get('val'):
+                            rec['val'] = round(rec['val'] * 1.05)
+                            rec['vsrc'] += f" · +5% e posse de 2 meses: construtoras ativas ({n_} compras de lote em 12 meses na {where})"
+                        else: rec['vsrc'] = (rec.get('vsrc') or '') + f" · posse de 2 meses: construtoras ativas ({n_} compras de lote em 12 meses na {where})"
         man = manual.get((cs, nal.npid(x.get('parcel') or '')))
         if man:
             m = {k: man.get(k) for k in ('low', 'mid', 'high', 'ceiling', 'pass', 'date', 'sources', 'notes', 'holdYr', 'qt', 'legal')}
@@ -819,6 +892,29 @@ def build_items(args):
         with ThreadPoolExecutor(3) as ex: list(ex.map(job, fw_jobs))
         print('  (utilidades baixadas – rode o build de novo sem --fetch para incorporá-las, ou elas entram na próxima execução)', flush=True)
     json.dump(seen, open(os.path.join(CACHE, 'seen_v4.json'), 'w'))
+    # ---- builders view: statewide top builders and top areas (subdivision / ZIP) with an approximate distance to Orlando
+    btop, areas = {}, []
+    zll, sll = {}, {}
+    for r in out:
+        if r.get('lat') and r.get('lon'):
+            if r.get('zip'): zll.setdefault(r['zip'], []).append((r['lat'], r['lon']))
+            sb = ((r.get('lc') or {}).get('ctx') or {}).get('sub')
+            if sb: sll.setdefault((r['cs'], sb), []).append((r['lat'], r['lon']))
+    med = lambda L: (statistics.median(a for a, _ in L), statistics.median(b for _, b in L))
+    for c, d in lcd.items():
+        if not d: continue
+        for n, k in d.get('btop') or []:
+            b = btop.setdefault(n, [0, set()]); b[0] += k; b[1].add(county_name(c))
+        for key, v in (d.get('bld') or {}).items():
+            if v[0] < 3 and v[1] < 10: continue
+            kind, nm = key[0], key[2:]
+            ll = (sll.get((c, nm)) if kind == 's' else zll.get(nm)); ap = False
+            pt = med(ll) if ll else COUNTY_LL.get(c)
+            if not ll: ap = True
+            dist = round(hav(ORLANDO, pt)) if pt else None
+            areas.append([('Subdivisão' if kind == 's' else 'ZIP'), nm.title() if kind == 's' else nm, county_name(c), v[0], v[1], [[a, b] for a, b in v[2][:3]], dist, ap])
+    areas.sort(key=lambda a: (-a[3], -a[4]))
+    build_items._bld = dict(top=sorted(([n, v[0], sorted(v[1])] for n, v in btop.items()), key=lambda t: -t[1])[:40], areas=areas[:400])
     po_st = getattr(collect_items, '_po_stats', {}) or {}
     stats = dict(total=len(items), kept=len(out), nal=sum(1 for r in out if r.get('nalm')), po=sum(1 for r in out if r.get('hasPO')),
                  poExport=po_st, pov=sum(1 for r in out if r.get('pov')), povArv=sum(1 for r in out if r.get('povAsArv')),
@@ -953,7 +1049,8 @@ def render(items, stats, dropped, args):
     ares, recent, rmeta = load_results()
     meta = dict(dataDate=args.data_date, built=time.strftime('%Y-%m-%d %H:%M'), params=P, zips=zips, mktSrc=mk.get('_src', {}),
                 rehabTiers=REHAB_TIERS, rehabUnknown=REHAB_UNKNOWN, rehabPool=REHAB_POOL, stats=stats, dropped=dropped, orlando=ORLANDO,
-                events=load_events(args.data_date), ares=ares, recent=recent, rmeta=rmeta, types=TYPES, version='v4')
+                events=load_events(args.data_date), ares=ares, recent=recent, rmeta=rmeta, types=TYPES, version='v4',
+                builders=getattr(build_items, '_bld', None))
     data = json.dumps(dict(meta=meta, items=items), ensure_ascii=False, separators=(',', ':'))
     if args.no_compress:
         blob = 'J:' + data.replace('</', '<\\/')

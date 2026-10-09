@@ -430,7 +430,7 @@ select option{background:#2a303b;color:#eef1f5}
  <section class="kpis" id="kpis"></section>
  <section class="sumline" id="sumline"></section>
  <div id="fnotice" class="fnotice" style="display:none"></div>
- <div class="viewbar"><div class="tabs" id="tabs"><button data-v="table" title="Tabela">📋 Lista</button><button data-v="cards" title="Cartões">🗂 Cards</button><button data-v="cand" title="Checklist pré-lance salvo neste aparelho">🎯 Meus candidatos</button><button data-v="fav" title="Estrelas salvas neste aparelho">⭐ Favoritos</button><button data-v="map" title="Mapa">🗺 Mapa</button><button data-v="intel" title="Por condado">📊 Inteligência</button><button data-v="res" title="Leilões passados">📈 Resultados</button><button data-v="cal" title="Calendário">📅 Calendário</button><button data-v="day" title="Lista do dia">🖨 Dia do leilão</button></div><button class="btn sm" id="bgloss" type="button" title="Siglas: POV, ARV, J>MAX, FJ, OB, BRRRR, xroi…">Glossário</button><span class="cnt" id="cnt"></span></div>
+ <div class="viewbar"><div class="tabs" id="tabs"><button data-v="table" title="Tabela">📋 Lista</button><button data-v="cards" title="Cartões">🗂 Cards</button><button data-v="cand" title="Checklist pré-lance salvo neste aparelho">🎯 Meus candidatos</button><button data-v="fav" title="Estrelas salvas neste aparelho">⭐ Favoritos</button><button data-v="map" title="Mapa">🗺 Mapa</button><button data-v="intel" title="Por condado">📊 Inteligência</button><button data-v="res" title="Leilões passados">📈 Resultados</button><button data-v="bld" title="Onde as construtoras estão comprando lotes">🏗 Builders</button><button data-v="cal" title="Calendário">📅 Calendário</button><button data-v="day" title="Lista do dia">🖨 Dia do leilão</button></div><button class="btn sm" id="bgloss" type="button" title="Siglas: POV, ARV, J>MAX, FJ, OB, BRRRR, xroi…">Glossário</button><span class="cnt" id="cnt"></span></div>
  <section class="panel" id="datesbar">
   <div class="chips" id="dchips">
    <span class="lbl">Quando</span>
@@ -503,6 +503,7 @@ select option{background:#2a303b;color:#eef1f5}
  <div id="v-map" style="display:none"><div id="map"><div class="mapmsg">Carregando mapa… (requer internet)</div></div><p class="mini" id="mapnote"></p></div>
  <div id="v-intel" style="display:none"></div>
  <div id="v-res" style="display:none"></div>
+<div id="v-bld" style="display:none"></div>
  <div id="v-cal" style="display:none"></div>
  <div id="v-day" style="display:none"></div>
  <section class="info">
@@ -587,6 +588,10 @@ const FL = {
  nobid:{l:'Sem Opening Bid',c:'amb',d:'Listagem só no export PropertyOnion, sem julgamento/opening bid do RealAuction. NET/ROI usam o preço esperado do condado (como tax deed) quando houver histórico; senão ficam sem dados até o scrape do clerk.'},
  surv:{l:'Surviving Lien',c:'red',d:'Indício de lien que sobrevive ao leilão (HOA/condomínio, hipoteca júnior, ou lien municipal em tax deed). Valor estimado do PropertyOnion quando disponível – confirmar com title search. Reserva no P&L (toggle); veredito/nota penalizados; fora de Negócios limpos.'},
  rebid:{l:'Já foi a leilão',c:'amb',d:'Este imóvel já foi a leilão e voltou (cancelou, não vendeu ou o lance não segurou). Sobe o risco e tira alguns pontos da nota.'},
+ supH:{l:'Oferta alta (Supply)',c:'red',d:'Subdivisão com muitos lotes vagos e poucas vendas (muitos meses de estoque): revenda lenta e abaixo da mediana das vendas fechadas. Valor = P25 dos comps × 0,60–0,70 e posse de 9–12 meses.'},
+ supM:{l:'Oferta moderada',c:'amb',d:'Estoque de lotes de 6–12 meses na subdivisão: valor = P25 dos comps × 0,85 e posse de 6 meses.'},
+ absL:{l:'Absorption baixa',c:'amb',d:'Menos de 3% dos lotes vagos da subdivisão venderam nos últimos 12 meses (vendas qualificadas DOR).'},
+ bldA:{l:'Construtoras ativas',c:'grn',d:'Construtoras compraram lotes vagos nesta subdivisão (≥ 5) ou neste ZIP (≥ 25, com ≥ 10 casas novas) nos últimos 12 meses (cadastro DOR: dono atual de lotes vendidos). Revenda mais rápida: posse menor e desconto de oferta suavizado.'},
  tconf:{l:'Lote? pode ter construção — verificar',c:'amb',d:'Conflito de tipo: o cadastro do DOR diz terreno vago, mas outra fonte (FDOH construído, ano/área de construção ou dono construtora) indica construção. Comps de lote não viram o ARV. Confira fotos, Street View e o PA antes do lance.'},
  vsusp:{l:'Valor suspeito',c:'amb',d:'ARV/POV e comps, ou ARV e valor do condado, divergem mais de 2×. A conta usa o menor número e a nota é cortada. Nunca fica como risco baixo.'}
 };
@@ -653,7 +658,12 @@ const TERMS={
  'AVM':['Avaliação automática','Valor de modelo automático (PropertyOnion).'],
  'Zoning':['Zoneamento','Uso permitido pela prefeitura/condado.'],
  'Wetlands':['Áreas úmidas','Brejo protegido: pode impedir construir.'],
- 'Days on Market':['Dias no mercado','Tempo médio até vender no ZIP.'],
+ 'Days on Market':['Dias no mercado','Tempo que um anúncio fica à venda até vender.'],
+ 'DOM':['Dias no mercado (Days on Market)','Tempo que um anúncio fica à venda; muito alto = pouca procura.'],
+ 'Supply':['Oferta / estoque','Quantos lotes ou imóveis parecidos estão disponíveis na área.'],
+ 'Builders':['Construtoras','Empresas que compram lotes para construir casas; quando estão comprando numa área, os lotes vendem mais rápido.'],
+ 'Absorption':['Absorção (velocidade de venda)','Parte do estoque que vende por ano: vendas dos últimos 12 meses ÷ lotes vagos.'],
+ 'Months of Supply':['Meses de estoque','Lotes à venda ÷ vendas por mês: quantos meses o mercado leva para vender o que está anunciado.'],
  'Flat Sale Fee':['Taxa fixa de venda','US$ 399 herdados do BidToFlip (origem não confirmada); só em construído.'],
  'Resale Value':['Valor de venda','Valor de revenda escolhido para a conta (ARV).'],
  'Owner\u2019s Policy':['Apólice do proprietário','Seguro de título que o vendedor compra para o comprador.']
@@ -738,7 +748,7 @@ function domMonths(r,rehab,Q){ Q=Q||PR; return r.dom!=null ? rehabMonths(rehab)+
 function exitParts(r,rehab,ev,Q){
  Q=Q||PR; const land=isLand(r); let base, parts;
  if(Q.usedom && r.dom!=null && !land){ const rm=rehabMonths(rehab), dm=Math.ceil(r.dom/30); base=rm+dm+Q.closem; parts=[['obra',rm],['venda (dias no mercado do ZIP: '+nf(r.dom)+')',dm],['fechamento',Q.closem]]; }
- else if(land){ base=Q.monthsLot; parts=[['posse padrão de terreno',Q.monthsLot]]; }
+ else if(land){ base=r.holdM||Q.monthsLot; parts=[[r.holdM?'posse de terreno com oferta alta/moderada na subdivisão':'posse padrão de terreno',base]]; }
  else { base=Q.months; parts=[['posse padrão',Q.months]]; }
  if(needQT(r) && Q.qtm){ base+=Q.qtm; parts.push(['quiet title',Q.qtm]); }
  if(ev && Q.evm){ base+=Q.evm; parts.push(['despejo',Q.evm]); }
@@ -1268,7 +1278,7 @@ function badges(r){
  (r.lotBadges||[]).forEach(k=>{ const d=LB[k]; if(d) b.push('<span class="bdg amb" title="'+esc(d[1])+'">'+d[0]+'</span>'); });
  if(r.vd==='FLIP') b.push('<span class="bdg blu">FLIP</span>');
  r.fl.forEach(f=>{ if(f==='flood') return; if(f==='mtg'&&r.fl.includes('surv')) return; const d=FL[f]; if(!d) return;
-  let lab=d.l; if(f==='surv'&&r.survAmt) lab+=' ~'+money(r.survAmt);
+  let lab=d.l; if(f==='surv'&&r.survAmt) lab+=' ~'+money(r.survAmt); if(f==='bldA'&&r.bld) lab='🏗 Construtoras ativas: '+r.bld.n+' compras 12m';
   b.push('<span class="bdg '+d.c+'" title="'+esc(r.survWhy||d.d)+'">'+lab+'</span>'); });
  if((r.olA>0||r.m1) && !r.fl.includes('surv')) b.push('<span class="bdg red" title="Hipotecas/liens em aberto segundo PropertyOnion: '+esc(money(r.olA||r.m1))+(r.olN?' ('+r.olN+')':'')+'. Em tax deed normalmente são extintas; em foreclosure, confirmar se sobrevivem.">LIEN</span>');
  if(r.fz) b.push('<span class="bdg '+(/^(A|V)/.test(r.fz)?'red':'cool')+'" title="Zona FEMA '+esc(r.fz)+'">Flood Zone '+esc(r.fz)+'</span>');
@@ -1385,7 +1395,7 @@ function renderMap(){
 }
 
 // ---------------------------------------------------------------- apply / views
-const VIEWS=['table','cards','cand','fav','map','intel','res','cal','day'];
+const VIEWS=['table','cards','cand','fav','map','intel','res','bld','cal','day'];
 function isoAdd(s,n){ const t=new Date(s+'T00:00:00Z'); t.setUTCDate(t.getUTCDate()+n); return t.toISOString().slice(0,10); }
 function activeWin(){
  const d1=$('#d1')?$('#d1').value:'', d2=$('#d2')?$('#d2').value:'';
@@ -1426,7 +1436,7 @@ function apply(noHash){
  $('#cnt').innerHTML='Mostrando <b>'+nf(CUR.length)+'</b> · base <b>'+nf(noCat.length)+'</b> <span title="Depois das exclusões e filtros, antes do recorte de tipo">sem recortar tipo</span> · arquivo <b>'+nf(ITEMS.length)+'</b>';
  syncDateChips(); filterNotice(); try{ LS.set('leilao_ui_v9', stateObj()); }catch(e){}
  if(view==='table') renderTable(true); else if(view==='cards'||view==='fav') renderCards(true); else if(view==='cand') renderCand(); else if(view==='map') renderMap();
- else if(view==='intel') renderIntel(); else if(view==='res') renderRes(); else if(view==='cal') renderCal(); else if(view==='day') renderDay();
+ else if(view==='intel') renderIntel(); else if(view==='bld') renderBld(); else if(view==='res') renderRes(); else if(view==='cal') renderCal(); else if(view==='day') renderDay();
  if(!noHash) writeHash();
  ftLabel();
 }
@@ -1434,14 +1444,14 @@ function setView(v){
  if(!VIEWS.includes(v)) v='table';
  if(v==='fav'){ S.fav=true; } else if(view==='fav'){ S.fav=false; }
  view=v; S.view=v; $$('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
- const show={'v-table':v==='table','v-cards':v==='cards'||v==='fav'||v==='cand','v-map':v==='map','v-intel':v==='intel','v-res':v==='res','v-cal':v==='cal','v-day':v==='day'};
+ const show={'v-table':v==='table','v-cards':v==='cards'||v==='fav'||v==='cand','v-map':v==='map','v-intel':v==='intel','v-res':v==='res','v-bld':v==='bld','v-cal':v==='cal','v-day':v==='day'};
  for(const k in show) $('#'+k).style.display=show[k]?'':'none';
  apply();
 }
 const SKEYS=['cat','kat','today','d7','fav','rent','clean','newt','photo','heat'];
 function stateObj(){ const F=readF(), o={}; for(const k in F){ const def=!!CHKDEF[k]; if(k in CHECKS){ if(F[k]!==def) o[k]=F[k]; } else if(F[k]!=='') o[k]=F[k]; } SKEYS.forEach(k=>{ if(k==='cat'){ if(S.cat!=='resid') o.cat=S.cat; } else if(S[k]) o[k]=S[k]; }); if(S.sort!=='sc') o.sort=S.sort; if(S.view) o.v=S.view; return o; }
 let OPEN=null;
-function writeHash(){ const o=stateObj(); const parts=[]; if(Object.keys(o).length) parts.push('f='+encodeURIComponent(JSON.stringify(o))); if(OPEN) parts.push('p='+encodeURIComponent(OPEN)); const h=parts.length?'#'+parts.join('&'):''; if(location.hash!==h){ try{history.replaceState(null,'',location.pathname+location.search+(h||''));}catch(e){} } }
+function writeHash(){ const o=stateObj(); const parts=[]; if(Object.keys(o).length) parts.push('f='+encodeURIComponent(JSON.stringify(o))); if(OPEN) parts.push('id='+encodeURIComponent(OPEN)); const h=parts.length?'#'+parts.join('&'):''; if(location.hash!==h){ try{history.replaceState(null,'',location.pathname+location.search+(h||''));}catch(e){} } }
 function readHash(){
  const h=location.hash.replace(/^#/,''); const out={}; h.split('&').forEach(p=>{const i=p.indexOf('='); if(i>0) out[p.slice(0,i)]=decodeURIComponent(p.slice(i+1));});
  if(out.f){ try{ const o=JSON.parse(out.f); for(const k in FIELDS){ if(o[k]!=null) $(FIELDS[k]).value=o[k]; } for(const k in CHECKS){ if(o[k]!=null){ if(k==='hjr') LAST_HJR=!!o[k]; else $(CHECKS[k]).checked=!!o[k]; } } SKEYS.forEach(k=>{if(o[k]!=null) S[k]=o[k];}); if(o.sort) S.sort=o.sort; if(o.v) S.view=o.v; }catch(e){} }
@@ -1762,6 +1772,21 @@ function lcHtml(r){
  li.push('<span class="tmr">HOA</span> / <span class="tmr">CDD</span>: '+(m&&/HOA|CDD|POA/.test(m.notes||'')?esc((m.notes.match(/[^.]*(HOA|CDD|POA)[^.]*\./g)||[]).join(' ')):'não disponível no cadastro – conferir no PA (non-ad valorem) e no aviso do leilão'));
  li.push('Utilidades (FDOH): '+(ut.length?ut.join(' + '):'sem dado'));
  li.push('<span class="tmr">Flood Zone</span>: '+(r.fz?esc(r.fz)+(/^(A|V)/.test(r.fz)?' – risco alto':''):'não verificado – '+'<a href="'+esc(femaUrl(r))+'" target="_blank" rel="noopener">FEMA</a>'));
+ const ab=x.abs, sp=r.sup;
+ if(ab){
+  if(land||!ab.nBuilt) li.push('<span class="tmr">Absorption</span> – Vendas 12m: <b>'+ab.lots+'</b> de '+nf(ab.nVac)+' lotes vagos ('+pct(ab.rLots,1)+'/ano)'+(sp&&sp.mos!=null?' · ~<b>'+nf(sp.mos,0)+' meses</b> de estoque (<span class="tmr">Months of Supply</span>)':(sp&&ab.lots===0?' · sem vendas de lote em 12 meses':'')));
+  if(ab.nBuilt) li.push('Casas: '+ab.built+' vendas em 12 meses de '+nf(ab.nBuilt)+' construídas ('+pct(ab.rBuilt,1)+'/ano)');
+ }
+ if(sp){
+  li.push('<span class="tmr">Supply</span> – Oferta: <b>'+nf(sp.nVac)+'</b> lotes vagos ('+sp.pct+'% construído)'+(sp.ask?', anúncios a partir de <b>'+money(sp.ask)+'</b>':'')+(sp.dom?', <span class="tmr">DOM</span> '+sp.dom+'+ dias':'')+(sp.src?' <span class="mini">('+esc(sp.src)+')</span>':''));
+  if(sp.disc) li.push('<b class="'+(sp.sev==='alta'?'c-red':'c-amber')+'">Desconto por oferta '+sp.sev+'</b>: '+(sp.base?money(sp.base)+' (o menor entre mediana e P25 dos comps)':'valor')+' × '+nf(sp.disc,2)+(sp.ask?', limitado ao menor anúncio':'')+' = <b>'+money(r.val)+'</b> (antes '+money(sp.prev)+'); posse de <b>'+sp.months+' meses</b>. Estoque à venda '+(sp.estFs?'estimado em 5% dos lotes vagos ('+nf(sp.forsale)+')':nf(sp.forsale)+' anúncios')+'; vendas fechadas não mostram quanto tempo os lotes ficam parados.');
+  else if(sp.sev==='normal') li.push('Sem desconto por oferta ('+(sp.pct>80?'subdivisão '+sp.pct+'% construída: lote de preenchimento':'estoque ≤ 6 meses')+').');
+ }
+ const bl=r.bld||(x.bld&&{sub:x.bld.sub,zip:x.bld.zip,zk:x.bld.zk});
+ if(bl){ const f=(a,lbl)=>a&&(a[0]||a[1])?lbl+': <b>'+a[0]+'</b> lotes comprados por construtoras em 12 meses, '+a[1]+' casas novas (2024+)'+(a[2]&&a[2].length?' – '+a[2].map(t=>esc(t[0])+' ('+t[1]+')').join(', '):''):null;
+  [f(bl.sub,'🏗 Builders na subdivisão'), f(bl.zip,'🏗 Builders no ZIP '+esc(bl.zk||''))].filter(Boolean).forEach(t=>li.push(t));
+  if(r.bld&&r.sup&&r.sup.discB) li.push('Construtoras ativas suavizam o desconto de oferta: fator '+nf(r.sup.disc,2)+' → '+nf(r.sup.discB,2)+', posse '+r.sup.months+' → '+r.sup.monthsB+' meses.');
+  else if(r.bld) li.push('Construtoras ativas: posse de 2 meses'+(r.lc&&r.lc.used&&!r.man?' e +5% no valor':'')+'.'); }
  h+='<ul class="lcx">'+li.map(t=>'<li>'+t+'</li>').join('')+'</ul>';
  h+='<p class="mini">Comps locais: vendas qualificadas (código 01, sem venda de várias parcelas, ≥ US$ 1 mil, fora da faixa 0,25–4× o just value do próprio imóvel = não-mercado) do cadastro DOR nos últimos 18 meses, mesmo tipo de uso; '+(land?'lote ±50% da área':'área ±25% e ano ±15')+'; preços ajustados no tempo pelo índice Zillow do ZIP. Ordem: mesma subdivisão → ≈0,5 → ≈1 → ≈3 mi; a distância é aproximada pelo centro da seção PLSS (o cadastro não tem coordenadas). O cadastro não informa quartos.</p>';
  return h+'</div>';
@@ -1804,7 +1829,7 @@ function openDrawer(id){
   '<div><span>Orlando</span><b>'+distLbl(r)+'</b></div>'+
   '<div><span title="ROI no lance que a gente assume que ganha o leilão">ROI realista</span><b class="'+(r.roi>=PR.flip/100?'c-green':r.roi>=PR.ret/100?'c-amber':'c-red')+'">'+pct(r.roi)+'</b><span class="mini">'+money(r.net)+(r.roi0!=null&&Math.abs((r.xbid||0)-(r.ref||0))>1?' · inicial '+pct(r.roi0):'')+'</span></div></div>'+
   galHtml(r)+
-  '<div class="dlinks"><a class="btn gold" id="dzil" href="'+esc(zillowUrl(r))+'" target="_blank" rel="noopener">🏠 Zillow</a><a class="btn gold" id="drea" href="'+esc(realtorUrl(r))+'" target="_blank" rel="noopener">🏠 Realtor.com</a><a class="btn" href="'+esc(gmapsUrl(r))+'" target="_blank" rel="noopener">📍 Google Maps</a><a class="btn" href="'+esc(svUrl(r))+'" target="_blank" rel="noopener">🚶 Street View</a>'+(L.pa?'<a class="btn" href="'+esc(L.pa)+'" target="_blank" rel="noopener">🏛 Property Appraiser</a>':'')+(L.auc||L.list?'<a class="btn" href="'+esc(L.auc||L.list)+'" target="_blank" rel="noopener">⚖ Clerk / Leilão</a>':'')+(L.po?'<a class="btn" href="'+esc(L.po)+'" target="_blank" rel="noopener">PropertyOnion</a>':'')+'<button class="btn gold" id="dshare">🔗 Copiar link</button><button class="btn '+(CAND[r.id]?'':'gold')+'" id="dcand">'+(CAND[r.id]?'✓ Candidato':'＋ Candidato')+'</button></div>'+
+  '<div class="dlinks"><a class="btn gold" id="dzil" href="'+esc(zillowUrl(r))+'" target="_blank" rel="noopener">🏠 Zillow</a><a class="btn gold" id="drea" href="'+esc(realtorUrl(r))+'" target="_blank" rel="noopener">🏠 Realtor.com</a><a class="btn" href="'+esc(gmapsUrl(r))+'" target="_blank" rel="noopener">📍 Google Maps</a><a class="btn" href="'+esc(svUrl(r))+'" target="_blank" rel="noopener">🚶 Street View</a>'+(L.pa?'<a class="btn" href="'+esc(L.pa)+'" target="_blank" rel="noopener">🏛 Property Appraiser</a>':'')+(L.auc||L.list?'<a class="btn" href="'+esc(L.auc||L.list)+'" target="_blank" rel="noopener">⚖ Clerk / Leilão</a>':'')+(L.po?'<a class="btn" href="'+esc(L.po)+'" target="_blank" rel="noopener">PropertyOnion</a>':'')+'<button class="btn gold" id="dshare" title="Link que abre o site direto neste imóvel (depois da senha), ignorando filtros">🔗 Copiar link do imóvel</button><button class="btn '+(CAND[r.id]?'':'gold')+'" id="dcand">'+(CAND[r.id]?'✓ Candidato':'＋ Candidato')+'</button></div>'+
   (r.tconf?'<div class="survbox" id="tconfbox"><b>⚠ Lote? pode ter construção — verificar</b> As fontes não concordam sobre o tipo:<ul class="lcx">'+r.tconf.map(t=>'<li>'+esc(t)+'</li>').join('')+'</ul><span class="mini">O painel mantém o tipo do DOR, mas não usa comps de lote como ARV. Confira fotos, Street View e o Property Appraiser.</span></div>':'')+
   ((r.fl.includes('surv')||r.survAmt)?('<div class="survbox" id="survbox"><b>⚠ Hipoteca pode sobreviver</b>'+(r.survAmt?' – est. <b>'+money(r.survAmt)+'</b>':'')+'. '+esc(r.survWhy||FL.surv.d)+' <span class="mini">ESTIMATIVA – confirmar com title search. Toggle no P&L para deduzir/omitir.</span></div>'):'')+
   '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="sc '+scCls(r.sc)+'" title="'+esc(r.scKind)+'">'+(r.sc==null?'—':r.sc)+'</span><span class="cat '+r.katk+'">'+r.kat+'</span>'+vdHtml(r,true)+'<span class="bdg">'+TYPES[r.t]+(r.plat?' · '+esc(r.plat):'')+'</span><span class="ty">'+TYPEL[r.ty]+'</span><span class="bdg">🗓 '+whenLbl(r.date)+' · '+fdate(r.date)+'</span><span class="bdg">'+distLbl(r)+'</span><span class="bdg" title="Caixa no lance realista">Cash Needed '+money(r.cash)+'</span>'+rtBadge(r.rt)+badges(r)+'</div>'+
@@ -1829,7 +1854,7 @@ function openDrawer(id){
  $('#drawer').classList.add('on'); $('#drbg').classList.add('on'); document.body.classList.add('dopen'); $('#drawer').setAttribute('aria-hidden','false'); $('#drawer').scrollTop=0;
  $$('.dtabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===DR.tab));
  $('#dclose').onclick=closeDrawer;
- $('#dshare').onclick=()=>copy(location.origin+location.pathname+'#p='+encodeURIComponent(r.id),'Link do imóvel copiado');
+ $('#dshare').onclick=()=>copy(itemLink(r),'Link do imóvel copiado – abre direto neste painel (depois da senha)');
  $('#dcand').onclick=()=>{ candToggle(r.id); $('#dcand').textContent=CAND[r.id]?'✓ Candidato':'＋ Candidato'; $('#dcand').classList.toggle('gold',!CAND[r.id]); };
  $('#drawer .dh [data-star]').onclick=()=>toggleFav(r.id);
  $('#drawer .dh [data-flag]').onclick=()=>cycleFlag(r.id);
@@ -1950,6 +1975,19 @@ function drCalc(){
  }
 }
 function repBand(rb,inv){ if(!rb) return ''; const d=inv/rb-1; return '<div class="band" style="margin-top:6px"><span>'+(d>0?'⚪ ACIMA DA RECONSTRUÇÃO':'🟢 ABAIXO DA RECONSTRUÇÃO')+'</span><span class="'+(d>0?'c-amber':'c-green')+'">'+nf(Math.abs(d)*100,0)+'% '+(d>0?'acima':'abaixo')+'</span></div>'; }
+// ---- Builders view: where builders are buying vacant lots (NAL, last 12 months)
+let BLDMAX=100;
+function renderBld(){
+ const B=M.builders||{top:[],areas:[]}; const A=B.areas.filter(a=>a[6]==null||a[6]<=BLDMAX);
+ const mx=Math.max(1,...A.map(a=>a[3]));
+ const ours={}; ITEMS.forEach(r=>{ if(r.bld&&isLand(r)){ const k=r.bld.where.startsWith('ZIP')?'ZIP|'+r.bld.zk:'Subdivisão|'+(((r.lc||{}).ctx||{}).sub||'').toLowerCase(); ours[k]=(ours[k]||0)+1; } });
+ $('#v-bld').innerHTML='<section class="panel"><div class="dayh"><h3 style="margin:0">🏗 Builders: onde as construtoras estão comprando lotes</h3><label>Distância máx. de Orlando<select class="inp" id="bldmax">'+[50,100,150,250,999].map(v=>'<option value="'+v+'"'+(v===BLDMAX?' selected':'')+'>'+(v===999?'Flórida toda':v+' mi')+'</option>').join('')+'</select></label></div>'+
+  '<p class="mini">Fonte: cadastro DOR (NAL). Lotes vagos vendidos nos últimos 12 meses cujo dono atual é construtora (marcas conhecidas, nomes com Homes/Builders/Construction/Development, ou empresa que comprou ≥ 5 lotes no condado, exceto fundos/land banks: Land, Investments, Holdings, Capital…). Casas novas = construídas de '+(+TODAY.slice(0,4)-2)+' em diante. Distância pelo centro dos nossos imóveis da área (≈ = centro do condado).</p>'+
+  '<div class="g2"><div class="tblwrap" style="max-height:620px"><table class="itbl"><thead><tr><th>Área</th><th>Condado</th><th class="n">Compras de lote 12m</th><th class="n">Casas novas</th><th>Principais construtoras</th><th class="n">Dist.</th><th class="n">Nossos lotes</th></tr></thead><tbody>'+
+  A.slice(0,150).map(a=>'<tr><td><span class="mini">'+a[0]+'</span> <b>'+esc(a[1])+'</b></td><td>'+esc(a[2])+'</td><td class="n"><div style="display:flex;align-items:center;gap:6px;justify-content:flex-end"><span style="display:inline-block;height:8px;width:'+Math.round(60*a[3]/mx)+'px;background:#4f9a74;border-radius:3px"></span>'+nf(a[3])+'</div></td><td class="n">'+nf(a[4])+'</td><td style="white-space:normal">'+a[5].map(t=>esc(t[0])+' ('+t[1]+')').join(', ')+'</td><td class="n">'+(a[6]==null?'—':(a[7]?'≈':'')+a[6]+' mi')+'</td><td class="n">'+(ours[a[0]+'|'+String(a[1]).toLowerCase()]||'')+'</td></tr>').join('')+'</tbody></table></div>'+
+  '<div class="tblwrap" style="max-height:620px"><table class="itbl"><thead><tr><th>Construtora</th><th class="n">Lotes 12m</th><th>Condados</th></tr></thead><tbody>'+B.top.slice(0,30).map(t=>'<tr><td><b>'+esc(t[0])+'</b></td><td class="n">'+nf(t[1])+'</td><td style="white-space:normal" class="mini">'+esc(t[2].join(', '))+'</td></tr>').join('')+'</tbody></table></div></div></section>';
+ const sel=$('#bldmax'); if(sel) sel.onchange=()=>{ BLDMAX=+sel.value; renderBld(); };
+}
 function closeDrawer(){ document.body.classList.remove('dopen'); $('#drawer').classList.remove('on'); $('#drbg').classList.remove('on'); $('#drawer').setAttribute('aria-hidden','true'); $('#drawer').innerHTML=''; OPEN=null; DR=null; writeHash(); }
 $('#drbg').onclick=closeDrawer;
 document.addEventListener('keydown',e=>{ if(e.key==='Escape' && OPEN) closeDrawer(); });
@@ -1988,8 +2026,23 @@ $('#legend').innerHTML='<table><tr><th>Selo</th><th>Significado</th></tr>'+Objec
 const GLOSS=[['POV','PropertyOnion Value — estimativa de valor de mercado do PropertyOnion.'],['ARV','After Repair Value — valor de revenda depois da reforma. É o número Valor de mercado (POV/ARV) da conta.'],['J>MAX','Julgamento acima de 70% do ARV menos a reforma: pouco espaço para lance.'],['FJ','Final judgment — julgamento no foreclosure. Costuma ser o lance do autor.'],['OB','Opening bid — lance inicial do tax deed (em geral só o imposto, não o preço de venda).'],['BRRRR','Buy, Rehab, Rent, Refinance, Repeat — conta de aluguel no painel.'],['Aluguel forte','Yield bruto (aluguel x 12 dividido pelo ARV) na meta das premissas ou acima.'],['Cor marcada','Bolinha colorida salva neste aparelho (dourado, verde comprar, vermelho passar, azul observar).'],['JR-LIEN','Julgamento bem abaixo do valor: indício de HOA ou hipoteca júnior. Só alerta – não desconta dívida sozinho (hipotecas antigas quase quitadas dão o mesmo sinal).'],['xroi','ROI no lance realista (capa). ROI hist. é se o martelo cair no preço esperado do condado.'],['Lance realista','Tax deed: o maior entre lance inicial, preço histórico, fração do lance máx. de 17% e fração do ARV. Foreclosure: se o julgamento passa de ~85% do ARV − reforma, o menor entre julgamento, preço histórico e 70% do ARV − reforma (o banco pode aceitar menos).'],['Valor local (📍 Comps alta/média/baixa)','Valor de venda pelas vendas da mesma subdivisão ou a ≈0,5/1/3 mi. Confiança ≥ 60 vira o ARV; abaixo disso vale a lógica anterior.'],['✍ Manual','Avaliação pesquisada à mão (data/valuations_manual.json): vence o cálculo automático e o teto pesquisado limita o Max Bid.'],['Seguro de título','Apólice do proprietário na revenda pela tabela promulgada da Flórida (US$ 5,75/mil até US$ 100 mil, US$ 5/mil acima). Vendedor paga; zero em Miami-Dade, Broward, Sarasota e Collier.'],['Taxa fixa de venda','US$ 399 herdados do BidToFlip (antes “WRA”); origem não confirmada, editável nas Premissas, só em construído.'],['Just value ÷ 0,85','Sem comps, AVM nem POV, o ARV é o just value do condado ÷ 0,85: por lei o just value fica ~15% abaixo do mercado (F.S. 193.011(8)).'],['Saldo da hipoteca','Hipoteca que sobrevive é descontada pelo saldo estimado: valor original amortizado em 30 anos desde o registro (sem data: valor original).'],['Caixa','Dinheiro para o lance realista: depósito de 5% + taxa do clerk + doc stamps.'],['Negócios limpos','Sem alerta grave, HOA, ocupação, leilão anterior ou valor suspeito.'],['Valor suspeito','ARV e comps, ou ARV e condado, divergem mais de 2x. A conta usa o menor.'],['Sem comps','Lote sem 3 vendas comparáveis de terreno. Nota no máximo 55.'],['Gleba grande','Terreno com mais de 5 acres. Nota no máximo 55.'],['Uso comercial/agrícola','Uso que não é terreno vago residencial (000). Nota no máximo 55.'],['Base vs arquivo','Arquivo = todos. Todos/base = depois de ocultar faixas e execuções de HOA e dos filtros. Residencial = casa, townhouse e condo.']];
 if($('#bgloss')) $('#bgloss').onclick=()=>{ $('#glossb').innerHTML='<p class="mini">Termos do mercado americano usados no painel. Passe o mouse, use Tab ou toque num termo sublinhado para ver a tradução.</p><table><tr><th>Term</th><th>Tradução</th><th>O que significa</th></tr>'+Object.keys(TERMS).sort((a,b)=>a.localeCompare(b)).map(k=>'<tr><td><b>'+esc(k)+'</b></td><td>'+esc(TERMS[k][0])+'</td><td>'+esc(TERMS[k][1])+'</td></tr>').join('')+'</table><h4>Outros termos do painel</h4><table><tr><th>Termo</th><th>Significado</th></tr>'+GLOSS.map(([k,v])=>'<tr><td><b>'+esc(k)+'</b></td><td>'+esc(v)+'</td></tr>').join('')+'</table>'; $('#gloss').showModal(); };
 
+// ---- deep link to one property: #id=TD1517310 · #case=2026-142TD · ?case=… · ?id=… · ?parcel=… (also the old #p=)
+const normK = v=>String(v||'').toUpperCase().replace(/[^0-9A-Z]/g,'');
+function deepLinkTarget(){
+ const out={}; location.hash.replace(/^#/,'').split('&').forEach(p=>{const i=p.indexOf('='); if(i>0) out[p.slice(0,i)]=decodeURIComponent(p.slice(i+1));});
+ const q=new URLSearchParams(location.search);
+ const id=out.id||q.get('id')||out.p, cs=out.case||q.get('case'), pc=out.parcel||q.get('parcel');
+ if(!id&&!cs&&!pc) return null;
+ let r=id?ITEMS.find(x=>x.id===id):null;
+ if(!r&&cs){ const k=normK(cs); r=ITEMS.find(x=>normK(x.case)===k); }
+ if(!r&&pc){ const k=normK(pc); r=ITEMS.find(x=>normK(x.parcel)===k); }
+ return {r, asked:id||cs||pc, explicit:!!(out.id||q.get('id')||cs||pc)};
+}
+const DL=deepLinkTarget();
+const itemLink = r=> location.origin+location.pathname+'#id='+encodeURIComponent(r.id);
 (function loadUI(){
  if(location.hash.indexOf('f=')>=0) return;
+ if(DL && DL.explicit) return;              // deep link: ignore saved filters so the property is never hidden
  const o=LS.get('leilao_ui_v9', null); if(!o||typeof o!=='object') return;
  for(const k in FIELDS){ if(o[k]!=null && $(FIELDS[k])) $(FIELDS[k]).value=o[k]; }
  for(const k in CHECKS){ if(o[k]!=null){ if(k==='hjr') LAST_HJR=!!o[k]; else if($(CHECKS[k])) $(CHECKS[k]).checked=!!o[k]; } }
@@ -1999,7 +2052,9 @@ if($('#bgloss')) $('#bgloss').onclick=()=>{ $('#glossb').innerHTML='<p class="mi
 })();
 const H0=readHash();
 setView(S.view || (window.innerWidth<760?'cards':'table'));
-if(H0.p && ITEMS.find(x=>x.id===H0.p)) openDrawer(H0.p);
+if(DL && DL.explicit){ S.cat=''; S.kat=''; }
+if(DL && DL.r){ if(DL.explicit) apply(true); openDrawer(DL.r.id); }
+else if(DL && DL.explicit) setTimeout(()=>toast('Imóvel “'+DL.asked+'” não encontrado (leilão já passou ou foi removido)'),300);
 termify(document.body);
 window.__dash={apply, ITEMS, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
 })();

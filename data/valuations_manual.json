@@ -1,5 +1,5 @@
 {
- "_doc": "Avaliações pesquisadas à mão. Chave = condado + parcela. Ganham do cálculo automático (valor de venda). addr = rua + descrição legal + processo/parcela — NUNCA um número de casa adivinhado. Campos: low/mid/high (faixa de revenda US$), ceiling (teto de lance pesquisado; null = usar o lance máx. de 17% da conta), pass, holdYr (HOA/CDD/clube por ano, entra na posse), qt (quiet title US$), date, sources, notes.",
+ "_doc": "Avaliações pesquisadas à mão. Chave = condado + parcela. Ganham do cálculo automático (valor de venda). addr = rua + descrição legal + processo/parcela — NUNCA um número de casa adivinhado. Campos: low/mid/high (faixa de revenda US$), ceiling (teto de lance pesquisado; null = usar o lance máx. de 17% da conta), pass, holdYr (HOA/CDD/clube por ano, entra na posse), qt (quiet title US$), date, sources, notes. subdivisions: anúncios/DOM por subdivisão (county + sub = nome da planta na descrição legal, como no painel): asking_low (menor anúncio US$), dom_days, date, source, notes.",
  "items": [
   {
    "county": "hernando",
@@ -96,6 +96,17 @@
    "notes": "O nº 9729 SW 206th Cir é uma CASA de 2003, não o lote do leilão. Título vem de espólio/trust. Villages of Rainbow Springs (POA).",
    "date": "2026-10-09",
    "ceiling": null
+  }
+ ],
+ "subdivisions": [
+  {
+   "county": "highlands",
+   "sub": "SUN N LAKE EST OF SEBRING",
+   "asking_low": 8000,
+   "dom_days": 176,
+   "date": "2026-10-09",
+   "source": "Fernando via Zillow (09/10/2026)",
+   "notes": "Lotes anunciados a ~US$ 8 mil com 176+ dias no mercado (ex.: 8655 Pavia St Lot 20, Sebring)."
   }
  ]
 }
