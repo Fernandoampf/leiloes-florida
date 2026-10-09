@@ -34,7 +34,7 @@ with sync_playwright() as p:
     check('Orçamento' not in pg.inner_text('body') and 'teto orç' not in pg.inner_text('body'), 'sem orçamento de US$ 150 mil na página')
     check(pg.locator('#tbl tbody tr').count() > 0, 'tabela renderizada')
     heads = pg.evaluate("document.querySelector('#tbl thead').textContent")
-    for h in ('Condado', 'Valor de mercado (POV/ARV)', 'POV PO', 'Julgamento', 'NET', 'ROI', 'Veredito', 'Nota', 'Cat.', 'Autor'):
+    for h in ('Condado', 'ARV', 'POV', 'Final Judgment', 'Opening Bid', 'Max Bid', 'NET', 'ROI', 'Verdict', 'Nota', 'Cat.', 'Plaintiff'):
         check(h in heads, f'coluna “{h}”')
     check(pg.evaluate(D + '.ITEMS.filter(r=>r.pov).length') > 50, 'itens com POV PropertyOnion')
     check(pg.evaluate(D + '.ITEMS.filter(r=>r.povAsArv).length') > 20, 'itens com POV como ARV')
@@ -61,15 +61,15 @@ with sync_playwright() as p:
         return true; }).map(r=>r.addr+' '+r.vd).slice(0,5)''')
     check(not bad, f'veredito por espaço de lance: SEM ESPAÇO / DISPUTADO / FLIP ≥ 25% / CONSIDERAR {bad}')
     check(pg.evaluate(D + '.ITEMS.filter(r=>r.t==="FC"&&r.vd==="PASSAR"&&r.mb>0&&r.ref>r.mb+1).length') == 0, 'foreclosure com julgamento acima do lance máx. é DISPUTADO, não SEM ESPAÇO')
-    kats = pg.evaluate(D + '.ITEMS.map(r=>r.kat).join()'); check('SEM ESPAÇO' in kats and 'DISPUTADO' in kats, 'categorias “SEM ESPAÇO” e “DISPUTADO”')
+    kats = pg.evaluate(D + '.ITEMS.map(r=>r.kat).join()'); check('NO ROOM' in kats and 'CONTESTED' in kats, 'categorias “NO ROOM” e “CONTESTED”')
     check(pg.evaluate(D + '.ITEMS.filter(r=>r.fl.includes("mtg")&&r.roi!=null&&r.mb>0&&!(r.ref>r.mb)&&!(r.xbid>r.mb+1)).every(r=>r.vd!=="PASSAR")'), 'hipoteca que sobrevive não é PASSAR automático')
     check(pg.evaluate(D + '.ITEMS.filter(r=>r.survOrig).every(r=>r.survAmt<=r.survOrig)'), 'dívida que sobrevive = saldo estimado (≤ valor original)')
     jvb = pg.evaluate(D + '.ITEMS.filter(r=>r.jv85&&!r.suspect&&!r.povAsArv).filter(r=>Math.abs((r.val0!=null?r.val0:r.val)-r.jv85/0.85)>1).map(r=>[r.addr,r.val0,r.val,r.jv85]).slice(0,3)')
     check(not jvb and pg.evaluate(D + '.ITEMS.filter(r=>r.jv85).length') > 100, f'ARV só com just value = just value ÷ 0,85 {jvb}')
-    check(pg.locator('#fvd option[value="DISPUTADO"]').count()==1 and 'disputados' in pg.inner_text('#kpis').lower(), 'filtro e KPI DISPUTADO')
+    check(pg.locator('#fvd option[value="DISPUTADO"]').count()==1 and 'contested' in pg.inner_text('#kpis').lower(), 'filtro e KPI CONTESTED')
     kats = set(pg.evaluate(D + '.ITEMS.map(r=>r.katk)')); check({'viavel', 'jmax', 'abaixo'} <= kats, f'categorias {kats}')
     # fórmula: no lance máximo o ROI é exatamente o mínimo
-    bad = pg.evaluate('''(()=>{const d=window.__dash;let bad=[];for(const r of d.ITEMS){ if(r.mb==null||r.mb<=0) continue;
+    bad = pg.evaluate('''(()=>{const d=window.__dash;let bad=[];for(const r of d.ITEMS){ if(r.mb==null||r.mb<=0||r.man) continue;
         const p=d.pnl(r,r.mb); if(Math.abs(p.roi-d.PR.ret/100)>0.002) bad.push([r.id,p.roi]); } return bad.slice(0,5);})()''')
     check(not bad, f'ROI no lance máximo = 17% para todos os itens ({bad})')
     dep = pg.evaluate(D + '.ITEMS.filter(r=>r.mb>0).every(r=>Math.abs(r.dep-r.mb*0.05)<1)'); check(dep, 'depósito = 5% do lance máximo')
@@ -106,12 +106,12 @@ with sync_playwright() as p:
     check(pg.locator('#drawer .alerts .st.nv').count() >= 1, 'alertas marcam “não verificado”')
     check(pg.locator('#dland .lv > div').count() >= 9, 'bloco água/esgoto/terreno')
     tiles = pg.evaluate("document.querySelector('#dtiles').textContent")
-    for t in ('17% mínimo', '25% alvo', '30% esticado', '70% máx.', 'Julgamento'):
+    for t in ('17% mínimo', '25% alvo', '30% esticado', '70% máx.', 'Final Judgment'):
         check(t in tiles, f'escada de lances: {t}')
-    check('Depósito no leilão' in pg.inner_text('#ddep'), 'depósito de 5% no painel')
+    check('Deposit no leilão' in pg.inner_text('#ddep'), 'depósito de 5% no painel')
     check(pg.locator('#dstrat > div').count() == 2, 'estratégias FLIP e HOLD/BRRRR')
     pl = pg.evaluate("document.querySelector('#dpl').textContent")
-    for t in ('Preço de venda (ARV)', 'Lance vencedor', 'Taxas do clerk', 'Doc stamps na compra', 'Total da aquisição', 'Reforma', 'Contingência', 'Posse', 'Taxa fixa de venda (BidToFlip)', 'Comissão do corretor vendedor', 'Comissão do corretor comprador', 'Seguro de título do proprietário', 'Doc stamps na venda', 'Fechamento / diversos', 'Lucro líquido', '/mês'):
+    for t in ('ARV (preço de venda)', 'Winning Bid', 'Clerk Fee', 'Doc Stamps (compra)', 'Total da aquisição', 'Rehab', 'Rehab Contingency', 'Holding Costs', 'Flat Sale Fee (BidToFlip)', 'Listing Commission', 'Buyer Agent Commission', 'Title Insurance', 'Doc Stamps (venda)', 'Closing Costs', 'NET (lucro líquido)', '/mês'):
         check(t in pl, f'P&L: linha “{t}”')
     check('US$ 399' in pl, 'P&L: taxa fixa de venda US$ 399')
     check(pg.locator('#drepc').count() == 1 and ('RECONSTRUÇÃO' in pg.evaluate("document.querySelector('#drep').textContent")), 'custo de reposição com selo acima/abaixo')
@@ -139,7 +139,7 @@ with sync_playwright() as p:
     pg.evaluate(f'{D}.openDrawer("{rid}")'); pg.wait_for_timeout(300)
     # what-if exactly like BidToFlip: every line follows bid / ARV / rehab / months live
     row = '''(t=>{const tr=[...document.querySelectorAll('#dpl tr')].find(x=>x.cells[0]&&x.cells[0].textContent.startsWith(t));return tr?tr.cells[1].textContent:null;})'''
-    snap = lambda: pg.evaluate('''()=>{const g=%s;return {clerk:g('Taxas do clerk'),docb:g('Doc stamps na compra'),list:g('Comissão do corretor vendedor'),hold:g('Posse'),net:document.querySelector('#dplnet').textContent,lad:document.querySelector('#dtiles').textContent,rep:(document.querySelector('#drep')||{}).textContent,dep:document.querySelector('#ddep').textContent,wsr:document.querySelector('#wsr').textContent,hdr:document.querySelector('#dnet').textContent};}''' % row)
+    snap = lambda: pg.evaluate('''()=>{const g=%s;return {clerk:g('Clerk Fee'),docb:g('Doc Stamps (compra)'),list:g('Listing Commission'),hold:g('Holding Costs'),net:document.querySelector('#dplnet').textContent,lad:document.querySelector('#dtiles').textContent,rep:(document.querySelector('#drep')||{}).textContent,dep:document.querySelector('#ddep').textContent,wsr:document.querySelector('#wsr').textContent,hdr:document.querySelector('#dnet').textContent};}''' % row)
     s0 = snap()
     pg.fill('#w-bid', '123500'); pg.wait_for_timeout(150); s1 = snap()
     check(s1['clerk'] != s0['clerk'] and s1['docb'] != s0['docb'] and s1['net'] != s0['net'] and s1['dep'] != s0['dep'] and s1['hdr'] != s0['hdr'] and 'US$ 123.500' in s1['wsr'], 'lance digitado: clerk, doc stamps, lucro, ROI, depósito e cabeçalho ao vivo')
@@ -213,7 +213,7 @@ with sync_playwright() as p:
     surv_n = pg.evaluate(D + ".ITEMS.filter(r=>r.fl.includes('surv')||r.survAmt).length")
     check(surv_n >= 1, f'imóveis com alerta hipoteca pode sobreviver: {surv_n}')
     check(pg.evaluate(D + ".ITEMS.filter(r=>r.fl.includes('surv')).every(r=>!r.clean)"), 'surv fora de Negócios limpos')
-    check('Hipoteca pode sobreviver' in pg.evaluate("window.__dash.FL.surv.l"), 'selo FL.surv')
+    check('Surviving Lien' in pg.evaluate("window.__dash.FL.surv.l"), 'selo FL.surv')
     check(pg.locator('#tabs [data-v="cand"]').count()==1, 'aba Meus candidatos')
     # add candidato from first list row
     rid = pg.evaluate(D + ".CUR[0].id")
@@ -222,7 +222,7 @@ with sync_playwright() as p:
     check(pg.evaluate(D + '.view')=='cand', 'view candidatos')
     check(pg.locator('.ccard').count() >= 1, 'card de candidato renderizado')
     check(pg.locator('.cchk input[type=checkbox]').count() >= 4, 'checklist no candidato')
-    check('Lance máx.' in pg.inner_text('.ccard'), 'mostra lance máx. 17%')
+    check('Max Bid' in pg.inner_text('.ccard'), 'mostra Max Bid 17%')
     pg.locator('.cchk input[type=checkbox]').first.check(); pg.wait_for_timeout(200)
     prog = pg.inner_text('.cprog')
     check('1/5' in prog or '2/5' in prog, f'progresso checklist atualiza ({prog[:40]})')
@@ -250,6 +250,36 @@ with sync_playwright() as p:
     check(pg.evaluate('window.__dash.ITEMS.every(r=>!r.titleNv || r.risk!=="baixo")'), 'título não verificado não é risco baixo')
     check(pg.evaluate('window.__dash.ITEMS.filter(r=>r.hist&&r.hist.length).every(r=>r.fl.includes("rebid")&&r.risk!=="baixo")'), 'leilão anterior com flag')
     check(pg.locator('#bgloss').count()==1, 'botão Glossário')
+    # ---- English trade terms with Portuguese tooltips (central TERMS dictionary)
+    pg.click('#tabs [data-v="table"]'); pg.wait_for_timeout(400)
+    nth = pg.locator('#tbl thead .tm').count(); check(nth >= 6, f'termos em inglês com tooltip no cabeçalho ({nth})')
+    pg.locator('#tbl thead .tm[data-tm="Max Bid"]').first.hover(); pg.wait_for_timeout(150)
+    tip = pg.inner_text('#tmtip') if pg.locator('#tmtip').is_visible() else ''
+    check('Lance máximo' in tip and '17%' in tip, f'hover mostra tradução + explicação ({tip[:60]})')
+    pg.mouse.move(1, 1); pg.wait_for_timeout(100)
+    pg.locator('#tbl thead .tm[data-tm="ARV"]').first.focus(); pg.wait_for_timeout(100)
+    check(pg.locator('#tmtip').is_visible() and 'Valor de revenda' in pg.inner_text('#tmtip'), 'foco do teclado mostra o tooltip')
+    check(pg.locator('#tbl thead .tm').first.get_attribute('tabindex') == '0', 'termo focável (tabindex 0)')
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(100)
+    check(pg.locator('#filters label .tm[data-tm="Verdict"]').count() >= 1, 'filtro Verdict com tooltip')
+    check(pg.locator('#kpis .tm').count() >= 2, 'KPIs com tooltip')
+    pg.click('#bgloss'); pg.wait_for_timeout(200)
+    gl = pg.inner_text('#glossb')
+    check(all(t in gl for t in ('Opening Bid', 'Final Judgment', 'Surviving Lien', 'Certificate Holder', 'Lis Pendens', 'CDD', 'Subdivision', 'Cash Needed', 'NO ROOM', 'CONTESTED')), 'Glossário lista os termos em inglês')
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(150)
+    # ---- local resale value + manual valuations
+    lc = pg.evaluate("(()=>{const I=window.__dash.ITEMS; return {n:I.filter(r=>r.lc&&r.lc.lvl).length, used:I.filter(r=>r.lc&&r.lc.used).length, sub:I.filter(r=>r.lc&&r.lc.lvl==='sub').length, bad:I.filter(r=>r.lc&&r.lc.used&&!r.man&&Math.abs(r.val0-r.lc.est)>1).length, lowc:I.filter(r=>r.lc&&r.lc.used&&r.lc.conf<60).length};})()")
+    check(lc['n'] > 1000 and lc['used'] > 500 and lc['sub'] > 100 and lc['bad'] == 0 and lc['lowc'] == 0, f'comps locais {lc}')
+    ho = pg.evaluate('window.__dash.ITEMS.find(r=>r.parcel==="01596160")')
+    check(ho and ho['val'] == 100000 and ho['addr'].startswith('4570 Hickory Oak Dr') and ho['mb'] <= 72000 and ho['man']['ceiling'] == 72000, f"Hickory Oak manual {ho and (ho['val'], ho['addr'], round(ho['mb']))}")
+    sc = pg.evaluate('window.__dash.ITEMS.find(r=>r.parcel==="01575842")')
+    check(sc and sc['vd'] == 'PASSAR' and sc['val'] == 22000, f"Southern Charm PASSAR {sc and (sc['vd'], sc['val'])}")
+    nman = pg.evaluate('window.__dash.ITEMS.filter(r=>r.man).length'); check(nman == 6, f'6 avaliações manuais ({nman})')
+    pg.evaluate('window.__dash.openDrawer(window.__dash.ITEMS.find(r=>r.parcel==="01596160").id)'); pg.wait_for_timeout(400)
+    dl = pg.evaluate("document.querySelector('#dlocal').textContent")
+    check('Valor de venda — análise local' in dl and 'Avaliação manual' in dl and 'SOUTHERN HILLS PLANTATION' in dl and 'construída' in dl, 'painel: seção Valor de venda — análise local')
+    pg.evaluate('window.__dash.closeDrawer && window.__dash.closeDrawer()'); pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
+    check(pg.locator('#tbl .lcb').count() >= 5, 'selo de confiança na lista')
     lots = pg.evaluate("""(()=>{const d=window.__dash;
       const lands=d.ITEMS.filter(r=>r.ty==="Lote"||r.ty==="Terreno");
       const capped=lands.filter(r=>(r.lotBadges||[]).length);

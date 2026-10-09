@@ -1,0 +1,29 @@
+{
+  "_doc": "Avaliações pesquisadas à mão. Chave = condado + parcela. Ganham do cálculo automático (valor de venda) e o 'teto' limita o lance máximo. Valores em US$. Campos: low/mid/high (faixa de revenda), ceiling (lance máximo pesquisado; null = sem lance), pass (true = não dar lance), addr (endereço real exibido), date, sources, notes.",
+  "items": [
+    {"county": "hernando", "parcel": "01596160", "addr": "4570 Hickory Oak Dr, Brooksville, FL 34601",
+     "low": 85000, "mid": 100000, "high": 120000, "ceiling": 72000, "date": "2026-10-09",
+     "sources": ["vendas de lotes em Southern Hills Plantation: US$120k (12/2025, 0,28 ac), US$135k (01/2026), US$70k, US$75k", "anúncios ativos US$99–105k", "PA Hernando (zoneamento PDP)"],
+     "notes": "Southern Hills Plantation: condomínio fechado com campo de golfe Pete Dye. HOA ~US$530/trimestre + CDD ~US$1,6k/ano. Água e esgoto públicos. Zona de enchente X. Confirmar com o Clerk a composição do lance inicial (US$68,4k)."},
+    {"county": "hernando", "parcel": "00563492", "addr": "4054 Augustine Rd, Spring Hill, FL 34609",
+     "low": 42000, "mid": 50000, "high": 57000, "ceiling": 34000, "date": "2026-10-09",
+     "sources": ["vendas recentes de lotes de 10.000 sqft em Spring Hill", "PA Hernando"],
+     "notes": "Tax deeds anteriores em 2014 e 2019. Água do condado + fossa séptica."},
+    {"county": "hernando", "parcel": "00810821", "addr": "16358 Courlan Rd, Weeki Wachee, FL 34614",
+     "low": 28000, "mid": 32000, "high": 36000, "ceiling": 21000, "date": "2026-10-09",
+     "sources": ["vendas recentes de lotes em Royal Highlands / Weeki Wachee", "PA Hernando"],
+     "notes": "Provavelmente poço + fossa séptica. Sem HOA."},
+    {"county": "hernando", "parcel": "00068811", "addr": "16297 Little Auk Rd, Weeki Wachee, FL 34614",
+     "low": 28000, "mid": 33000, "high": 37000, "ceiling": 21500, "date": "2026-10-09",
+     "sources": ["vendas recentes de lotes em Royal Highlands / Weeki Wachee", "PA Hernando"],
+     "notes": "Anunciado como 'Telescope Ave'; o endereço real do lote é 16297 Little Auk Rd."},
+    {"county": "hernando", "parcel": "01575842", "addr": "8930 Southern Charm Cir, Brooksville, FL 34613",
+     "low": 18000, "mid": 22000, "high": 27000, "ceiling": null, "pass": true, "date": "2026-10-09",
+     "sources": ["vendas recentes de lotes na subdivisão", "PA Hernando"],
+     "notes": "PASSAR: lance inicial ~US$28k é maior que o valor de revenda. CDD ~US$1,6k/ano."},
+    {"county": "marion", "parcel": "3295-138-021", "addr": "9729 SW 206th Cir, Dunnellon, FL 34431",
+     "low": 45000, "mid": 52000, "high": 60000, "ceiling": 36000, "date": "2026-10-09",
+     "sources": ["vendas recentes de lotes em Villages of Rainbow Springs", "PA Marion"],
+     "notes": "Anunciado como 'NO SITUS'. Villages of Rainbow Springs — Woodlands POA."}
+  ]
+}

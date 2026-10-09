@@ -31,6 +31,7 @@ import argparse, ast, base64, csv, datetime as dt, gzip, io, json, math, os, re,
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import rawdata, po_fetch, nal, flwmi, po_export, po_bids
+import local_comps
 
 AUC = '/workspace/auc'
 SW = os.path.join(AUC, 'statewide')
@@ -393,7 +394,7 @@ def nal_index(items, today):
         # street name without a house number matches an arbitrary parcel on that street: parcel only
         if st and zs and re.match(r'\d', st): d['a'].add(st + '|' + zs[-1])
         d['its'].append(it)
-    facts, sales, cono = {}, {}, {}
+    facts, sales, cono, lcd = {}, {}, {}, {}
     zfiles = nal.zips()
     for c, d in sorted(by_c.items()):
         if c not in zfiles: continue
@@ -409,7 +410,15 @@ def nal_index(items, today):
             if not f and st and zs and re.match(r'\d', st): f = P_.get('a:' + st + '|' + zs[-1]); how = 'endereço'
             if f: f = dict(f); f['how'] = how; facts[x['aid']] = f
         for s in cd['sales']: sales.setdefault(s[0], []).append(s)
-    return facts, sales, cono
+        tg = {nal.npid(facts[it['raw']['aid']]['pid']) for it in d['its'] if it['raw']['aid'] in facts and facts[it['raw']['aid']].get('pid')}
+        if tg: lcd[c] = local_comps.load(c, tg, today)
+    return facts, sales, cono, lcd
+
+def load_manual():
+    """data/valuations_manual.json -> {(county slug, normalised parcel): entry}"""
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'valuations_manual.json')
+    if not os.path.exists(p): return {}
+    return {(e['county'], nal.npid(e['parcel'])): e for e in json.load(open(p)).get('items', [])}
 
 def build_items(args):
     cal = load_calendar()
@@ -421,7 +430,8 @@ def build_items(args):
     items = collect_items(fetch_bids=fetch_bids)
     if args.fetch: prefetch_all(items, args)
     today = args.data_date
-    facts, sales_by_zip, cono = nal_index(items, today)
+    facts, sales_by_zip, cono, lcd = nal_index(items, today)
+    manual = load_manual()
     ares, _, _ = load_results()
     seen = jload(os.path.join(CACHE, 'seen_v4.json'), {})
     baseline = not seen                      # first v4 run: nothing is 'new'
@@ -560,6 +570,29 @@ def build_items(args):
             val = pov
             vsrc = f"POV PropertyOnion {_usd(pov)} (sem valor de condado para comparar) — usado como ARV"
             pov_as_arv = True
+        # ---- local comps (same subdivision -> ~0.5/1/3 mi rings): primary ARV when confidence is good
+        lce = None
+        if nf and nf.get('pid') and lcd.get(cs):
+            lce = local_comps.estimate(lcd[cs], nal.npid(nf['pid']), lambda z: (mk.get(z) or {}).get('zh'), today)
+            if lce and lce.get('lvl') and ((lce.get('g') == 'land') != land or ty == 'Comercial'): lce = dict(ctx=lce.get('ctx'), n=0, lvl=None, why='tipo diferente do DOR')
+        if lce and lce.get('lvl'):
+            if jv: lce['gapJv'] = round(lce['est'] / (jv / 0.85) - 1, 2)
+            if pov: lce['gapPov'] = round(lce['est'] / pov - 1, 2)
+            # ring comps (not the same plat) that disagree >40% with the county's own value are a weak signal: lower confidence
+            if lce['lvl'] != 'sub' and lce.get('gapJv') is not None and abs(lce['gapJv']) > 0.4:
+                lce['conf'] = max(0, lce['conf'] - 15); lce['pen'] = 'diverge mais de 40% do just value ÷ 0,85 (−15 na confiança)'
+                lce['confTxt'] = 'alta' if lce['conf'] >= 70 else 'média' if lce['conf'] >= 50 else 'baixa'
+            if lce['conf'] >= 60 and (cs, nal.npid(x.get('parcel') or '')) not in manual:
+                lce['prev'] = round(val) if val else None; lce['prevSrc'] = vsrc; lce['used'] = True
+                val = lce['est']; pov_as_arv = False
+                vsrc = (f"comps locais — {lce['lvlTxt']}: mediana de {lce['n']} vendas qualificadas (últimos 18 meses, ajustadas no tempo) = {_usd(val)}; "
+                        f"confiança {lce['conf']}/100 ({lce['confTxt']})")
+                sz = [c[3] for c in lce['comps'] if c[3]]
+                cp = dict(n=lce['n'], est=lce['est'], g=lce['g'], local=lce['lvlTxt'],
+                          ppsf=statistics.median([c[6] / c[3] for c in lce['comps'] if c[3]]) if sz else None,
+                          l=[[c[0], c[2], c[1], None if land else c[3], c[4], c[3] if land else None] for c in lce['comps'][:8]])
+                cest = lce['est']
+            lce['comps'] = lce['comps'][:10]
         jv85 = None
         if (val and base and val == base and not pov_as_arv and not avm and not (cp and (cp.get('n') or 0) >= 3 and cest)):
             # Florida just value is set ~15% under market (cost-of-sale deduction, F.S. 193.011(8)); with nothing better, gross it up
@@ -742,11 +775,18 @@ def build_items(args):
             pool=pool, eyb=int(num(P0.get('effectiveYearBuilt'))) if num(P0.get('effectiveYearBuilt')) and num(P0.get('effectiveYearBuilt')) > 1800 else None,
             hasPO=has_po, nalm=(nf or {}).get('how'), tax=taxamt, front=front, sewer=sewer, units=units,
             util=({k: util.get(k) for k in ('WW', 'WW_UPD', 'WW_SRC_TYP', 'DW', 'DW_UPD', 'DW_SRC_TYP', 'PARCELNO', 'LANDUSE', 'BLT_STATUS', 'GIS_ACRE')} | {'pt': util.get('_pt', 0)}) if util else None,
-            comps=cp, xp=xp, dom=dom, desc=x.get('desc'),
+            comps=cp, xp=xp, lc=lce or None, dom=dom, desc=x.get('desc'),
             plat=('PropertyOnion' if it.get('po_only') else x.get('platform')),
             pmax=x.get('pmax') if x.get('pmax') not in (None, 'Hidden') else None,
             new=first == today, first=first if first != '0000-00-00' else None, muni=dictval(P0.get('municipality')),
         )
+        man = manual.get((cs, nal.npid(x.get('parcel') or '')))
+        if man:
+            m = {k: man.get(k) for k in ('low', 'mid', 'high', 'ceiling', 'pass', 'date', 'sources', 'notes')}
+            m['prev'] = rec.get('val'); rec['man'] = m
+            rec['addr0'] = rec['addr']; rec['addr'] = man.get('addr') or rec['addr']
+            rec['val'] = man['mid']; rec['povAsArv'] = None
+            rec['vsrc'] = f"Avaliação manual ({man.get('date')}; fontes: {'; '.join(man.get('sources') or [])}) — faixa {_usd(man['low'])}–{_usd(man['high'])}"
         rec = {k: v for k, v in rec.items() if v not in (None, '', [], {})}
         rec.setdefault('fl', []); rec.setdefault('links', {})
         out.append(rec)
