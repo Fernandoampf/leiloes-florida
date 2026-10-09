@@ -122,7 +122,7 @@ with sync_playwright() as p:
     tt = pg.evaluate('''(()=>{const d=window.__dash; const h=d.ITEMS.find(x=>x.co==='Orange'&&x.ty==='Casa'); const m=d.ITEMS.find(x=>x.co==='Miami-Dade'&&x.ty==='Casa'); const l=d.ITEMS.find(x=>(x.ty==='Lote')&&x.val);
       const T=(r,a)=>{const o={...d.base(r),arv:a}; return Math.round(d.pnl(r,100000,o).sell.title);}; return [T(h,300000), m?T(m,300000):0, Math.round(d.pnl(l,l.xbid||1000,d.base(l)).sell.wra)];})()''')
     check(tt == [1575, 0, 0], f'título promulgado US$ 1.575 em US$ 300 mil, zero em Miami-Dade, sem taxa fixa em lote {tt}')
-    defs = pg.evaluate(D + '.PDEF'); check(defs['months'] == 5 and defs['monthsLot'] == 3 and defs['hins'] == 1 and defs['hutil'] == 350 and defs['rhbUnk'] == 35000 and defs['misc'] == 1000 and defs['titleP'] == 100, 'padrões: posse 5 meses (lote 3), seguro 1%, US$ 350/mês, reforma desconhecida US$ 35 mil, fechamento US$ 1.000')
+    defs = pg.evaluate(D + '.PDEF'); check(defs['months'] == 7 and defs['monthsLot'] == 3 and defs['hins'] == 2 and defs['cont'] == 20 and defs['rhbMin'] == 15000 and defs['capc'] == 8 and defs['lotSroi'] == 40 and defs['netHouse'] == 25000 and defs['hutil'] == 350 and defs['rhbUnk'] == 35000 and defs['misc'] == 1000 and defs['titleP'] == 100, 'padrões: posse 7 meses (lote 3), seguro 2%, contingência 20%, reforma mínima US$ 15 mil, capital 8%, escada de lote 40%, NET casa US$ 25 mil, US$ 350/mês, reforma desconhecida US$ 35 mil, fechamento US$ 1.000')
     # every P&L line editable, live recalculation
     n_in = pg.locator('#dpl .pin').count(); check(n_in >= 14, f'P&L editável ({n_in} campos)')
     before = pg.locator('#dplnet').inner_text()
@@ -133,9 +133,9 @@ with sync_playwright() as p:
     pg.click('#w-reset'); pg.wait_for_timeout(200)
     check(pg.locator('#dplnet').inner_text() == before, 'desfazer edições do imóvel')
     pg.fill('#dpl [data-pk="hutil"]', '400'); pg.wait_for_timeout(150); pg.click('#plsave'); pg.wait_for_timeout(300)
-    check((json.loads(pg.evaluate("localStorage.getItem('leilao_premissas_v5')") or '{}')).get('hutil') == 400, 'salvar custos como padrão (localStorage)')
+    check((json.loads(pg.evaluate("localStorage.getItem('leilao_premissas_v6')") or '{}')).get('hutil') == 400, 'salvar custos como padrão (localStorage)')
     pg.evaluate(f'{D}.openDrawer("{rid}")'); pg.wait_for_timeout(300); pg.click('#pldef'); pg.wait_for_timeout(300)
-    check(pg.evaluate("localStorage.getItem('leilao_premissas_v5')") is None and pg.evaluate(D + '.PR.hutil') == 350, 'voltar aos padrões originais')
+    check(pg.evaluate("localStorage.getItem('leilao_premissas_v6')") is None and pg.evaluate(D + '.PR.hutil') == 350, 'voltar aos padrões originais')
     pg.evaluate(f'{D}.openDrawer("{rid}")'); pg.wait_for_timeout(300)
     # what-if exactly like BidToFlip: every line follows bid / ARV / rehab / months live
     row = '''(t=>{const tr=[...document.querySelectorAll('#dpl tr')].find(x=>x.cells[0]&&x.cells[0].textContent.startsWith(t));return tr?tr.cells[1].textContent:null;})'''
@@ -182,9 +182,9 @@ with sync_playwright() as p:
     pg.evaluate(f'{D}.applyPrem({{...{D}.PR, ret:25}})'); pg.wait_for_timeout(300)
     mb20 = pg.evaluate(f'{D}.ITEMS.find(r=>r.id==="{rid}").mb')
     check(mb20 < mb10, f'premissa retorno 25% reduz lance máx. ({mb10:.0f} → {mb20:.0f})')
-    check(pg.evaluate("localStorage.getItem('leilao_premissas_v5')") is not None, 'premissas salvas (v5)')
+    check(pg.evaluate("localStorage.getItem('leilao_premissas_v6')") is not None, 'premissas salvas (v6)')
     pg.evaluate(f'{D}.applyPrem({{...{D}.PDEF}})'); pg.wait_for_timeout(300)
-    check(pg.evaluate("localStorage.getItem('leilao_premissas_v5')") is None, 'padrões restaurados')
+    check(pg.evaluate("localStorage.getItem('leilao_premissas_v6')") is None, 'padrões restaurados')
     # CSV
     with pg.expect_download() as dl: pg.click('#bcsv')
     lines = open(dl.value.path(), encoding='utf-8-sig').read().splitlines()
@@ -265,7 +265,7 @@ with sync_playwright() as p:
     check(pg.locator('#kpis .tm').count() >= 2, 'KPIs com tooltip')
     pg.click('#bgloss'); pg.wait_for_timeout(200)
     gl = pg.inner_text('#glossb')
-    check(all(t in gl for t in ('Opening Bid', 'Final Judgment', 'Surviving Lien', 'Certificate Holder', 'Lis Pendens', 'CDD', 'Subdivision', 'Cash Needed', 'NO ROOM', 'CONTESTED')), 'Glossário lista os termos em inglês')
+    check(all(t in gl for t in ('Opening Bid', 'Final Judgment', 'Surviving Lien', 'Certificate Holder', 'Lis Pendens', 'CDD', 'Subdivision', 'Cash to Close', 'NO ROOM', 'CONTESTED')), 'Glossário lista os termos em inglês')
     pg.keyboard.press('Escape'); pg.wait_for_timeout(150)
     # ---- local resale value + manual valuations
     lc = pg.evaluate("(()=>{const I=window.__dash.ITEMS; return {n:I.filter(r=>r.lc&&r.lc.lvl).length, used:I.filter(r=>r.lc&&r.lc.used).length, sub:I.filter(r=>r.lc&&r.lc.lvl==='sub').length, bad:I.filter(r=>r.lc&&r.lc.used&&!r.man&&!(r.sup&&r.sup.disc)&&!r.bld&&Math.abs(r.val0-r.lc.est)>1).length, lowc:I.filter(r=>r.lc&&r.lc.used&&r.lc.conf<60).length};})()")

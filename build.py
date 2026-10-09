@@ -51,22 +51,33 @@ P = dict(
     qt=2500,                # quiet title (US$) – built tax deeds
     qtm=0,                  # extra holding months for quiet title
     ev=2500,                # eviction / cash-for-keys (US$) when occupied/tenant likely
-    evm=0,                  # extra months when eviction likely
-    rhb20=5, rhb15=10, rhb05=20, rhb95=30, rhbOld=40,   # rehab US$/sqft by year built (2020+, 2015-19, 2005-14, 1995-2004, older)
-    rhbMin=8000, rhbUnk=35000, rhbSqft=1500, rhbPool=5000, # minimum, unknown year, assumed sqft when unknown, pool
-    cont=10,                # rehab contingency (% of rehab)
-    months=5,               # holding months (built)
+    evm=2,                  # extra months when eviction likely (out/2026: FL writ of possession + cash-for-keys ≈ 1–3 months)
+    # out/2026 (Fernando): blind auction buys – no interior inspection – so rehab, contingency and holding are conservative
+    rhb20=5, rhb15=10, rhb05=30, rhb95=35, rhbOld=48,   # rehab US$/sqft by year built (2020+, 2015-19, 2005-14, 1995-2004, older)
+    rhbMin=15000, rhbUnk=35000, rhbSqft=1500, rhbPool=5000, # minimum, unknown year, assumed sqft when unknown, pool
+    cont=20,                # rehab contingency (% of rehab) – 20% because nobody sees the inside before bidding
+    months=7,               # holding months (built): certificate of title + rehab + listing + closing
     monthsLot=3,            # holding months (land)
     usedom=0,               # 1 = exit time from Redfin ZIP days on market instead of fixed months
     closem=1,               # closing months after an accepted offer (only when usedom=1)
-    htax=1.8,               # property tax %/yr of value when the real annual tax bill is unknown
-    hins=1.0,               # insurance %/yr of value while holding (built)
+    htax=1.8,               # property tax %/yr of value; built: floor even when the owner's bill is known (homestead is lost after the sale)
+    hins=2.0,               # insurance %/yr of value while holding (built) – vacant dwelling policies in FL are expensive
     hutil=350,              # utilities / maintenance US$/month while holding (built)
     hutilLot=50,            # US$/month for land (mowing)
     clear=500,              # land: mowing / clean-up (US$); survey is normally the buyer's cost on a lot sale
     qtLot=1200,             # land: title certification for resale (US$) instead of a US$ 2.5k quiet-title suit
     list=2.5, buyc=2.5, docs=0.70, misc=1000, wra=399,   # sell side: brokers % of ARV, seller doc stamps, closing/misc US$, flat sale fee (BidToFlip; built only)
     titleP=100,             # owner's title policy on resale: % of the FL promulgated rate (seller pays; buyer-pays counties = 0)
+    conc=2.0,               # seller concessions on resale (% of ARV, built only)
+    commLot=8.0,            # land: total broker commission on resale (% of ARV) instead of list + buyer
+    capc=8.0,               # cost of capital (% per year) on acquisition + rehab during the holding months (cash opportunity or hard money)
+    stress=10,              # stress test: FLIP/CONSIDER only if NET stays ≥ 0 with the ARV this % lower
+    # return ladder (Fernando, out/2026): cheap lots need a higher % because fixed costs weigh more
+    lotS=15000, lotSroi=40, lotSnet=3000,   # land, all-in up to US$ 15k: ROI ≥ 40% and NET ≥ US$ 3k
+    lotM=60000, lotMroi=25,                 # land, all-in up to US$ 60k: ROI ≥ 25% (above: the general minimum)
+    supAdd=10,              # land in a high-supply subdivision: +10 ROI points on the ladder
+    netHouse=25000,         # built: NET ≥ US$ 25k besides the ROI minimum
+    caixa=5000,             # cash available (US$) for the "cabe no caixa" filter – Chase 5557 on 01/10/2026
     dep=5.0,                # deposit due at the auction (% of the bid) – RealAuction standard; confirm per county
     yld=9.0,                # gross yield considered 'aluguel forte' (%)
     rebuild=175, depr=1.0,  # replacement cost: US$/sqft, depreciation %/year of age (max 60%)
