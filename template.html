@@ -183,6 +183,7 @@ footer{text-align:center;color:var(--mut);font-size:11.5px;padding:8px 16px 30px
 .trk{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
 textarea.inp{min-height:70px;resize:vertical}
 .mini{font-size:11px;color:var(--mut)}
+#tbl td .mini{max-width:240px;white-space:normal;overflow-wrap:anywhere}
 dialog{border:1px solid var(--line);border-radius:12px;padding:0;background:var(--panel);color:var(--ink);max-width:min(760px,95vw);width:100%;box-shadow:0 20px 50px rgba(10,16,28,.55)}
 dialog::backdrop{background:rgba(10,16,28,.6)}
 .dg-h{background:var(--panel3);padding:11px 14px;border-bottom:2px solid var(--gold);font-weight:800}
@@ -1381,7 +1382,9 @@ const COLS=[
  ['ttf','Prazo est.',r=>r.ttf+' meses<div class="mini">'+money(r.hmo)+'/mês</div>',null,0,'num'],
  ['links','Links',r=>linksH(r),null,1]
 ];
-function vsrcShort(r){ const v=r.vsrc||''; if(r.man) return 'avaliação manual'; if(r.lc&&r.lc.used) return 'Comps locais · '+r.lc.confTxt; return /POV PropertyOnion/.test(v)?'POV PO':/menor/.test(v)?'condado × AVM':/AVM/.test(v)?'AVM PO':/comps/.test(v)?'comps (est.)':/condado|avalia/.test(v)?'condado':v?v:'sem valor'; }
+function vsrcShort(r){ const v=r.vsrc||''; if(r.man) return 'avaliação manual'; if(r.lc&&r.lc.used) return 'Comps locais · '+r.lc.confTxt; const sp=r.sup&&r.sup.disc?(r.sup.sev==='alta'?'Supply alta':'Supply moderada')+' ×'+nf(r.sup.discB||r.sup.disc,2):''; if(sp) return sp+(r.bld?' · builders':'');
+ const t=/POV PropertyOnion/.test(v)?'POV PO':/menor/.test(v)?'condado × AVM':/AVM/.test(v)?'AVM PO':/comps/.test(v)?'comps (est.)':/condado|avalia/.test(v)?'condado':v?v:'sem valor';
+ return t.length>30?t.slice(0,28)+'…':t; }   // never put the full source sentence in a table cell (it stretched the ARV column off-screen)
 const COLDEF=Object.fromEntries(COLS.map(c=>[c[0],!!c[4]]));
 let COLON={...COLDEF,...LS.get('leilao_cols_v4',{})};
 let CUR=[], tShown=0, cShown=0, view=null; const TPAGE=80, CPAGE=36;

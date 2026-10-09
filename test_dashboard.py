@@ -368,6 +368,15 @@ with sync_playwright() as p:
     check(pg.evaluate(D + '.S.cat') == 'resid' and pg.locator('#types [data-cat="resid"].on').count() == 1, 'Casa + Townhouse + Condo = preset Residencial')
     pg.click('#types [data-cat="Lote"]'); pg.wait_for_timeout(200); pg.click('#types [data-cat="resid"]'); pg.wait_for_timeout(250)
     check(pg.evaluate(D + '.S.cat') == 'resid' and pg.locator('#types .tchip.on').count() == 3, 'Residencial seleciona Casa + Townhouse + Condo')
+    # regressão aa9e9d4: nota longa de origem do valor esticava a coluna ARV e jogava NET / Max Bid para fora da tela
+    pg.set_viewport_size({'width': 1920, 'height': 1000}); pg.evaluate(D + ".S.cat='Lote'; " + D + ".setView('table')"); pg.wait_for_timeout(500)
+    wm = pg.evaluate("""(()=>{const th=[...document.querySelectorAll('#tbl thead th')]; const g=n=>th.find(h=>h.textContent.trim().startsWith(n)); const w=document.querySelector('#v-table .tblwrap');
+     return {arv:g('ARV').getBoundingClientRect().width, net:g('NET').getBoundingClientRect().right, mb:g('Max Bid').getBoundingClientRect().right, wrap:w.getBoundingClientRect().right};})()""")
+    check(wm['arv'] <= 260 and wm['net'] <= wm['wrap'] and wm['mb'] <= wm['wrap'], f'lotes: ARV estreito e NET/Max Bid visíveis a 1920px {wm}')
+    blank = pg.evaluate("""(()=>{const th=[...document.querySelectorAll('#tbl thead th')].map(h=>h.textContent.trim()); const ix=k=>th.findIndex(h=>h.startsWith(k)); const I=window.__dash.ITEMS;
+     return [...document.querySelectorAll('#tbl tbody tr')].filter(tr=>{const r=I.find(x=>tr.innerHTML.includes(x.id)); if(!r||r.ref==null||r.val==null) return false; return ['NET','Max Bid'].some(k=>{const c=tr.children[ix(k)]; return !c||!c.textContent.trim()||c.textContent.trim()==='—';});}).length;})()""")
+    check(blank == 0, f'nenhum lote com ref e valor mostra NET/Max Bid vazio ({blank})')
+    pg.set_viewport_size({'width': 1440, 'height': 950})
     # celular 390px
     m = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
     mp = m.new_page(); merr = []; mp.on('pageerror', lambda e: merr.append(str(e)))
