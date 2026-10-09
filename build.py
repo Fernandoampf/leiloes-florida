@@ -32,6 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import rawdata, po_fetch, nal, flwmi, po_export, po_bids
 import local_comps
+import inperson
 
 AUC = '/workspace/auc'
 SW = os.path.join(AUC, 'statewide')
@@ -331,7 +332,7 @@ def load_results():
     return stats, recent, dict(rows=len(rows), first=iso(dates[0]) if dates else None, last=iso(dates[-1]) if dates else None)
 
 # ----------------------------------------------------------------------------- collection + enrichment
-def collect_items(fetch_bids=False):
+def collect_items(fetch_bids=False, offline=True):
     known = {}
     for f in ('td_po.json', 'fc_po.json'):
         for k, v in (jload(os.path.join(SW, f), {}) or {}).items():
@@ -348,10 +349,14 @@ def collect_items(fetch_bids=False):
         it['avoid'] = next((k for k in AVOID if k in a), None)
         items.append(it)
     items, po_st = po_export.enrich(items, closed=rawdata.closed_cases())
+    # Lake / Osceola foreclosures are sold IN PERSON at the courthouse: official clerk lists (cached daily) set the dates,
+    # drop canceled sales and add the cases PropertyOnion does not have.
+    ip_st = inperson.merge(items, offline=offline)
+    print('presencial:', json.dumps(ip_st, ensure_ascii=False), flush=True)
     # RealAuction is often blocked (HTTP 403). Default is cache/local files only.
     # Pass fetch_bids=True (--fetch-bids or --fetch, and not --offline) to hit the network.
     bid_st = po_bids.fill_po_bids(items, fetch=bool(fetch_bids))
-    po_st = dict(po_st, bids=bid_st)
+    po_st = dict(po_st, bids=bid_st, inperson=ip_st)
     collect_items._po_stats = po_st
     return items
 
@@ -474,7 +479,7 @@ def build_items(args):
         print('offline: sem rede (PropertyOnion/FLWMI/RealAuction) — usando só cache local', flush=True)
         args.fetch = False
     fetch_bids = (not offline) and bool(getattr(args, 'fetch_bids', False) or args.fetch)
-    items = collect_items(fetch_bids=fetch_bids)
+    items = collect_items(fetch_bids=fetch_bids, offline=offline)
     if args.fetch: prefetch_all(items, args)
     today = args.data_date
     facts, sales_by_zip, cono, lcd = nal_index(items, today)
@@ -506,7 +511,11 @@ def build_items(args):
             drop('timeshare'); continue
         if x.get('multi') and not addr0:
             drop('múltiplas parcelas (sem endereço)'); continue
-        if not addr0 and not x.get('parcel'):
+        if not addr0 and not x.get('parcel') and x.get('inperson'):
+            x['addr'] = 'Processo ' + str(x.get('case')) + ' — endereço não publicado (' + county_name(county_slug(x.get('county') or '')) + ')'
+            x['street'] = ''; x['addr_src'] = 'Lista oficial do clerk (leilão presencial) sem endereço — ver edital / Final Judgment no processo'
+            addr0 = x['addr']
+        elif not addr0 and not x.get('parcel'):
             drop('RealAuction ainda sem endereço e sem parcela (só o processo)'); continue
         if not addr0:
             x['addr'] = 'Parcela ' + str(x['parcel']) + ' (' + county_name(county_slug(x.get('county') or '')) + ')'
@@ -679,7 +688,7 @@ def build_items(args):
             cc = COUNTY_LL.get(cs); dist = hav(ORLANDO, cc) if cc else None; dapprox = True
         # ---- PO auctions for same date
         same = [a for a in (P0.get('auctions') or []) if (a.get('auction_date') or '').startswith(d_iso)]
-        plaint_raw = ' '.join(str(a.get('auction_plaintiffs') or '') for a in same)
+        plaint_raw = ' '.join(str(a.get('auction_plaintiffs') or '') for a in same) + ' ' + str((x.get('inperson') or {}).get('plaintiff') or '')
         defend = ' '.join(str(a.get('auction_defend') or '') for a in same)
         status = [a.get('auction_status') for a in same]
         # ---- flags
@@ -712,6 +721,10 @@ def build_items(args):
             if hoa_pl: flags.append('hoa')
             if ref and val and ref < 0.5 * val: flags.append('jr')
         if 'hoa' not in flags and ty in ('Condo', 'Townhouse'): flags.append('hoa')
+        ipx = x.get('inperson')
+        if ipx:
+            flags.append('ipres')
+            if src == 'FC' and ipx.get('ptype') == 'hoa' and 'mtg' not in flags: flags.append('mtg')   # HOA/condo plaintiff: 1st mortgage survives
         # Surviving-lien estimate (PropertyOnion + plaintiff heuristics). Deducts the ESTIMATED CURRENT BALANCE of the 1st
         # mortgage (original amount amortised over 30 years from its recording date); without a date, the original amount.
         # 'Judgment < 50% of value' alone no longer implies a surviving 1st (old, mostly paid loans look the same): it stays a warning.
@@ -762,7 +775,7 @@ def build_items(args):
                 v = ast.literal_eval(sv) if sv.strip().startswith('[') else [sv]
                 return ', '.join(str(i).strip() for i in v if str(i).strip())
             except Exception: return sv.strip()
-        plaintiff = ' | '.join(plist(str(a.get('auction_plaintiffs'))) for a in same if a.get('auction_plaintiffs')) or None
+        plaintiff = ' | '.join(plist(str(a.get('auction_plaintiffs'))) for a in same if a.get('auction_plaintiffs')) or (x.get('inperson') or {}).get('plaintiff') or None
         hist = sorted([dict(d=(a.get('auction_date') or '')[:10], t=a.get('listing_type'), s=a.get('auction_status'),
                             b=num(a.get('auction_openingbid')) or num(a.get('auction_fj')))
                        for a in (P0.get('auctions') or []) if (a.get('auction_date') or '')[:10] and not (a.get('auction_date') or '').startswith(d_iso)],
@@ -825,7 +838,8 @@ def build_items(args):
             hasPO=has_po, nalm=(nf or {}).get('how'), tax=taxamt, front=front, sewer=sewer, units=units,
             util=({k: util.get(k) for k in ('WW', 'WW_UPD', 'WW_SRC_TYP', 'DW', 'DW_UPD', 'DW_SRC_TYP', 'PARCELNO', 'LANDUSE', 'BLT_STATUS', 'GIS_ACRE')} | {'pt': util.get('_pt', 0)}) if util else None,
             comps=cp, xp=xp, lc=lce or None, dom=dom, desc=x.get('desc'),
-            plat=('PropertyOnion' if it.get('po_only') else x.get('platform')),
+            plat=('Presencial' if x.get('inperson') else 'PropertyOnion' if it.get('po_only') else x.get('platform')),
+            ip=x.get('inperson'), addrSrc=x.get('addr_src'),
             pmax=x.get('pmax') if x.get('pmax') not in (None, 'Hidden') else None,
             new=first == today, first=first if first != '0000-00-00' else None, muni=dictval(P0.get('municipality')),
         )

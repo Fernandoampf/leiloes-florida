@@ -587,6 +587,7 @@ const FL = {
  vac:{l:'Vago (USPS)',c:'grn',d:'USPS indica imóvel vago (positivo: sem despejo).'},
  junk:{l:'Faixa/área comum',c:'',d:'Faixa estreita, retenção/drenagem, área comum, via ou brejo (código de uso DOR 009/094/095/096 ou descrição legal) – normalmente sem valor de revenda. Oculto por padrão.'},
  hmtd:{l:'Homestead',c:'vio',d:'Imóvel com isenção homestead indo a tax deed: pela lei da Flórida (F.S. 197.502) o lance inicial inclui metade do valor avaliado; o dono costuma lutar para resgatar.'},
+ ipres:{l:'Leilão presencial',c:'cool',d:'Foreclosure vendida NO FÓRUM (não no RealAuction): Lake = Tavares, Osceola = Kissimmee, 11h. Depósito de 5% na hora; saldo até 16h. Datas e cancelamentos vêm da lista oficial do clerk (atualizada todo dia).'},
  nobid:{l:'Sem Opening Bid',c:'amb',d:'Listagem só no export PropertyOnion, sem julgamento/opening bid do RealAuction. NET/ROI usam o preço esperado do condado (como tax deed) quando houver histórico; senão ficam sem dados até o scrape do clerk.'},
  surv:{l:'Surviving Lien',c:'red',d:'Indício de lien que sobrevive ao leilão (HOA/condomínio, hipoteca júnior, ou lien municipal em tax deed). Valor estimado do PropertyOnion quando disponível – confirmar com title search. Reserva no P&L (toggle); veredito/nota penalizados; fora de Negócios limpos.'},
  rebid:{l:'Já foi a leilão',c:'amb',d:'Este imóvel já foi a leilão e voltou (cancelou, não vendeu ou o lance não segurou). Sobe o risco e tira alguns pontos da nota.'},
@@ -1335,7 +1336,8 @@ function badges(r){
  (r.lotBadges||[]).forEach(k=>{ const d=LB[k]; if(d) b.push('<span class="bdg amb" title="'+esc(d[1])+'">'+d[0]+'</span>'); });
  if(r.vd==='FLIP') b.push('<span class="bdg blu">FLIP</span>');
  r.fl.forEach(f=>{ if(f==='flood') return; if(f==='mtg'&&r.fl.includes('surv')) return; const d=FL[f]; if(!d) return;
-  let lab=d.l; if(f==='surv'&&r.survAmt) lab+=' ~'+money(r.survAmt); if(f==='bldA'&&r.bld) lab='🏗 Construtoras ativas: '+r.bld.n+' compras 12m';
+  let lab=d.l; if(f==='surv'&&r.survAmt) lab+=' ~'+money(r.survAmt); if(f==='bldA'&&r.bld) lab='🏗 Construtoras ativas: '+r.bld.n+' compras 12m'; if(f==='ipres'&&r.ip) lab='Leilão presencial — Fórum de '+(r.ip.co==='lake'?'Tavares':'Kissimmee')+', 11h';
+  if(f==='ipres'&&r.ip){ b.push('<span class="bdg '+d.c+'" title="'+esc(r.ip.where+'. '+r.ip.pay+' Conferir o Final Judgment em '+r.ip.dname+'.')+'">'+lab+'</span>'); return; }
   b.push('<span class="bdg '+d.c+'" title="'+esc(r.survWhy||d.d)+'">'+lab+'</span>'); });
  if((r.olA>0||r.m1) && !r.fl.includes('surv')) b.push('<span class="bdg red" title="Hipotecas/liens em aberto segundo PropertyOnion: '+esc(money(r.olA||r.m1))+(r.olN?' ('+r.olN+')':'')+'. Em tax deed normalmente são extintas; em foreclosure, confirmar se sobrevivem.">LIEN</span>');
  if(r.fz) b.push('<span class="bdg '+(/^(A|V)/.test(r.fz)?'red':'cool')+'" title="Zona FEMA '+esc(r.fz)+'">Flood Zone '+esc(r.fz)+'</span>');
@@ -1717,6 +1719,12 @@ function intelHtml(r){
  if(r.comps&&r.comps.est) a.push('Comps (estimativa) '+money(r.comps.est));
  a.push('<b>Dono:</b> '+esc(r.owner||'—'));
  a.push('<b>'+(r.t==='FC'?'Autor (credor)':r.t==='TD'?'Titular do certificado':'Vendedor')+':</b> '+esc(r.plaint||'—'));
+ if(r.ip){ const pt={hoa:'<b class="c-red">HOA / condomínio</b> — a 1ª hipoteca do banco provavelmente SOBREVIVE ao leilão (o comprador herda a dívida)',banco:'<b>Banco / credor hipotecário</b>',outro:'Particular / outro credor (verificar posição do lien)'}[r.ip.ptype]||'—';
+  a.push('<b>Tipo de autor:</b> '+pt);
+  a.push('<b>Leilão presencial:</b> '+esc(r.ip.where)+' · '+esc(r.ip.time||'11:00 AM')+(r.ip.room?' · '+esc(r.ip.room):''));
+  a.push(esc(r.ip.pay)+(r.ref==null?' <b>Sem lance inicial</b> na lista oficial: conferir o valor do Final Judgment no processo.':''));
+  a.push('Conferir Final Judgment / cancelamento: <a href="'+esc(r.ip.docket)+'" target="_blank" rel="noopener">'+esc(r.ip.dname)+'</a> (processo '+esc(r.case||'')+')'+' · <a href="'+esc(r.ip.detail||r.ip.list)+'" target="_blank" rel="noopener">lista oficial do clerk</a>'+(r.addrSrc&&/não publicado|sem endereço/.test(r.addrSrc)?' · <a href="https://www.noticeregistry.com/" target="_blank" rel="noopener">edital (NoticeRegistry)</a>':''));
+ }
  a.push('Processo '+esc(r.case||'—')+' · Parcela '+esc(r.parcel||'—'));
  if(r.ucd) a.push('Uso DOR '+esc(r.uc)+' – '+esc(r.ucd));
  if(r.desc) a.push(esc(r.desc.slice(0,300)));

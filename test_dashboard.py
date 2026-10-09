@@ -380,6 +380,15 @@ with sync_playwright() as p:
      return [...document.querySelectorAll('#tbl tbody tr')].filter(tr=>{const r=I.find(x=>tr.innerHTML.includes(x.id)); if(!r||r.ref==null||r.val==null) return false; return ['NET','Max Bid'].some(k=>{const c=tr.children[ix(k)]; return !c||!c.textContent.trim()||c.textContent.trim()==='—';});}).length;})()""")
     check(blank == 0, f'nenhum lote com ref e valor mostra NET/Max Bid vazio ({blank})')
     pg.set_viewport_size({'width': 1440, 'height': 950})
+    # leilões presenciais (Lake / Osceola): lista oficial do clerk
+    ipx = pg.evaluate("""(()=>{const I=window.__dash.ITEMS.filter(r=>r.ip); return {n:I.length, lake:I.filter(r=>r.co==='Lake').length, osc:I.filter(r=>r.co==='Osceola').length,
+      hoaNoMtg:I.filter(r=>r.ip.ptype==='hoa'&&!r.fl.includes('mtg')).length, ra:I.filter(r=>/realforeclose|realtaxdeed|realauction/i.test(JSON.stringify(r.links||{}))).length,
+      noFlag:I.filter(r=>!r.fl.includes('ipres')).length, id:(I.find(r=>r.val)||I[0]).id};})()""")
+    check(ipx['lake'] > 20 and ipx['osc'] > 20 and ipx['hoaNoMtg'] == 0 and ipx['ra'] == 0 and ipx['noFlag'] == 0, f'presencial: itens Lake/Osceola da lista oficial, HOA com alerta de hipoteca, sem link RealAuction {ipx}')
+    pg.evaluate(D + ".openDrawer('" + ipx['id'] + "')"); pg.wait_for_timeout(700)
+    dtx = pg.evaluate("document.body.textContent")
+    check('Leilão presencial — Fórum de' in dtx and '11h' in dtx and 'epósito de 5%' in dtx and ('ShowCase' in dtx or 'Benchmark' in dtx), 'presencial: badge, regras de pagamento e link do processo no drawer')
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
     # celular 390px
     m = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
     mp = m.new_page(); merr = []; mp.on('pageerror', lambda e: merr.append(str(e)))

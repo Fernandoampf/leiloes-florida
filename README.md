@@ -74,3 +74,11 @@ No painel: alerta **Hipoteca pode sobreviver** (HOA/JR-lien, com valor estimado 
 Material informativo, gerado automaticamente – **não é recomendação de investimento**. Dados podem estar errados ou desatualizados e leilões são cancelados/adiados com frequência. **Antes de qualquer lance confirme tudo no site do Clerk (leilão e processo) e no Property Appraiser do condado**, faça pesquisa de título (liens, hipotecas sobreviventes, HOA, code enforcement) e vistorie o imóvel.
 
 O site não é indexado por buscadores (`noindex` + `robots.txt`), mas qualquer pessoa com o link e a senha pode acessá-lo.
+
+## Leilões presenciais — Lake e Osceola (`inperson.py`)
+Foreclosures de Lake e Osceola são vendidas NO FÓRUM (não no RealAuction). O build lê as listas oficiais do clerk
+(Lake: foreclosurecalendar.lakecountyclerkfl.gov; Osceola: CivilMortgageForeclosuresWeb.pdf), baixadas 1× por dia
+para `/workspace/auc/statewide/inperson/` (com `--offline` usa só o cache). Casa pelo nº do processo (normalizado),
+atualiza datas, remove cancelados e o que saiu da lista, adiciona processos novos (sem endereço = "Processo … — endereço
+não publicado"), classifica o autor (HOA/condomínio → alerta de 1ª hipoteca que sobrevive; banco; outro) e mostra o
+badge "Leilão presencial — Fórum de Tavares/Kissimmee, 11h" com depósito/pagamento e link do processo (ShowCase / Benchmark).
