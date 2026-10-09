@@ -47,7 +47,7 @@ P = dict(
     clerk1=3.0, clerk2=1.5,  # clerk fee: 3% of the first US$500 of the bid + 1.5% of the remainder
     docb=0.70,              # FL documentary stamp tax on the deed (% of bid)
     fee=0,                  # extra flat auction fees (US$)
-    qt=2500,                # quiet title (US$) – tax deeds and lots
+    qt=2500,                # quiet title (US$) – built tax deeds
     qtm=0,                  # extra holding months for quiet title
     ev=2500,                # eviction / cash-for-keys (US$) when occupied/tenant likely
     evm=0,                  # extra months when eviction likely
@@ -62,7 +62,8 @@ P = dict(
     hins=1.0,               # insurance %/yr of value while holding (built)
     hutil=350,              # utilities / maintenance US$/month while holding (built)
     hutilLot=50,            # US$/month for land (mowing)
-    clear=1500,             # land: clearing / survey (US$)
+    clear=500,              # land: mowing / clean-up (US$); survey is normally the buyer's cost on a lot sale
+    qtLot=1200,             # land: title certification for resale (US$) instead of a US$ 2.5k quiet-title suit
     list=2.5, buyc=2.5, title=1.5, docs=0.70, misc=1500, wra=399,   # sell side: % of ARV + closing/misc + WRA (US$)
     dep=5.0,                # deposit due at the auction (% of the bid) – RealAuction standard; confirm per county
     yld=9.0,                # gross yield considered 'aluguel forte' (%)
@@ -350,6 +351,18 @@ def prefetch_all(items, args):
 
 def county_slug(c): return c.replace('myorangeclerk', 'orange').replace('-', '')
 
+def pid_variants(parcel):
+    """normalised parcel ids to try against the DOR roll. Pinellas lists SS-TT-RR-… (section first) on RealAuction
+    while the DOR roll stores RR TT SS …; without the swap those lots fell back to a street-name match (wrong parcel)."""
+    out = []
+    p = nal.npid(parcel)
+    if p: out.append(p)
+    m = re.match(r'\s*(\d{2})-(\d{2})-(\d{2})-(.+)$', str(parcel or ''))
+    if m:
+        q = nal.npid(m.group(3) + m.group(2) + m.group(1) + m.group(4))
+        if q and q not in out: out.append(q)
+    return out
+
 def nal_index(items, today):
     """match every item to the DOR roll of its county; returns (parcel facts by aid, sales by zip, county numbers)"""
     by_c = {}
@@ -357,11 +370,11 @@ def nal_index(items, today):
         x = it['raw']; c = county_slug(x.get('county') or '')
         if not c: continue
         d = by_c.setdefault(c, dict(p=set(), a=set(), its=[]))
-        pid = nal.npid(x.get('parcel'))
-        if pid: d['p'].add(pid)
+        for pid in pid_variants(x.get('parcel')): d['p'].add(pid)
         zs = zips_of(x)
         st = nal.nstreet(re.sub(r'\s+(UNIT|APT|#)\s*\S+$', '', street_of(x)))
-        if st and zs: d['a'].add(st + '|' + zs[-1])
+        # street name without a house number matches an arbitrary parcel on that street: parcel only
+        if st and zs and re.match(r'\d', st): d['a'].add(st + '|' + zs[-1])
         d['its'].append(it)
     facts, sales, cono = {}, {}, {}
     zfiles = nal.zips()
@@ -372,11 +385,11 @@ def nal_index(items, today):
         if not cd: continue
         P_ = cd['parcels']
         for it in d['its']:
-            x = it['raw']; pid = nal.npid(x.get('parcel')); zs = zips_of(x)
+            x = it['raw']; zs = zips_of(x)
             st = nal.nstreet(re.sub(r'\s+(UNIT|APT|#)\s*\S+$', '', street_of(x)))
-            f = P_.get('p:' + pid) if pid else None
+            f = next((P_['p:' + p] for p in pid_variants(x.get('parcel')) if ('p:' + p) in P_), None)
             how = 'parcela'
-            if not f and st and zs: f = P_.get('a:' + st + '|' + zs[-1]); how = 'endereço'
+            if not f and st and zs and re.match(r'\d', st): f = P_.get('a:' + st + '|' + zs[-1]); how = 'endereço'
             if f: f = dict(f); f['how'] = how; facts[x['aid']] = f
         for s in cd['sales']: sales.setdefault(s[0], []).append(s)
     return facts, sales, cono
@@ -408,9 +421,30 @@ def build_items(args):
         if d_iso < today: drop('leilão já passou'); continue
         c = cal.get((x.get('host'), x['date'], src)) if src in ('TD', 'FC') else None
         if d_iso == today and c and c['active'] == 0: drop('leilão de hoje já encerrado'); continue
-        if not x.get('addr', '').strip() or not re.search(r'\d', x.get('addr', '')) and not x.get('parcel'):
-            drop('sem endereço nem parcela (timeshare / múltiplas parcelas)'); continue
-        pid, slug, full = po_fetch.resolve(street_of(x), zips_of(x), None, it['known'], fetch=False)
+        poe0 = it.get('poe') or {}
+        if not x.get('parcel') and poe0.get('parcel'):
+            x['parcel'] = poe0.get('parcel_raw') or poe0['parcel']
+        if not x.get('addr', '').strip() and poe0.get('addr'):
+            x['addr'] = poe0['addr']; x['street'] = poe0.get('street') or ''
+            x['addr_src'] = 'PropertyOnion (o RealAuction ainda não publicou o endereço)'
+        addr0 = x.get('addr', '').strip()
+        if re.search(r'TIMESHARE', str(x.get('parcel') or ''), re.I) or re.search(r'\(ct\s', x.get('case') or ''):
+            drop('timeshare'); continue
+        if x.get('multi') and not addr0:
+            drop('múltiplas parcelas (sem endereço)'); continue
+        if not addr0 and not x.get('parcel'):
+            drop('RealAuction ainda sem endereço e sem parcela (só o processo)'); continue
+        if not addr0:
+            x['addr'] = 'Parcela ' + str(x['parcel']) + ' (' + county_name(county_slug(x.get('county') or '')) + ')'
+            x['street'] = ''; x['addr_src'] = 'RealAuction sem endereço — identificado pela parcela'
+        elif not re.search(r'\d', x['addr']) and not x.get('parcel'):
+            drop('rua sem número e sem parcela'); continue
+        st0 = street_of(x)
+        known0 = it['known'] if (it['known'] and it['known'].get('id')) else None
+        if re.match(r'\s*\d', st0 or '') or known0:
+            pid, slug, full = po_fetch.resolve(st0, zips_of(x), None, it['known'], fetch=False)
+        else:
+            pid = slug = full = None      # street name only: PO search would pick a random parcel on the street
         P0 = full or it['known'] or {}
         has_po = bool(pid and P0) or bool(it.get('poe'))
         nf = facts.get(x['aid'])

@@ -16,12 +16,15 @@ def norm(raw, county, host, date, kind):
     if street and a2: addr = f'{street} {a2}'
     else: addr = street or a2
     case = re.sub(r'\s*\(\d+\)\s*$', '', raw.get('Case #') or '').strip()
-    parcel = (raw.get('Parcel ID') or '').strip()
-    if not re.search(r'\d', parcel): parcel = None          # 'Property Appraiser' / 'PERSONAL PROPERTY' placeholders
-    plink = raw.get('Parcel ID_link')
-    if plink and re.search(r'[=/]$', plink): plink = None    # link without the parcel id
+    # Most counties use 'Parcel ID'; Hernando uses 'Parcel Key' and Citrus 'Alternate Key' (= DOR ALT_KEY).
+    pkey = next((k for k in ('Parcel ID', 'Parcel Key', 'Alternate Key') if (raw.get(k) or '').strip()), 'Parcel ID')
+    parcel = (raw.get(pkey) or '').strip()
+    multi = bool(re.search(r'MULTIPLE', parcel, re.I))
+    if not re.search(r'\d', parcel): parcel = None          # 'Property Appraiser' / 'PERSONAL PROPERTY' / 'MULTIPLE PARCELS'
+    plink = raw.get(pkey + '_link')
+    if plink and (re.search(r'[=/]$', plink) or re.search(r'MULTIPLE', plink, re.I)): plink = None    # link without the parcel id
     d = dict(county=county, host=host, date=date, aid=raw['AID'], case=case, parcel=parcel,
-             plink=plink, street=street, addr=addr,
+             plink=plink, street=street, addr=addr, multi=multi or None,
              av=money(raw.get('Assessed Value')) or money(raw.get('Property App. Market Value')),
              url=f'https://{host}/index.cfm?zaction=AUCTION&Zmethod=PREVIEW&AUCTIONDATE={date}',
              detail=f'https://{host}/index.cfm?zaction=auction&zmethod=details&AID={raw["AID"]}')

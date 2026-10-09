@@ -256,6 +256,19 @@ with sync_playwright() as p:
     check(lots["west"] and all(w["sc"]<=55 and "use" in w["b"] for w in lots["west"]), f'West Ave comercial limitada {lots["west"]}')
     check(lots["hwy"] and lots["hwy"]["sc"]<=55 and lots["hwy"]["sus"] and lots["hwy"]["val"]<200000, f'US-27 Leesburg suspeito e limitado {lots["hwy"]}')
     check(all(i>=0 and i<12 for i in lots["ranks"]), f'os 6 lotes residenciais ficam no topo {lots["ranks"]} {lots["top"]}')
+    lm = pg.evaluate("""(()=>{const d=window.__dash;
+      const lands=d.ITEMS.filter(r=>(r.ty==="Lote"||r.ty==="Terreno") && r.xbid!=null && r.val);
+      // the historical-price term may never push a lot's realistic bid above 65% of ARV (unless the opening bid itself is higher)
+      const over=lands.filter(r=>r.xbid>Math.max(r.ref||0, 0.65*r.val, 0.55*(r.mb||0), 0.28*r.val)+1);
+      const lot=lands.find(r=>r.t==="TD"); const o=d.base(lot); const p=d.pnl(lot,lot.xbid,o);
+      const H=d.ITEMS.filter(r=>/hernando/i.test(r.co));
+      return {over:over.length, qt:p.fees.qt, clear:p.fees.clear, misc:p.sell.misc, val:lot.val,
+        hern:H.length, hernLots:H.filter(r=>r.ty==="Lote"||r.ty==="Terreno").length, hernParcel:H.filter(r=>r.parcel).length,
+        pin:d.ITEMS.filter(r=>r.co==="Pinellas"&&/LINCOLN AVE/.test(r.addr||"")).map(r=>r.ty)};})()""")
+    check(lm["over"]==0, f'lance realista de lote ≤ 65% do ARV pelo preço histórico ({lm["over"]} acima)')
+    check(lm["qt"]==1200 and lm["clear"]==500 and 500<=lm["misc"]<=1500, f'custos fixos de lote: título {lm["qt"]}, limpeza {lm["clear"]}, fechamento {round(lm["misc"])}')
+    check(lm["hern"]>=40 and lm["hernLots"]>=35 and lm["hernParcel"]==lm["hern"], f'Hernando: {lm["hern"]} itens, {lm["hernLots"]} lotes/terrenos, {lm["hernParcel"]} com parcela')
+    check(lm["pin"] and all(t=="Lote" for t in lm["pin"]), f'Pinellas casa pela parcela (SS-TT-RR) {lm["pin"]}')
     pg.click('#dchips [data-win="7"]'); pg.wait_for_timeout(400)
     check('próximos 7 dias' in pg.inner_text('#fnotice'), 'filtro de data aparece no aviso')
     span = pg.evaluate("""(()=>{const d1=document.querySelector('#d1').value, d2=document.querySelector('#d2').value;

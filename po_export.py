@@ -267,7 +267,8 @@ def apply_fields(it, row, how):
         po_url=row['po_url'], appraiser=row['appraiser'],
         beds=row['beds'], baths=row['baths'], sqft=row['sqft'], lot=row['lot'],
         owner=row['owner'], prop_type=row['prop_type'],
-        case=row['case'], parcel_raw=row['parcel_raw'],
+        case=row['case'], parcel_raw=row['parcel_raw'], parcel=row.get('parcel'),
+        addr=row.get('addr'), street=row.get('street'), zip=row.get('zip'), city=row.get('city'),
     )
 
 
