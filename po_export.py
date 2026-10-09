@@ -303,7 +303,7 @@ def po_only_item(row):
     return it
 
 
-def enrich(items, directory=None, today=None):
+def enrich(items, directory=None, today=None, closed=None):
     """Left-join newest PO exports onto items; append unmatched upcoming as po_only items.
 
     Returns (items, stats) where stats = {files, rows, matched, added, by_how}.
@@ -327,7 +327,11 @@ def enrich(items, directory=None, today=None):
         else:
             unmatched.append(row)
     added = 0
+    closed_n = {(ncase(c), d) for c, d in (closed or ())}
     for row in unmatched:
+        if row['case_n'] and (row['case_n'], row['date_iso']) in closed_n:   # canceled/redeemed on the clerk site
+            how_c['closed_skip'] = how_c.get('closed_skip', 0) + 1
+            continue
         items.append(po_only_item(row))
         added += 1
         how_c['po_only'] = how_c.get('po_only', 0) + 1

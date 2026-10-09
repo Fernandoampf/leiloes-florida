@@ -76,6 +76,21 @@ def collect():
             out.append((x.get('src', 'OT'), x))
     return out
 
+def closed_cases():
+    """(case, ISO date) of RealAuction items no longer pending (area C: canceled, redeemed, sold) in the scanned
+    preview lists – used to keep stale PropertyOnion export rows from re-adding them as PO-only items."""
+    out = set()
+    for sub in ('td', 'fc'):
+        for f in glob.glob(os.path.join(SW, sub, '*.json')):
+            date = os.path.basename(f)[:-5].rsplit('_', 1)[1]          # MM-DD-YYYY
+            iso = date[6:] + '-' + date[:2] + '-' + date[3:5]
+            try: rows = json.load(open(f))
+            except Exception: continue
+            for r in rows:
+                if r.get('area') == 'C' and r.get('Case #'):
+                    out.add((re.sub(r'\s*\(\d+\)\s*$', '', r['Case #']).strip(), iso))
+    return out
+
 if __name__ == '__main__':
     import collections
     c = collect()

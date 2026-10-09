@@ -334,7 +334,7 @@ def collect_items(fetch_bids=False):
         a = x.get('addr', '').upper()
         it['avoid'] = next((k for k in AVOID if k in a), None)
         items.append(it)
-    items, po_st = po_export.enrich(items)
+    items, po_st = po_export.enrich(items, closed=rawdata.closed_cases())
     # RealAuction is often blocked (HTTP 403). Default is cache/local files only.
     # Pass fetch_bids=True (--fetch-bids or --fetch, and not --offline) to hit the network.
     bid_st = po_bids.fill_po_bids(items, fetch=bool(fetch_bids))
