@@ -559,7 +559,7 @@ try{
  const drop=[];
  for(let i=0;i<localStorage.length;i++){
   const k=localStorage.key(i);
-  if(k && /^leilao_(state|ui|view|filters)/.test(k) && k!=='leilao_ui_v8') drop.push(k);
+  if(k && /^leilao_(state|ui|view|filters)/.test(k) && k!=='leilao_ui_v9') drop.push(k);
  }
  drop.forEach(k=>localStorage.removeItem(k));
 }catch(e){}
@@ -1124,6 +1124,11 @@ const CHECKS={hhoa:'#hhoa',hhfc:'#hhfc',hjunk:'#hjunk',hcxl:'#hcxl',hsev:'#hsev'
 const CHKDEF={hhfc:true,hjunk:true};
 const RES_TYPES=new Set(['Casa','Townhouse','Condo']);
 const isRes = r=> RES_TYPES.has(r.ty);
+// type filter (multi-select): S.cat = '' (all) · 'resid' (preset Casa+Townhouse+Condo) · 'Lote,Terreno,Casa' (any combination)
+function catSet(c){ c=c==null?S.cat:c; if(!c) return null; if(c==='resid') return new Set(RES_TYPES); return new Set(String(c).split(',').filter(Boolean)); }
+function catFrom(set){ if(!set||!set.size) return ''; const a=[...set].sort(); if(a.length===RES_TYPES.size && a.every(t=>RES_TYPES.has(t))) return 'resid'; return a.join(','); }
+const catOk = r=>{ const cs=catSet(); return !cs || cs.has(r.ty); };
+function catLabel(){ const cs=catSet(); if(!cs) return ''; return S.cat==='resid' ? 'Residencial (Casa + Townhouse + Condo)' : [...cs].map(t=>t).join(' + '); }
 let S={cat:'resid',kat:'',sort:'sc',today:false,d7:false,fav:false,rent:false,clean:false,newt:false,photo:false,heat:null,view:null};
 const QS=[['sc','★ Melhor nota','Nota usando o ROI realista'],['net','💰 Maior NET','Lucro no lance realista'],['roi','📈 Maior ROI','ROI no lance realista'],['cap','🏦 Melhor cap','Cap rate'],['date','⏱ Mais próximo','Data do leilão'],['yr','🏗 Mais novo',''],['arv','🏠 Maior valor','ARV usado na conta'],['pov','🧅 Maior POV PO','PropertyOnion Value'],['cush','↔ Maior spread','Folga até o lance máx. de 17%'],['yld','🏘 Maior yield','Aluguel anual dividido pelo ARV'],['xroi','🎯 ROI histórico','ROI no preço esperado do condado'],['dist','📍 Perto de Orlando','Distância até Orlando'],['rt','🔥 Revenda mais rápida','Temperatura de revenda do ZIP']];
 const QT=[['rent','🏘 Para alugar'],['clean','✔ Negócios limpos'],['newt','🆕 Novos hoje'],['today','📅 Hoje'],['d7','⏳ ≤ 7 dias'],['photo','📷 Com foto'],['fav','☆ Favoritos']];
@@ -1142,8 +1147,7 @@ function filt(F,ignoreCat){
  const N=k=>numv(F[k]);
  const mnet=N('mnet'), mroi=N('mroi'), msc=N('msc'), y1=N('y1'), y2=N('y2'), vmin=N('vmin'), mpov=N('mpov'), mpovmin=N('mpovmin'), fpovc=N('fpovc'), mrent=N('mrent'), myld=N('myld'), mcap=N('mcap'), rt1=N('rt1'), rt2=N('rt2'), mmo=N('mmo'), j1=N('j1'), j2=N('j2'), dmax=N('dmax');
  return ITEMS.filter(r=>{
-  if(!ignoreCat && S.cat==='resid'){ if(!isRes(r)) return false; }
-  else if(!ignoreCat && S.cat && r.ty!==S.cat) return false;
+  if(!ignoreCat && !catOk(r)) return false;
   if(S.kat && r.katk!==S.kat && !(S.kat==='rent'&&r.strongRent) && !(S.kat==='cons'&&r.vd==='CONSIDERAR')) return false;
   if(F.co && r.co!==F.co) return false;
   if(F.vd && r.vd!==F.vd) return false;
@@ -1201,11 +1205,11 @@ const SORTS={
 };
 function renderTypes(list){
  const cnt={}; list.forEach(r=>cnt[r.ty]=(cnt[r.ty]||0)+1);
- const nRes=list.filter(isRes).length;
+ const nRes=list.filter(isRes).length, cs=catSet();
  $('#types').innerHTML='<span class="lbl">Tipo</span>'+
-  '<button class="chip'+(S.cat===''?' on':'')+'" data-cat="" title="Base: arquivo menos faixas/HOA (se ligados) e menos os filtros — sem recortar o tipo. Não é o total do arquivo.">Todos ('+list.length+')</button>'+
-  '<button class="chip'+(S.cat==='resid'?' on':'')+'" data-cat="resid" title="Casa + townhouse + condo dentro da base (padrão)">🏠 Residencial ('+nRes+')</button>'+
-  M.types.map(c=>'<button class="chip'+(S.cat===c?' on':'')+'" data-cat="'+c+'" title="'+c+' dentro da base">'+TYPEL[c]+' ('+(cnt[c]||0)+')</button>').join('');
+  '<button class="chip'+(!S.cat?' on':'')+'" aria-pressed="'+(!S.cat)+'" data-cat="" title="Base: arquivo menos faixas/HOA (se ligados) e menos os filtros — sem recortar o tipo. Não é o total do arquivo.">Todos ('+list.length+')</button>'+
+  '<button class="chip'+(S.cat==='resid'?' on':'')+'" aria-pressed="'+(S.cat==='resid')+'" data-cat="resid" title="Atalho: seleciona Casa + Townhouse + Condo (padrão)">🏠 Residencial ('+nRes+')</button>'+
+  M.types.map(c=>{ const on=!!(cs&&cs.has(c)); return '<button class="chip tchip'+(on?' on':'')+'" aria-pressed="'+on+'" data-cat="'+c+'" data-multi="1" title="Toque para somar ou tirar '+c+' da seleção">'+(on?'✓ ':'')+TYPEL[c]+' ('+(cnt[c]||0)+')</button>'; }).join('');
  if($('#typelg')) $('#typelg').innerHTML='<b>Arquivo '+nf(ITEMS.length)+'</b> = tudo que entrou. <b>Todos ('+list.length+')</b> = depois de ocultar faixas/áreas comuns e execuções de HOA (padrão) e dos filtros, sem o recorte de tipo. <b>Residencial</b> = casa + townhouse + condo. “Mostrando” é o que esta aba lista agora.';
 }
 const QSMAIN=['sc','net','roi','date','dist'];
@@ -1220,7 +1224,10 @@ function renderQS(){
   '</div></details>';
  if($('#bclean')) $('#bclean').checked=!!S.clean;
 }
-$('#types').addEventListener('click',e=>{const b=e.target.closest('[data-cat]'); if(b){S.cat=b.dataset.cat; apply();}});
+$('#types').addEventListener('click',e=>{const b=e.target.closest('[data-cat]'); if(!b) return;
+ if(b.dataset.multi){ const cs=catSet()||new Set(); const t=b.dataset.cat; if(cs.has(t)) cs.delete(t); else cs.add(t); S.cat=catFrom(cs); }
+ else S.cat=b.dataset.cat;
+ apply();});
 $('#qs').addEventListener('click',e=>{const b=e.target.closest('button'); if(!b) return; if(b.dataset.sort){S.sort=b.dataset.sort;} else if(b.dataset.tog){S[b.dataset.tog]=!S[b.dataset.tog];} apply();});
 function kstrip(list){
  const viable=list.filter(r=>r.katk==='viavel');
@@ -1404,18 +1411,19 @@ function filterNotice(){
  const rg=rangeLbl();
  if(!keys.length && !rg){ el.style.display='none'; el.innerHTML=''; return; }
  el.style.display='block';
- el.innerHTML='Filtros ativos: <b>'+keys.length+'</b>'+(rg?' · período <b>'+esc(rg)+'</b>':'')+' — lista, cards, mapa e calendário usam esta mesma seleção (Meus candidatos mostra o que você salvou, não esta lista). <button class="btn sm" id="fnotice-clear" type="button">limpar</button>';
+ const ct=catLabel();
+ el.innerHTML='Filtros ativos: <b>'+keys.length+'</b>'+(ct&&S.cat!=='resid'?' · tipos <b>'+esc(ct)+'</b>':'')+(rg?' · período <b>'+esc(rg)+'</b>':'')+' — lista, cards, mapa e calendário usam esta mesma seleção (Meus candidatos mostra o que você salvou, não esta lista). <button class="btn sm" id="fnotice-clear" type="button">limpar</button>';
  const b=$('#fnotice-clear'); if(b) b.onclick=()=>$('#breset').click();
 }
 function apply(noHash){
  const F=readF();
  const noCat=filt(F,true);
  renderTypes(noCat);
- const list=S.cat==='resid'?noCat.filter(isRes):S.cat?noCat.filter(r=>r.ty===S.cat):noCat;
+ const list=noCat.filter(catOk);
  CUR=list.slice().sort(SORTS[S.sort]||SORTS.sc);
  renderQS(); kstrip(CUR); kpis(CUR);
  $('#cnt').innerHTML='Mostrando <b>'+nf(CUR.length)+'</b> · base <b>'+nf(noCat.length)+'</b> <span title="Depois das exclusões e filtros, antes do recorte de tipo">sem recortar tipo</span> · arquivo <b>'+nf(ITEMS.length)+'</b>';
- syncDateChips(); filterNotice(); try{ LS.set('leilao_ui_v8', stateObj()); }catch(e){}
+ syncDateChips(); filterNotice(); try{ LS.set('leilao_ui_v9', stateObj()); }catch(e){}
  if(view==='table') renderTable(true); else if(view==='cards'||view==='fav') renderCards(true); else if(view==='cand') renderCand(); else if(view==='map') renderMap();
  else if(view==='intel') renderIntel(); else if(view==='res') renderRes(); else if(view==='cal') renderCal(); else if(view==='day') renderDay();
  if(!noHash) writeHash();
@@ -1980,7 +1988,7 @@ if($('#bgloss')) $('#bgloss').onclick=()=>{ $('#glossb').innerHTML='<p class="mi
 
 (function loadUI(){
  if(location.hash.indexOf('f=')>=0) return;
- const o=LS.get('leilao_ui_v8', null); if(!o||typeof o!=='object') return;
+ const o=LS.get('leilao_ui_v9', null); if(!o||typeof o!=='object') return;
  for(const k in FIELDS){ if(o[k]!=null && $(FIELDS[k])) $(FIELDS[k]).value=o[k]; }
  for(const k in CHECKS){ if(o[k]!=null){ if(k==='hjr') LAST_HJR=!!o[k]; else if($(CHECKS[k])) $(CHECKS[k]).checked=!!o[k]; } }
  SKEYS.forEach(k=>{ if(o[k]!=null) S[k]=o[k]; });
