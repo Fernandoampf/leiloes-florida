@@ -20,6 +20,7 @@ def check(cond, msg):
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path=CHROME if os.path.exists(CHROME) else None, args=['--no-sandbox'])
     ctx = b.new_context(viewport={'width': 1440, 'height': 950}, accept_downloads=True)
+    ctx.add_init_script("localStorage.setItem('leilao_noseed','1')")   # legacy tests start without the plan's default favourites
     pg = ctx.new_page(); errs = []
     pg.on('pageerror', lambda e: errs.append(str(e)))
     pg.goto(URL, wait_until='load', timeout=180000)
@@ -389,6 +390,19 @@ with sync_playwright() as p:
     dtx = pg.evaluate("document.body.textContent")
     check('Leilão presencial — Fórum de' in dtx and '11h' in dtx and 'epósito de 5%' in dtx and ('ShowCase' in dtx or 'Benchmark' in dtx), 'presencial: badge, regras de pagamento e link do processo no drawer')
     pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
+    # favoritos padrão (data/favoritos.json): navegador novo -> ★ + Meus candidatos com Max Bid do plano; remover persiste
+    fc = b.new_context(viewport={'width': 1440, 'height': 950}); fp = fc.new_page(); fp.goto(URL, wait_until='load', timeout=180000)
+    fp.wait_for_function('window.__dash', timeout=60000); fp.wait_for_timeout(400)
+    FZ = """(()=>{const F=JSON.parse(localStorage.getItem('leilao_favseed_v1')||'[]'), FV=JSON.parse(localStorage.getItem('leilao_fav_v1')||'[]'), C=JSON.parse(localStorage.getItem('leilao_cand_v1')||'{}'); const I=window.__dash.ITEMS.filter(r=>r.plan);
+      return {seed:F.length, plan:I.length, fav:I.filter(r=>FV.includes(r.id)).length, cand:I.filter(r=>C[r.id]&&C[r.id].maxBid===r.plan.mb).length, id:I[0]&&I[0].id};})()"""
+    fz = fp.evaluate(FZ)
+    check(fz['plan'] >= 17 and fz['seed'] == fz['plan'] == fz['fav'] == fz['cand'], f'favoritos do plano: ★ e Meus candidatos com Max Bid do plano {fz}')
+    fp.evaluate("(id=>{const f=JSON.parse(localStorage.getItem('leilao_fav_v1')).filter(x=>x!==id); localStorage.setItem('leilao_fav_v1',JSON.stringify(f));})('" + fz['id'] + "')")
+    fp.reload(wait_until='load'); fp.wait_for_function('window.__dash', timeout=60000); fp.wait_for_timeout(300)
+    fz2 = fp.evaluate(FZ); check(fz2['fav'] == fz['plan'] - 1, f'favorito do plano removido continua removido após recarregar {fz2}')
+    fp.evaluate(D + ".openDrawer('" + fz['id'] + "')"); fp.wait_for_timeout(400)
+    check('Max Bid do plano' in fp.evaluate('document.body.textContent'), 'drawer mostra o plano (prioridade e Max Bid)')
+    fc.close()
     # celular 390px
     m = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
     mp = m.new_page(); merr = []; mp.on('pageerror', lambda e: merr.append(str(e)))

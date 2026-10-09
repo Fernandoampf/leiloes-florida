@@ -9,3 +9,4 @@ live_mobile.png
 .tplparts/
 *.png
 !icons/*.png
+data/favoritos.json

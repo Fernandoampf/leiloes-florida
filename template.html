@@ -1106,6 +1106,12 @@ const CAND_CHECKS=[
 ];
 let CAND=LS.get(CAND_KEY,{}); // id -> {checks:{proc:bool,...}, maxBid:number|null, notes:string, added:iso}
 const saveCand=()=>LS.set(CAND_KEY,CAND);
+// default favourites from the build (data/favoritos.json: Fernando's bidding plan). Each id is seeded ONCE per browser,
+// so removing the ★ or the candidate afterwards sticks.
+(function seedFavs(){ const F=(M.favs&&M.favs.items)||[]; if(!F.length||LS.get('leilao_noseed',0)) return; const done=new Set(LS.get('leilao_favseed_v1',[])); let ch=false;
+ F.forEach(f=>{ if(done.has(f.id)) return; done.add(f.id); ch=true; FAV.add(f.id);
+  if(!CAND[f.id]) CAND[f.id]={checks:{max:!!f.mb}, maxBid:f.mb||null, notes:(M.favs.plan||'Plano')+' · prioridade '+f.prio+(f.note?' · '+f.note:''), added:new Date().toISOString()}; });
+ if(ch){ LS.set('leilao_favseed_v1',[...done]); LS.set('leilao_fav_v1',[...FAV]); LS.set(CAND_KEY,CAND); } })();
 function candAdd(id){ if(!CAND[id]) CAND[id]={checks:{}, maxBid:null, notes:'', added:new Date().toISOString()}; saveCand(); toast('Adicionado a Meus candidatos'); if(view==='cand') renderCand(); }
 function candRem(id){ delete CAND[id]; saveCand(); toast('Removido dos candidatos'); if(view==='cand') renderCand(); else apply(); }
 function candToggle(id){ if(CAND[id]) candRem(id); else candAdd(id); }
@@ -1891,7 +1897,7 @@ function openDrawer(id){
  const maxS=Math.max(10000,Math.round(Math.max(r.val||0,(r.ref||0)*1.5)/1000)*1000);
  const dl=daysLeft(r.date);
  $('#drawer').innerHTML='<div class="dh"><button class="star'+(FAV.has(r.id)?' on':'')+'" data-star="'+r.id+'">'+(FAV.has(r.id)?'★':'☆')+'</button>'+flagBtn(r)+'<h2>'+esc(r.addr)+'</h2><span class="net" id="dnet"></span><button class="btn sm" id="dclose" aria-label="Fechar">✕</button></div>'+
- '<div class="db">'+
+ '<div class="db">'+(r.plan?'<div class="manbox"><b>📋 '+esc(r.plan.name||'Plano de lances')+'</b> — prioridade <b>'+esc(r.plan.prio||'—')+'</b> · Max Bid do plano <b class="c-gold">'+money(r.plan.mb)+'</b>'+(r.plan.exp!=null?' · preço esperado '+money(r.plan.exp):'')+(r.plan.profit!=null?' · lucro esperado '+money(r.plan.profit):'')+(r.plan.note?'<div class="mini">'+esc(r.plan.note)+'</div>':'')+'</div>':'')+
   '<div class="decbar" id="ddec"><div><span>Leilão</span><b class="'+(dl<=1?'c-red':'')+'">'+whenLbl(r.date)+'</b><span class="mini">'+fdate(r.date)+' '+esc(r.time||'')+'</span></div>'+
   '<div><span title="'+CASH_TIP+'">Cash to Close (Realistic Bid)</span><b>'+money(r.cash)+'</b><span class="mini">lance '+money(r.xbid)+' · depósito '+money(r.xbid!=null?r.xbid*PR.dep/100:null)+'</span></div>'+
   '<div><span>Orlando</span><b>'+distLbl(r)+'</b></div>'+

@@ -430,6 +430,25 @@ def nal_index(items, today):
         if tg: lcd[c] = local_comps.load(c, tg, today)
     return facts, sales, cono, lcd
 
+def load_favs(items):
+    """data/favoritos.json (plano de lances do Fernando) -> default favourites: match by county + parcel / case / address,
+    attach r['plan'] (priority, plan max bid, note) and return the seed list for the browser (★ + Meus candidatos)."""
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'favoritos.json')
+    if not os.path.exists(p): return None
+    d = json.load(open(p)); n = lambda v: re.sub(r'[^0-9A-Z]', '', str(v or '').upper()).lstrip('0')
+    out, miss = [], []
+    for f in d.get('items', []):
+        cs = re.sub(r'[^a-z]', '', f['county'].lower())
+        hits = [r for r in items if (r.get('cs') or '').lower() == cs and (
+                (f.get('parcel') and n(r.get('parcel')) == n(f['parcel'])) or (f.get('case') and n(r.get('case')) == n(f['case'])) or
+                (f.get('addr') and f['addr'] in (r.get('addr') or '').upper()))]
+        if not hits: miss.append(f['label']); continue
+        r = hits[0]
+        r['plan'] = dict(name=d.get('plan'), prio=f.get('prio'), mb=f.get('mb'), open=f.get('open'), exp=f.get('exp'), profit=f.get('profit'), note=f.get('note') or None)
+        out.append(dict(id=r['id'], prio=f.get('prio'), mb=f.get('mb'), note=f.get('note') or '', label=f['label']))
+    print(f'favoritos: {len(out)} casados, não achados: {miss}', flush=True)
+    return dict(plan=d.get('plan'), items=out, miss=miss)
+
 def load_manual():
     """data/valuations_manual.json -> {(county slug, normalised parcel): entry}"""
     p = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'valuations_manual.json')
@@ -1071,11 +1090,12 @@ def render(items, stats, dropped, args):
         z = it.get('zip')
         if z and z in mk and z not in zips and mk[z].get('rf'):
             zips[z] = dict(rf=mk[z]['rf'], zh=mk[z].get('zh'), zr=mk[z].get('zr')); zips[z]['rt'] = resale_temp(mk[z].get('rf'))
+    favs = load_favs(items)
     ares, recent, rmeta = load_results()
     meta = dict(dataDate=args.data_date, built=time.strftime('%Y-%m-%d %H:%M'), params=P, zips=zips, mktSrc=mk.get('_src', {}),
                 rehabTiers=REHAB_TIERS, rehabUnknown=REHAB_UNKNOWN, rehabPool=REHAB_POOL, stats=stats, dropped=dropped, orlando=ORLANDO,
                 events=load_events(args.data_date), ares=ares, recent=recent, rmeta=rmeta, types=TYPES, version='v4',
-                builders=getattr(build_items, '_bld', None))
+                builders=getattr(build_items, '_bld', None), favs=favs)
     data = json.dumps(dict(meta=meta, items=items), ensure_ascii=False, separators=(',', ':'))
     if args.no_compress:
         blob = 'J:' + data.replace('</', '<\\/')
