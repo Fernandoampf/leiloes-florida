@@ -328,7 +328,7 @@ with sync_playwright() as p:
     check('Filtros ativos' in pg.inner_text('#fnotice'), 'aviso de filtros ativos')
     pg.click('#fnotice-clear'); pg.wait_for_timeout(400)
     check('Filtros ativos' not in (pg.locator('#fnotice').inner_text() or ''), 'limpar some com o aviso')
-    tc = pg.evaluate("(()=>{const I=window.__dash.ITEMS.filter(r=>r.tconf); const c=window.__dash.ITEMS.find(r=>r.parcel&&r.parcel.replace(/\\D/g,'')==='302132942801090'); return {n:I.length, used:I.filter(r=>r.lc&&r.lc.used).length, ch:c?{ty:c.ty, t:c.tconf, fl:c.fl.includes('tconf')}:null};})()")
+    tc = pg.evaluate("(()=>{const I=window.__dash.ITEMS.filter(r=>r.tconf); const c=window.__dash.ITEMS.find(r=>/2412 CHANTILLY AVE/i.test(r.addr)); return {n:I.length, used:I.filter(r=>r.lc&&r.lc.used).length, ch:c?{ty:c.ty, t:c.tconf, fl:c.fl.includes('tconf')}:null};})()")
     check(tc['n'] > 0 and tc['used'] == 0 and tc['ch'] and tc['ch']['fl'], f"conflito de tipo: {tc['n']} itens, nenhum com comps de lote como ARV; Chantilly {tc['ch']}")
     # ---- multi-select type filter
     pg.evaluate("window.__dash.setView('table')"); pg.wait_for_timeout(300)
