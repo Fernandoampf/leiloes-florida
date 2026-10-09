@@ -1366,7 +1366,7 @@ const COLS=[
  ['date','Data',r=>{const d=daysLeft(r.date); return fdm(r.date)+'<div class="dl'+(d<=1?' today':'')+'">'+whenLbl(r.date)+'</div><div class="mini">'+esc(r.time||'')+'</div>';},'date',1],
  ['co','Condado',r=>esc(r.co)+'<div class="mini">'+esc(r.city||'')+(r.zip?' '+r.zip:'')+'</div>','co',1],
  ['type','Leilão',r=>TYPES[r.t]+(r.plat?'<div class="mini">'+esc(r.plat)+'</div>':''),null,1],
- ['val','ARV (Resale Value)',r=>money(r.val)+'<div class="mini" title="'+esc(r.vsrc||'')+'">'+esc(vsrcShort(r))+'</div>'+(r.ppsf?'<div class="mini">'+money(r.ppsf)+'/sqft'+(r.ppsfVs!=null?' · <span class="'+(r.ppsfVs>0.15?'c-amber':r.ppsfVs<-0.15?'c-green':'')+'">'+sgn(r.ppsfVs,0)+' vs ZIP</span>':'')+'</div>':''),'arv',1,'num'],
+ ['val','ARV (Resale Value)',r=>r.val==null?'<span class="c-mut">sem valor</span><div class="mini">'+esc(noValWhy(r))+'</div>':money(r.val)+'<div class="mini" title="'+esc(r.vsrc||'')+'">'+esc(vsrcShort(r))+'</div>'+(r.ppsf?'<div class="mini">'+money(r.ppsf)+'/sqft'+(r.ppsfVs!=null?' · <span class="'+(r.ppsfVs>0.15?'c-amber':r.ppsfVs<-0.15?'c-green':'')+'">'+sgn(r.ppsfVs,0)+' vs ZIP</span>':'')+'</div>':''),'arv',1,'num'],
  ['pov','POV',r=>r.pov?money(r.pov)+'<div class="mini">conf. '+(r.povConf!=null?r.povConf:'—')+(r.povAsArv?' · <span class="c-green">ARV</span>':'')+'</div>':'—','pov',1,'num'],
  ['ref','Final Judgment / Opening Bid',r=>'<span class="'+(r.jmax?'c-red':'')+'">'+money(r.ref)+'</span>'+(r.refPct!=null?'<div class="mini '+(r.refPct>0.7?'c-red':'')+'">'+sgn(r.refPct-1,0)+' vs valor</div>':''),'refPct',1,'num'],
  ['mb',()=>'Max Bid ('+nf(PR.ret)+'%)',r=>'<b>'+money(r.mb)+'</b>'+(r.man&&r.man.ceiling!=null?'<div class="mini c-gold">teto manual</div>':'')+'<div class="mini">Deposit '+money(r.dep)+'</div>','mb',1,'num'],
@@ -1382,6 +1382,7 @@ const COLS=[
  ['ttf','Prazo est.',r=>r.ttf+' meses<div class="mini">'+money(r.hmo)+'/mês</div>',null,0,'num'],
  ['links','Links',r=>linksH(r),null,1]
 ];
+function noValWhy(r){ if(r.jv!=null&&r.jv<1000) return 'just value do condado '+money(r.jv)+' (< US$ 1 mil, não confiável)'; if(!r.parcel) return 'sem parcela no cadastro'; if(r.jv==null&&r.av==null) return 'parcela sem avaliação no cadastro DOR'; return 'sem vendas comparáveis'; }
 function vsrcShort(r){ const v=r.vsrc||''; if(r.man) return 'avaliação manual'; if(r.lc&&r.lc.used) return 'Comps locais · '+r.lc.confTxt; const sp=r.sup&&r.sup.disc?(r.sup.sev==='alta'?'Supply alta':'Supply moderada')+' ×'+nf(r.sup.discB||r.sup.disc,2):''; if(sp) return sp+(r.bld?' · builders':'');
  const t=/POV PropertyOnion/.test(v)?'POV PO':/menor/.test(v)?'condado × AVM':/AVM/.test(v)?'AVM PO':/comps/.test(v)?'comps (est.)':/condado|avalia/.test(v)?'condado':v?v:'sem valor';
  return t.length>30?t.slice(0,28)+'…':t; }   // never put the full source sentence in a table cell (it stretched the ARV column off-screen)

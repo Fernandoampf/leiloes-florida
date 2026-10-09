@@ -67,11 +67,14 @@ with sync_playwright() as p:
     jvb = pg.evaluate(D + '.ITEMS.filter(r=>r.jv85&&!r.suspect&&!r.povAsArv&&!(r.sup&&r.sup.disc)&&!r.bld).filter(r=>Math.abs((r.val0!=null?r.val0:r.val)-r.jv85/0.85)>1).map(r=>[r.addr,r.val0,r.val,r.jv85]).slice(0,3)')
     check(not jvb and pg.evaluate(D + '.ITEMS.filter(r=>r.jv85).length') > 100, f'ARV só com just value = just value ÷ 0,85 {jvb}')
     check(pg.locator('#fvd option[value="DISPUTADO"]').count()==1 and 'contested' in pg.inner_text('#kpis').lower(), 'filtro e KPI CONTESTED')
-    kats = set(pg.evaluate(D + '.ITEMS.map(r=>r.katk)')); check({'viavel', 'jmax', 'abaixo'} <= kats, f'categorias {kats}')
-    # fórmula: no lance máximo o ROI é exatamente o mínimo
-    bad = pg.evaluate('''(()=>{const d=window.__dash;let bad=[];for(const r of d.ITEMS){ if(r.mb==null||r.mb<=0||r.man) continue;
-        const p=d.pnl(r,r.mb); if(Math.abs(p.roi-d.PR.ret/100)>0.002) bad.push([r.id,p.roi]); } return bad.slice(0,5);})()''')
-    check(not bad, f'ROI no lance máximo = 17% para todos os itens ({bad})')
+    kats = set(pg.evaluate(D + '.ITEMS.map(r=>r.katk)')); check({'viavel', 'abaixo', 'lucro', 'disp', 'semdados'} <= kats and 'jmax' not in kats, f'categorias (regras 30e37bc, sem jmax) {kats}')
+    # regras do Fernando (30e37bc): no lance máximo o ROI respeita a escada (lote ≤15k all-in 40% + NET 3k; ≤60k 25%; acima 17%; +supAdd com oferta alta) e casa 17% + NET mínimo
+    bad = pg.evaluate('''(()=>{const d=window.__dash,Q=d.PR;let bad=[];for(const r of d.ITEMS){ if(r.mb==null||r.mb<=0||r.man) continue;
+        const p=d.pnl(r,r.mb), land=r.ty==='Lote'||r.ty==='Terreno', add=land&&r.fl.includes('supH')?Q.supAdd:0; let th=Q.ret, nmin=0;
+        if(land){ if(p.inv<=Q.lotS){th=Q.lotSroi;nmin=Q.lotSnet;} else if(p.inv<=Q.lotM) th=Q.lotMroi; }
+        else if(r.ty!=='Comercial'&&r.ty!=='Outro') nmin=Q.netHouse;
+        if(p.roi < (th+add)/100-0.002 || (nmin>0 && p.net < nmin-2)) bad.push([r.id,r.ty,Math.round(p.inv),+p.roi.toFixed(3),Math.round(p.net)]); } return bad.slice(0,5);})()''')
+    check(not bad, f'ROI/NET no lance máximo ≥ mínimo da escada de regras ({bad})')
     dep = pg.evaluate(D + '.ITEMS.filter(r=>r.mb>0).every(r=>Math.abs(r.dep-r.mb*0.05)<1)'); check(dep, 'depósito = 5% do lance máximo')
     # ordenação rápida
     pg.click('#qs [data-sort="net"]'); pg.wait_for_timeout(300)
@@ -118,7 +121,7 @@ with sync_playwright() as p:
     # clerk fee: 3% of first 500 + 1.5% of rest; formula reproduces BidToFlip example
     ex = pg.evaluate('''(()=>{const d=window.__dash; const r={...d.ITEMS.find(x=>x.id===%r), val:2214600, rep:8000, tax:null, fl:[], t:'FC', ty:'Casa'}; const o={...d.base(r), arv:2214600, rehab:8000, months:4, lien:0}; const p=d.pnl(r,1550220,o); return [Math.round(p.clerk), Math.round(p.docb), Math.round(p.sell.buyc), Math.round(p.sell.title), Math.round(p.sell.docs), p.sell.wra, Math.round(p.sell.list), p.sell.misc, Math.round(p.cont)];})()''' % rid)
     check(ex[:6] == [23261, 10852, 55365, 8112, 15502, 399], f'deduções (clerk, doc stamps, comprador, título promulgado FL, doc stamps venda, taxa fixa) {ex[:6]}')
-    check(ex[6] == 55365 and ex[7] == 1000 and ex[8] == 800, f'padrões: vendedor 2,5%, fechamento US$ 1.000, contingência 10% {ex[6:]}')
+    check(ex[6] == 55365 and ex[7] == 1000 and ex[8] == 1600, f'padrões: vendedor 2,5%, fechamento US$ 1.000, contingência 20% {ex[6:]}')
     tt = pg.evaluate('''(()=>{const d=window.__dash; const h=d.ITEMS.find(x=>x.co==='Orange'&&x.ty==='Casa'); const m=d.ITEMS.find(x=>x.co==='Miami-Dade'&&x.ty==='Casa'); const l=d.ITEMS.find(x=>(x.ty==='Lote')&&x.val);
       const T=(r,a)=>{const o={...d.base(r),arv:a}; return Math.round(d.pnl(r,100000,o).sell.title);}; return [T(h,300000), m?T(m,300000):0, Math.round(d.pnl(l,l.xbid||1000,d.base(l)).sell.wra)];})()''')
     check(tt == [1575, 0, 0], f'título promulgado US$ 1.575 em US$ 300 mil, zero em Miami-Dade, sem taxa fixa em lote {tt}')
