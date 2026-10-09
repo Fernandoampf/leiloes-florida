@@ -782,7 +782,7 @@ def build_items(args):
         )
         man = manual.get((cs, nal.npid(x.get('parcel') or '')))
         if man:
-            m = {k: man.get(k) for k in ('low', 'mid', 'high', 'ceiling', 'pass', 'date', 'sources', 'notes')}
+            m = {k: man.get(k) for k in ('low', 'mid', 'high', 'ceiling', 'pass', 'date', 'sources', 'notes', 'holdYr', 'qt', 'legal')}
             m['prev'] = rec.get('val'); rec['man'] = m
             rec['addr0'] = rec['addr']; rec['addr'] = man.get('addr') or rec['addr']
             rec['val'] = man['mid']; rec['povAsArv'] = None

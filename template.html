@@ -748,7 +748,8 @@ function holdMonth(r,arv,Q){
  const tax = r.tax ? r.tax/12 : arv*Q.htax/100/12;
  const ins = land?0: arv*Q.hins/100/12;
  const util = land?Q.hutilLot:Q.hutil;
- return {tax,ins,util,total:tax+ins+util,taxReal:!!r.tax};
+ const assoc = (r.man&&r.man.holdYr) ? r.man.holdYr/12 : 0;   // researched HOA / CDD / club dues (manual valuation)
+ return {tax,ins,util,assoc,total:tax+ins+util+assoc,taxReal:!!r.tax};
 }
 function base(r,Q){
  Q=Q||PR;
@@ -770,7 +771,7 @@ function pnl(r,bid,o){
  const arv=o.arv||0, clerk=clerkFee(bid,Q), docb=bid*Q.docb/100, acq=bid+clerk+docb;
  const cont=o.rehab*Q.cont/100;
  const hm=holdMonth(r,arv,Q), hold=hm.total*o.months;
- const fees={fee:Q.fee, qt:needQT(r)?(land?Q.qtLot:Q.qt):0, ev:o.ev?Q.ev:0, clear:land?Q.clear:0}; const flat=fees.fee+fees.qt+fees.ev+fees.clear;
+ const fees={fee:Q.fee, qt:needQT(r)?((r.man&&r.man.qt!=null)?r.man.qt:(land?Q.qtLot:Q.qt)):0, ev:o.ev?Q.ev:0, clear:land?Q.clear:0}; const flat=fees.fee+fees.qt+fees.ev+fees.clear;
  const sell={list:arv*Q.list/100,buyc:arv*Q.buyc/100,title:titlePrem(arv,r)*Q.titleP/100,docs:arv*Q.docs/100,misc:arv?(land?Math.min(Q.misc,Math.max(500,arv*0.03)):Q.misc):0,wra:(arv&&!land)?Q.wra:0};
  const sellT=sell.list+sell.buyc+sell.title+sell.docs+sell.misc+sell.wra;
  const inv=acq+o.rehab+cont+hold+flat+o.lien, net=arv-sellT-inv, roi=inv>0?net/inv:null;
@@ -1253,6 +1254,7 @@ function rtBadge(rt){ if(!rt) return ''; return '<span class="bdg '+rt.lab.toLow
 function utilBadge(r){ const U=r.util; if(!U) return ''; const w=/Sewer/.test(U.WW)?'esgoto':/Septic/.test(U.WW)?'Septic':''; const d=/Public/.test(U.DW)?'água pública':/Well/.test(U.DW)?'Well':''; const t=[d,w].filter(Boolean).join(' + '); return t?'<span class="bdg '+(/Sewer/.test(U.WW)&&/Public/.test(U.DW)?'grn':'amb')+'" title="FDOH FLWMI: água '+esc(U.DW)+', esgoto '+esc(U.WW)+(U.pt?' (pela coordenada)':' (pela parcela)')+'">💧 '+t+'</span>':''; }
 function badges(r){
  const b=[lcBadge(r)];
+ if(!/^\s*\d/.test(r.addr0||r.addr||'')) b.push('<span class="bdg red" title="O anúncio não tem número de casa: o endereço exibido é a rua (e a descrição legal quando houver). Confira pelo nº do processo e pela parcela, nunca por um número de casa vizinho.">Endereço aproximado — dar lance pelo nº do processo</span>');
  if(r.suspect) b.push('<span class="bdg amb" title="'+esc(r.sanityWhy||'')+'">Valor suspeito</span>');
  const LB={nocomps:['Sem comps','Menos de 3 vendas comparáveis de terreno. Nota limitada a 55.'],big:['Gleba grande','Mais de 5 acres — não é lote residencial de flip. Nota limitada a 55.'],use:['Uso comercial/agrícola','Código de uso não é terreno vago residencial (000). Nota limitada a 55.']};
  (r.lotBadges||[]).forEach(k=>{ const d=LB[k]; if(d) b.push('<span class="bdg amb" title="'+esc(d[1])+'">'+d[0]+'</span>'); });
@@ -1905,9 +1907,9 @@ function drCalc(){
    '<tr class="h"><td colspan="2">Reforma e posse</td></tr>'+
    '<tr><td>Rehab '+oin('rehab','US$ ')+' <span class="mini">'+(o.rehab===r._o.rehab?esc(r._o.rehabWhy||''):'valor editado')+'</span></td><td>'+z(p.rehab)+'</td></tr>'+
    (land?'':'<tr><td>Rehab Contingency <span class="mini">'+pin('cont','%')+'</span></td><td>'+z(p.cont)+'</td></tr>')+
-   '<tr><td>Holding Costs '+oin('months')+' meses <span class="mini">× '+money(p.hm.total)+'/mês: imposto '+(p.hm.taxReal?money(p.hm.tax)+' (conta real ÷ 12)':pin('htax','%')+'/ano ('+money(p.hm.tax)+')')+(land?'':' + seguro '+pin('hins','%')+'/ano ('+money(p.hm.ins)+')')+' + contas '+(land?pin('hutilLot','$'):pin('hutil','$'))+'/mês</span></td><td>'+z(p.hold)+'</td></tr>'+
+   '<tr><td>Holding Costs '+oin('months')+' meses <span class="mini">× '+money(p.hm.total)+'/mês: imposto '+(p.hm.taxReal?money(p.hm.tax)+' (conta real ÷ 12)':pin('htax','%')+'/ano ('+money(p.hm.tax)+')')+(land?'':' + seguro '+pin('hins','%')+'/ano ('+money(p.hm.ins)+')')+' + contas '+(land?pin('hutilLot','$'):pin('hutil','$'))+'/mês'+(p.hm.assoc?' + HOA/CDD/clube '+money(p.hm.assoc)+'/mês ('+money(r.man.holdYr)+'/ano, avaliação manual)':'')+'</span></td><td>'+z(p.hold)+'</td></tr>'+
    (land?'<tr><td>Limpeza / agrimensura do terreno <span class="mini">'+pin('clear','$')+'</span></td><td>'+z(p.fees.clear)+'</td></tr>':'')+
-   (needQT(r)?'<tr><td>'+(land?'Title Certification (lote)':'Quiet Title')+' <span class="mini">('+(r.t==='TD'?'tax deed':'lote')+') '+pin(land?'qtLot':'qt','$')+'</span></td><td>'+z(p.fees.qt)+'</td></tr>':'')+
+   (needQT(r)?'<tr><td>'+((r.man&&r.man.qt!=null)?'Quiet Title <span class="mini">(avaliação manual: '+money(r.man.qt)+')':(land?'Title Certification (lote)':'Quiet Title')+' <span class="mini">('+(r.t==='TD'?'tax deed':'lote')+') '+pin(land?'qtLot':'qt','$'))+'</span></td><td>'+z(p.fees.qt)+'</td></tr>':'')+
    (o.ev?'<tr><td>Eviction / Cash-for-Keys <span class="mini">(ocupado, est.) '+pin('ev','$')+'</span></td><td>'+z(p.fees.ev)+'</td></tr>':'')+
    '<tr><td>Taxas extras do leilão <span class="mini">'+pin('fee','$')+'</span></td><td>'+z(p.fees.fee)+'</td></tr>'+
    '<tr><td>Surviving Lien '+oin('lien','US$ ')+' <span class="mini">'+(r.survAmt?'ESTIMATIVA PO'+(r.survWhy?': '+esc(r.survWhy.slice(0,90)):'')+' – confirmar com title search':(r._o.lien?'(reserva: 1ª hipoteca – indício)':'('+(r.t==='TD'?'liens do governo: não verificado':'não verificado no processo')+')'))+'</span>'+(r.survAmt?' <label class="mini" style="display:inline-flex;gap:4px;align-items:center;margin-left:6px"><input type="checkbox" id="surv-tog"'+(r.survDeduct!==false?' checked':'')+'> deduzir no P&L</label>':'')+'</td><td>'+z(p.lien)+'</td></tr>'+

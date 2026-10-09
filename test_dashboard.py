@@ -271,15 +271,18 @@ with sync_playwright() as p:
     lc = pg.evaluate("(()=>{const I=window.__dash.ITEMS; return {n:I.filter(r=>r.lc&&r.lc.lvl).length, used:I.filter(r=>r.lc&&r.lc.used).length, sub:I.filter(r=>r.lc&&r.lc.lvl==='sub').length, bad:I.filter(r=>r.lc&&r.lc.used&&!r.man&&Math.abs(r.val0-r.lc.est)>1).length, lowc:I.filter(r=>r.lc&&r.lc.used&&r.lc.conf<60).length};})()")
     check(lc['n'] > 1000 and lc['used'] > 500 and lc['sub'] > 100 and lc['bad'] == 0 and lc['lowc'] == 0, f'comps locais {lc}')
     ho = pg.evaluate('window.__dash.ITEMS.find(r=>r.parcel==="01596160")')
-    check(ho and ho['val'] == 100000 and ho['addr'].startswith('4570 Hickory Oak Dr') and ho['mb'] <= 72000 and ho['man']['ceiling'] == 72000, f"Hickory Oak manual {ho and (ho['val'], ho['addr'], round(ho['mb']))}")
+    check(ho and ho['val'] == 100000 and ho['addr'].startswith('Hickory Oak Dr') and ho['man']['holdYr'] == 5700 and ho['man']['qt'] == 2000, f"Hickory Oak manual {ho and (ho['val'], ho['addr'], round(ho['mb']))}")
     sc = pg.evaluate('window.__dash.ITEMS.find(r=>r.parcel==="01575842")')
-    check(sc and sc['vd'] == 'PASSAR' and sc['val'] == 22000, f"Southern Charm PASSAR {sc and (sc['vd'], sc['val'])}")
+    check(sc and sc['vd'] == 'PASSAR' and sc['val'] == 23500, f"Southern Charm PASSAR {sc and (sc['vd'], sc['val'])}")
     nman = pg.evaluate('window.__dash.ITEMS.filter(r=>r.man).length'); check(nman == 6, f'6 avaliações manuais ({nman})')
     pg.evaluate('window.__dash.openDrawer(window.__dash.ITEMS.find(r=>r.parcel==="01596160").id)'); pg.wait_for_timeout(400)
     dl = pg.evaluate("document.querySelector('#dlocal').textContent")
     check('Valor de venda — análise local' in dl and 'Avaliação manual' in dl and 'SOUTHERN HILLS PLANTATION' in dl and 'construída' in dl, 'painel: seção Valor de venda — análise local')
     pg.evaluate('window.__dash.closeDrawer && window.__dash.closeDrawer()'); pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
     check(pg.locator('#tbl .lcb').count() >= 5, 'selo de confiança na lista')
+    na = pg.evaluate("window.__dash.ITEMS.filter(r=>!/^\\s*\\d/.test(r.addr0||r.addr)).length")
+    check(na > 10 and pg.evaluate("document.body.innerHTML.includes('Endereço aproximado — dar lance pelo nº do processo')"), f'selo de endereço aproximado ({na})')
+    check(not pg.evaluate("window.__dash.ITEMS.some(r=>r.man&&/^\\s*\\d/.test(r.addr))"), 'avaliações manuais sem número de casa adivinhado')
     lots = pg.evaluate("""(()=>{const d=window.__dash;
       const lands=d.ITEMS.filter(r=>r.ty==="Lote"||r.ty==="Terreno");
       const capped=lands.filter(r=>(r.lotBadges||[]).length);
