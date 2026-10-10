@@ -586,6 +586,8 @@ const FL = {
  vac:{l:'Vago (USPS)',c:'grn',d:'USPS indica imóvel vago (positivo: sem despejo).'},
  junk:{l:'Faixa/área comum',c:'',d:'Faixa estreita, retenção/drenagem, área comum, via ou brejo (código de uso DOR 009/094/095/096 ou descrição legal) – normalmente sem valor de revenda. Oculto por padrão.'},
  hmtd:{l:'Homestead',c:'vio',d:'Imóvel com isenção homestead indo a tax deed: pela lei da Flórida (F.S. 197.502) o lance inicial inclui metade do valor avaliado; o dono costuma lutar para resgatar.'},
+ wet:{l:'Área úmida',c:'red',d:'Parte do lote é área úmida no mapa nacional de wetlands (USFWS NWI), medida sobre o POLÍGONO da parcela. Construir em wetland exige licença (ACOE/estado) e mitigação; acima do limite das premissas o lote sai de FLIP/CONSIDER.'},
+ sfha:{l:'Zona de inundação',c:'amb',d:'Parte do lote está em zona especial de inundação da FEMA (A/AE/AH/AO/VE): seguro obrigatório com financiamento, aterro/elevação para construir. Acima do limite das premissas o lote sai de FLIP/CONSIDER.'},
  subst:{l:'Lote abaixo do mínimo (pode não ser edificável)',c:'red',d:'Área ou frente do lote menor que o mínimo do zoneamento. Pode não dar licença para construir (só com variance ou se for “lot of record” anterior à regra). Comps de lotes regulares não valem: ARV limitado ao valor oficial do condado. Confirmar com o zoning da prefeitura antes de dar lance.'},
  hmob:{l:'Opening Bid baixo? (homestead)',c:'amb',d:'Imóvel com homestead: pela lei da Flórida o opening bid do tax deed inclui METADE do valor avaliado, e a lista do RealAuction costuma mostrar só o valor do certificado até o clerk atualizar. O lance inicial real pode ser bem maior — conferir no site do clerk antes de qualquer conta.'},
  ipres:{l:'Leilão presencial',c:'cool',d:'Foreclosure vendida NO FÓRUM (não no RealAuction): Lake = Tavares, Osceola = Kissimmee, 11h. Depósito de 5% na hora; saldo até 16h. Datas e cancelamentos vêm da lista oficial do clerk (atualizada todo dia).'},
@@ -721,7 +723,7 @@ const FLAGC=['gold','green','red','blue']; const FLAGL={gold:'Dourado',green:'Ve
 // ---------------------------------------------------------------- premissas
 const PF=[
  ['Meta de retorno',[['ret','Retorno mínimo (%) – define o lance máx.',0.5],['flip','ROI p/ veredito FLIP (%)',0.5],['lownet','“Lucro baixo” se NET abaixo de (US$)',1000],['tdxp','Tax deed: NET/ROI no preço esperado do leilão (1) ou no lance inicial (0)',1],['stress','Teste de estresse: FLIP/CONSIDERAR só se não der prejuízo com o ARV este % menor',1],['netHouse','Construído: NET mínimo p/ FLIP/CONSIDERAR (US$)',1000]]],
- ['Escada de retorno – lotes',[['lotS','Lote barato: custo all-in até (US$)',1000],['lotSroi','Lote barato: ROI mínimo (%)',1],['lotSnet','Lote barato: NET mínimo (US$)',500],['lotM','Lote médio: custo all-in até (US$)',1000],['lotMroi','Lote médio: ROI mínimo (%)',1],['supAdd','Subdivisão com oferta alta: + pontos de ROI exigidos (0 = não; valor de venda e posse já descontam a oferta)',1]]],
+ ['Escada de retorno – lotes',[['lotS','Lote barato: custo all-in até (US$)',1000],['lotSroi','Lote barato: ROI mínimo (%)',1],['lotSnet','Lote barato: NET mínimo (US$)',500],['lotM','Lote médio: custo all-in até (US$)',1000],['lotMroi','Lote médio: ROI mínimo (%)',1],['supAdd','Subdivisão com oferta alta: + pontos de ROI exigidos (0 = não; valor de venda e posse já descontam a oferta)',1],['wetMax','Áreas úmidas (USFWS NWI): tirar de FLIP/CONSIDER se cobrem ≥ (% do lote)',1],['floodMat','Inundação FEMA A/AE/AH/AO/VE: tirar de FLIP/CONSIDER se cobre ≥ (% do lote)',1]]],
  ['Pacotes (vários lotes da mesma área)',[['pkg','Venda em pacote para construtora: % do valor de venda por lote',1],['pkgM','Venda em pacote: meses de posse',1],['pkgMin','Pacote: mínimo de lotes na mesma área e data',1]]],
  ['Capital',[['capc','Custo do capital (% a.a. sobre compra + reforma, nos meses de posse)',0.5]]],
  ['Compra (Flórida)',[['clerk1','Clerk Fee: % sobre os primeiros US$ 500',0.1],['clerk2','Clerk Fee: % sobre o restante do lance',0.1],['docb','Doc Stamps na compra (% do lance)',0.05],['qt','Quiet Title – tax deed construído (US$)',100],['qtLot','Title Certification do lote p/ revenda (US$)',100],['fee','Taxas extras do leilão (US$)',50],['ev','Eviction / Cash-for-Keys se ocupado (US$)',100],['dep','Deposit no leilão (% do lance)',0.5]]],
@@ -732,7 +734,7 @@ const PF=[
 ];
 const PKEYS=PF.flatMap(g=>g[1].map(f=>f[0]));
 const PDEF={}; const PFALL={qtm:2,tdxp:1,usedom:0,closem:1,hutilLot:50,months:7,monthsLot:3,evm:2,rhb20:5,rhb15:10,rhb05:30,rhb95:35,rhbOld:48,rhbMin:15000,rhbUnk:35000,rhbSqft:1500,rhbPool:5000,cont:20,hins:2,misc:1000,clear:500,qtLot:1200,wra:399,titleP:100,clerk1:3,clerk2:1.5,
- conc:2,commLot:8,capc:8,stress:10,lotS:15000,lotSroi:40,lotSnet:3000,lotM:60000,lotMroi:25,supAdd:0,netHouse:25000,pkg:85,pkgM:4,pkgMin:3}; PKEYS.forEach(k=>PDEF[k]=isFinite(+P[k])?+P[k]:(PFALL[k]??0));
+ conc:2,commLot:8,capc:8,stress:10,lotS:15000,lotSroi:40,lotSnet:3000,lotM:60000,lotMroi:25,supAdd:0,wetMax:20,floodMat:10,netHouse:25000,pkg:85,pkgM:4,pkgMin:3}; PKEYS.forEach(k=>PDEF[k]=isFinite(+P[k])?+P[k]:(PFALL[k]??0));
 const PKEY='leilao_premissas_v8';   // v8 (out/2026): + pacotes (pkg/pkgM/pkgMin); v7: oferta alta sem +pontos, sem filtro de caixa – reseta premissas antigas
 let PR={...PDEF};
 (()=>{const sv=LS.get(PKEY,null); if(sv) PKEYS.forEach(k=>{if(typeof sv[k]==='number'&&isFinite(sv[k])&&sv[k]>=0) PR[k]=sv[k];});})();
@@ -944,6 +946,9 @@ function realisticBid(r,o){
 //  FLIP / CONSIDERAR – expected price at or below the max bid; ROI at the expected price ≥ 25% / ≥ 17%.
 function verdict(r){
  if(r.man && r.man.pass) return {vd:'PASSAR', why:'avaliação manual: passar ('+(r.man.notes||'')+')', man:1};
+ if(r.geo&&r.geo.poly!==false){ const wm=PR.wetMax??20, fm=PR.floodMat??10;
+   if((r.geo.wetPct||0)>=wm) return {vd:'PASSAR', why:'áreas úmidas cobrem '+nf(r.geo.wetPct)+'% do lote (USFWS NWI; limite '+wm+'%) – pode não ser edificável', geo:1};
+   if((r.geo.sfhaPct||0)>=fm) return {vd:'PASSAR', why:'zona de inundação FEMA '+Object.keys(r.geo.fz||{}).filter(z=>/^(A|AE|AH|AO|A99|AR|VE|V)$/.test(z)).join('/')+' cobre '+nf(r.geo.sfhaPct)+'% do lote (limite '+fm+'%)', geo:1}; }
  if(r.roi==null || r.mb==null) return {vd:'PASSAR', why:'sem dados'};
  if(!(r.mb>0)) return {vd:'PASSAR', why:'nenhum lance atende: '+(r.mbWhy||nf(PR.ret)+'%')};
  if(r.t!=='FC' && r.ref!=null && r.ref>r.mb+1) return {vd:'PASSAR', why:'lance inicial '+money(r.ref)+' acima do lance máx. '+money(r.mb)};
@@ -1738,6 +1743,9 @@ function intelHtml(r){
  }
  if(r.cver) a.push('<b>Conferido no clerk</b> ('+esc(fdate(r.cver.at)||r.cver.at||'')+'): opening bid '+money(r.cver.ob)+(r.cver.ob0!=null&&Math.abs(r.cver.ob0-(r.cver.ob||0))>1?' <span class="c-amber">(a lista do RealAuction dizia '+money(r.cver.ob0)+')</span>':'')+(r.cver.status?' · status '+esc(r.cver.status):'')+(r.cver.src&&/^http/.test(r.cver.src)?' · <a href="'+esc(r.cver.src)+'" target="_blank" rel="noopener">ver no clerk</a>':''));
  else if(r.scan&&!r.ip) a.push('<span class="c-amber">Lista do RealAuction lida em '+esc(fdate(r.scan))+'</span> — opening bid, status (resgatado/cancelado) e data podem ter mudado desde então: conferir no site do clerk/RealAuction antes de dar lance.');
+ if(r.geo) a.push(r.geo.poly===false?'<span class="mini">Áreas úmidas/inundação: polígono da parcela não encontrado no cadastro estadual (DOR) – conferir no mapa do condado.</span>':
+   '<b>Áreas úmidas e inundação (polígono da parcela, '+nf(r.geo.ac)+' ac):</b> '+((r.geo.wetPct||0)>0?'<span class="'+((r.geo.wetPct>=(PR.wetMax??20))?'c-red':'c-amber')+'">'+nf(r.geo.wetPct)+'% área úmida</span> ('+Object.entries(r.geo.wet||{}).map(([k,v])=>esc(k)+' '+nf(v)+'%').join(', ')+', USFWS NWI)':'sem área úmida no NWI')+
+   ' · FEMA: '+(Object.entries(r.geo.fz||{}).map(([k,v])=>'<b>'+esc(k)+'</b> '+nf(v)+'%').join(', ')||'sem zona mapeada')+' <span class="mini">(consultado em '+esc(fdate(r.geo.at)||r.geo.at||'')+'; limites ajustáveis nas premissas: área úmida '+(PR.wetMax??20)+'%, inundação '+(PR.floodMat??10)+'%)</span>');
  if(r.subst) a.push('<b class="c-red">Lote abaixo do mínimo do zoneamento '+esc(r.subst.zone)+'</b>: '+esc(r.subst.why)+'. Pode não ser edificável sem variance — conferir com o zoning.'+(r.subst.arv0?' ARV limitado ao valor oficial (comps de lotes regulares davam '+money(r.subst.arv0)+').':''));
  if(r.addr0) a.push('<span class="mini">Endereço corrigido pelo cadastro DOR (parcela); a lista do leilão trazia “'+esc(r.addr0)+'”.</span>');
  if(r.cs==='hillsborough'&&r.t==='TD') a.push('<b>Hillsborough – pagamento do tax deed:</b> saldo até as <b>10h do dia útil seguinte</b>, só com <b>cheque administrativo (cashier’s check) no balcão</b> do clerk ou saldo já depositado na conta do RealAuction. <b>Não aceita wire.</b>');

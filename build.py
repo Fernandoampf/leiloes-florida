@@ -34,6 +34,7 @@ import rawdata, po_fetch, nal, flwmi, po_export, po_bids
 import local_comps
 import inperson
 import clerk_verify
+import geo_risk
 
 AUC = '/workspace/auc'
 SW = os.path.join(AUC, 'statewide')
@@ -995,7 +996,28 @@ def build_items(args):
             rec['vsrc'] = f"Avaliação manual ({man.get('date')}; fontes: {'; '.join(man.get('sources') or [])}) — faixa {_usd(man['low'])}–{_usd(man['high'])}"
         rec = {k: v for k, v in rec.items() if v not in (None, '', [], {})}
         rec.setdefault('fl', []); rec.setdefault('links', {})
+        if nf and nf.get('pid') and rec.get('ty') in ('Lote', 'Terreno'): rec['_pid'] = nf['pid']
         out.append(rec)
+    # ---- lots: wetland (USFWS NWI) and flood (FEMA NFHL) share of the PARCEL POLYGON (FDOR cadastral); cached, incremental
+    geo_off = bool(getattr(args, 'no_clerk', False)) or os.environ.get('LEILOES_NO_CLERK', '').strip().lower() in ('1', 'true', 'yes', 'on')
+    gkeys = sorted({(r['cs'], r['_pid']) for r in out if r.get('_pid')}, key=lambda k: min((r['date'] for r in out if r.get('_pid') == k[1]), default='9'))
+    gst = geo_risk.refresh(gkeys, offline=geo_off, limit=int(os.environ.get('GEO_LIMIT', '600')))
+    gc = geo_risk.load(); gl = dict(lots=0, poly=0, wet20=0, sfha=0)
+    for r in out:
+        pid = r.pop('_pid', None)
+        if not pid: continue
+        gl['lots'] += 1
+        e = gc.get(f"{r['cs']}|{pid}")
+        if not e or 'err' in e: continue
+        if not e.get('poly'): r['geo'] = dict(poly=False, at=e.get('at')); continue
+        gl['poly'] += 1
+        r['geo'] = {k: e.get(k) for k in ('ac', 'wet', 'wetPct', 'fz', 'sfhaPct', 'at')}
+        if (e.get('wetPct') or 0) >= 20: gl['wet20'] += 1
+        if (e.get('sfhaPct') or 0) >= 10: gl['sfha'] += 1
+        if (e.get('wetPct') or 0) >= 5: r['fl'].append('wet')
+        if (e.get('sfhaPct') or 0) >= 1: r['fl'].append('sfha')
+    print('áreas úmidas/inundação (polígono):', json.dumps(dict(gst, **gl)), flush=True)
+    build_items._geo = dict(gst, **gl)
     if args.fetch and fw_jobs:
         import requests
         from concurrent.futures import ThreadPoolExecutor
