@@ -2070,7 +2070,7 @@ function renderBld(){
 }
 // ---- Pacotes (Fernando, out/2026): several biddable lots of the same area going to auction on the same day.
 // Buying them together lets you sell the bundle to a builder already buying there (faster, at a discount per lot).
-let PACMAX=150;
+let PACMAX=999;   // Fernando (09/10): lotes na Flórida toda
 const PAC_HARD=['jr','surv','red','hmtd','cxl','junk','flood','nobid','code','mtg','avoid','unv'];
 function pacOk(r){
  return isLand(r) && r.date>=TODAY && r.mb>0 && r._o && r._o.arv && !r.suspect && !r.fl.some(f=>PAC_HARD.includes(f)) &&
