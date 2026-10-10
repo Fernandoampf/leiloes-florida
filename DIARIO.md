@@ -39,3 +39,9 @@ Formato: `dd/mm hh:mm ET · QUEM · commit · o quê · por quê · teste/estado
 - Levy: 26 processos listados p/ 09/11/2026 (19 SALE, 7 REDEEMED descartados). Leilão presencial seg. 10h, Government Center, Bronson. 14 dos 19 são terrenos sem endereço no cadastro DOR (identificados pela parcela).
 - Rolos NAL baixados p/ Levy, Hardee, DeSoto, Bradford, Union, Columbia, Dixie, Lafayette, Madison, Jefferson, Liberty, Holmes, Wakulla, Gadsden.
 - Teste novo (Levy) + todos os testes OK.
+
+## 2026-10-10 00:3x ET — Grok: Wakulla (tax deed presencial) no ar; Hardee/DeSoto/Bradford/Glades/Union sem fonte automatizável
+- Wakulla: tabela do clerk (wakullaclerk.org/official_records/tax_deed_sales.php, cache diário) + aviso em PDF por processo (baixado uma vez, cache permanente) → parcela, opening bid estatutário, credor, certificado. 4 à venda em 21/10/2026 (6 resgatados fora). Quartas 10h, saguão do fórum, inscrição até 9h45.
+- Hardee, DeSoto, Bradford, Glades: clerk não publica lista de parcelas online (só edital em jornal). Union: site do clerk responde 403 ao box — não contornado.
+- NoticeRegistry: termos (seção 7) proíbem raspagem/download sistemático → não usado. floridapublicnotices.com: termos não proíbem, mas só via API interna não documentada → não usado sem aprovação.
+- Columbia: página do clerk sem leilões agendados agora (reler quando houver).

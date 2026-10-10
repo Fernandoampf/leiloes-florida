@@ -13,6 +13,7 @@ import json, time, datetime as dt, glob, html, os, re, subprocess, urllib.reques
 DIR = os.path.join(os.environ.get('AUC', '/workspace/auc'), 'statewide', 'inperson')
 UA = 'Mozilla/5.0 (ChallengeCapital daily refresh; 1 request/day)'
 SRC = {
+    'wakulla_td': ('https://wakullaclerk.org/official_records/tax_deed_sales.php', 'html'),
     'gulf_td': ('https://www.gulfclerk.com/courts/tax-deeds/', 'html'),
     'sumter_td': ('https://www.sumterclerk.com/public-records/tax-deeds/tax-deed-sales/', 'html'),
     'lake': ('https://foreclosurecalendar.lakecountyclerkfl.gov/default.aspx', 'html'),
@@ -21,6 +22,10 @@ SRC = {
 # clerks on the TaxSmart(Web) product (sale-date search + jqGrid JSON): county -> base URL
 TAXSMART = {'levy': 'https://online.levyclerk.com/TaxSmartWeb/'}
 INFO = {
+    'wakulla': dict(where='Crawfordville — saguão do Fórum de Wakulla, 3056 Crawfordville Hwy', time='10:00', city='Crawfordville',
+                 pay='Tax deed PRESENCIAL (quartas, 10h). Inscrição no setor de Official Records até 9h45 (recebe paleta). Pagamento conforme regras do clerk (consultar a página). A lista do clerk mostra resgates — conferir no dia.',
+                 docket='https://wakullaclerk.org/official_records/tax_deed_sales.php', dname='Wakulla Clerk — Tax Deed Sales (avisos em PDF)',
+                 list='https://wakullaclerk.org/official_records/tax_deed_sales.php'),
     'levy': dict(where='Bronson — Levy County Government Center, sala do BoCC, 310 School St., Bronson', time='10:00', city='Bronson',
                  pay='Tax deed PRESENCIAL (segundas, 10h). Depósito não reembolsável de 5% do lance (mín. US$ 200) na hora, em dinheiro/cheque administrativo; saldo + doc stamps e registro em 24 horas. A lista do clerk é atualizada com resgates — conferir no dia.',
                  docket='https://online.levyclerk.com/TaxSmartWeb/', dname='Levy Clerk — TaxSmart (processos de tax deed)',
@@ -220,6 +225,39 @@ def fetch_taxsmart(co, offline=False, today=None):
         return os.path.join(DIR, olds[-1]) if olds else None
 
 
+def wakulla_rows(offline=False, today=None):
+    """Wakulla clerk table (deed #, status, PDF). Page cached daily; each notice PDF fetched once (immutable)."""
+    base = 'https://wakullaclerk.org/official_records/'
+    p = fetch('wakulla_td', offline, today)
+    if not p: return None, []
+    h = open(p, encoding='utf-8', errors='replace').read(); out = []; cur = None
+    for tr in re.findall(r'<tr[^>]*>(.*?)</tr>', h, re.S | re.I):
+        cells = [html.unescape(re.sub(r'<[^>]+>', '', c)).strip() for c in re.findall(r'<td[^>]*>(.*?)</td>', tr, re.S | re.I)]
+        if cells and re.match(r'[A-Z][a-z]+ \d{1,2}, \d{4}$', cells[0]): cur = dt.datetime.strptime(cells[0], '%B %d, %Y').date().isoformat()
+        m = re.search(r'(\d{4}-TXD-\d+)', ' '.join(cells))
+        a = re.search(r'href=\s*"([^"]+\.pdf[^"]*)"', tr)
+        if m and cur:
+            r = dict(case=m.group(1), status=(cells[2] if len(cells) > 2 else ''), date=cur, pdf=('https://www.wakullaclerk.org/' + a.group(1).lstrip('/').replace(' ', '%20')) if a else None, other=cells[4] if len(cells) > 4 else '')
+            if r['pdf'] and r['status'].lower().startswith('for sale'):
+                fp = os.path.join(DIR, 'wakulla_pdf', re.sub(r'\W+', '_', r['case']) + '.txt')
+                if not os.path.exists(fp) and not offline:
+                    try:
+                        os.makedirs(os.path.dirname(fp), exist_ok=True); time.sleep(2)
+                        req = urllib.request.Request(r['pdf'], headers={'User-Agent': UA}); b = urllib.request.urlopen(req, timeout=40).read()
+                        tmp = fp + '.pdf'; open(tmp, 'wb').write(b)
+                        t = subprocess.run(['pdftotext', '-layout', tmp, '-'], capture_output=True, text=True).stdout; os.remove(tmp)
+                        if 'OPENING BID' in t.upper(): open(fp, 'w').write(t)
+                    except Exception as e: print('wakulla pdf', r['case'], type(e).__name__, flush=True)
+                if os.path.exists(fp):
+                    t = open(fp).read()
+                    g = lambda rx: (re.search(rx, t, re.I | re.S).group(1).strip() if re.search(rx, t, re.I | re.S) else None)
+                    r.update(parcel=(g(r'Parcel #:\s*(\S+)') or '').replace('-', '').upper(), ob=_m((g(r'OPENING BID AMOUNT:\s*\$\s*([\d,\.]+)') or '').replace(',', '')),
+                             holder=g(r'that\s+(.+?)\s*\n\s*the holder'), cert=g(r'Certificate #\s*(\S+)'), owner=g(r'Name in which assessed\s*(.+?)\n'),
+                             legal=re.sub(r'\s+', ' ', g(r'Description of Property:\s*(.+?)Name in which') or '')[:200])
+            out.append(r)
+    return p, out
+
+
 def fetch_collier(offline=False, today=None, max_pages=12):
     """Collier legal notices RSS (genre tax-deeds), paged; 1 request/second, cached once a day as one JSON file."""
     import json, time
@@ -315,6 +353,20 @@ def td_items(offline=False, today=None):
             x['plaintiff'] = holder
             items.append(('TD', x)); kept += 1
         st[co] = dict(file=os.path.basename(p), listed=len(g.get('rows', [])), upcoming=kept, status=stc)
+    p, rows = wakulla_rows(offline, today)
+    if p:
+        i = INFO['wakulla']; kept = 0; stc = {}
+        for r in rows:
+            stc[r['status']] = stc.get(r['status'], 0) + 1
+            if r['date'] < today or not r['status'].lower().startswith('for sale') or not r.get('parcel'): continue
+            ds = f"{r['date'][5:7]}/{r['date'][8:]}/{r['date'][:4]}"
+            x = dict(county='wakulla', host=None, date=ds, aid='wak' + re.sub(r'\W', '', r['case']), case=r['case'], parcel=r['parcel'], plink=None, street='',
+                     addr=f"Processo {r['case']} — endereço pela parcela {r['parcel']}", multi=None, av=None, url=i['list'], detail=r['pdf'],
+                     ob=r.get('ob'), cert=r.get('cert'), owner=r.get('owner'), legal=r.get('legal'), time=i['time'], clink=r['pdf'])
+            x['inperson'] = dict(co='wakulla', city=i['city'], where=i['where'], time=i['time'], pay=i['pay'] + ((' Obs. do clerk: ' + r['other']) if r.get('other') else ''),
+                                 docket=i['docket'], dname=i['dname'], list=i['list'], detail=r['pdf'], plaintiff=r.get('holder'), defendant=r.get('owner'), ptype=None, room=None, case=r['case'], kind='TD')
+            x['plaintiff'] = r.get('holder'); items.append(('TD', x)); kept += 1
+        st['wakulla'] = dict(file=os.path.basename(p), listed=len(rows), upcoming=kept, status=stc)
     p = fetch('gulf_td', offline, today)
     if p:
         rows = parse_gulf_td(p); i = INFO['gulf']; kept = 0
