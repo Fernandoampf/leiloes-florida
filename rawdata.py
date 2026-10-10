@@ -52,7 +52,7 @@ def collect():
                 if kind == 'TD' and (r.get('Auction Type') or 'TAXDEED').upper() != 'TAXDEED': continue
                 if host is None:
                     lk = r.get('Parcel ID_link') or ''
-                    host = f'{county}.{dom}.com'
+                    host = f"{ {'stjohns': 'saintjohns'}.get(county, county) if kind == 'FC' else county}.{dom}.com"
                 key = (kind, r['AID'])
                 if key in seen: continue
                 seen.add(key)

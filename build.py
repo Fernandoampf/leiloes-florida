@@ -339,7 +339,18 @@ def load_results():
 ADDR_SUF = {'STREET': 'ST', 'AVENUE': 'AVE', 'ROAD': 'RD', 'DRIVE': 'DR', 'LANE': 'LN', 'COURT': 'CT', 'CIRCLE': 'CIR', 'TERRACE': 'TER', 'PLACE': 'PL',
             'BOULEVARD': 'BLVD', 'TRAIL': 'TRL', 'HIGHWAY': 'HWY', 'PARKWAY': 'PKWY', 'NORTH': 'N', 'SOUTH': 'S', 'EAST': 'E', 'WEST': 'W'}
 
-def collect_items(fetch_bids=False, offline=True):
+def zoning_min(cs, zon, city):
+    """(district, min lot area sq ft, min width ft) when the zoning minimum is determinable, else None.
+    City of Tampa RS-xx single-family districts: min width xx ft and min area xx*100 sq ft (Tampa Code ch. 27, table 4-2)."""
+    z = re.sub(r'\s+', '', str(zon or '').upper())
+    m = re.fullmatch(r'RS-?(50|60|75|100)', z)
+    if m and cs == 'hillsborough' and re.search(r'TAMPA', str(city or ''), re.I):
+        w = int(m.group(1)); return (f'RS-{w} (Tampa)', w * 100, w)
+    return None
+
+def collect_items(fetch_bids=False, offline=True, clerk_offline=None):
+    # clerk sites (never RealAuction) refresh once a day even under --offline; --no-clerk / LEILOES_NO_CLERK=1 turns them off
+    if clerk_offline is None: clerk_offline = offline
     known = {}
     for f in ('td_po.json', 'fc_po.json'):
         for k, v in (jload(os.path.join(SW, f), {}) or {}).items():
@@ -348,7 +359,7 @@ def collect_items(fetch_bids=False, offline=True):
     orange_en = jload(os.path.join(AUC, 'orange_enriched.json'), {})
     lake_en = jload(os.path.join(AUC, 'lake_enriched.json'), {})
     items = []
-    raw_items, cv_st = clerk_verify.refresh(rawdata.collect(), offline=offline)
+    raw_items, cv_st = clerk_verify.refresh(rawdata.collect(), offline=clerk_offline)
     print('clerk (status/opening bid):', json.dumps(cv_st, ensure_ascii=False), flush=True)
     collect_items._cv = cv_st
     for src, x in raw_items:
@@ -361,9 +372,11 @@ def collect_items(fetch_bids=False, offline=True):
     items, po_st = po_export.enrich(items, closed=rawdata.closed_cases())
     # Lake / Osceola foreclosures are sold IN PERSON at the courthouse: official clerk lists (cached daily) set the dates,
     # drop canceled sales and add the cases PropertyOnion does not have.
-    ip_st = inperson.merge(items, offline=offline)
+    ip_st = inperson.merge(items, offline=clerk_offline)
     # clerk-run (in-person) TAX DEED sales: counties that do not use RealTaxDeed (Sumter, ...)
-    tdx, tdx_st = inperson.td_items(offline=offline)
+    tdx, tdx_st = inperson.td_items(offline=clerk_offline)
+    tdx, _cv2 = clerk_verify.refresh(tdx, offline=True)   # manual statuses (redeemed/OB) also apply to clerk-list tax deeds
+    if _cv2['dropped']: print('clerk lists — removidos por status manual:', _cv2['by_county'], flush=True)
     have = {(x['county'], re.sub(r'[^0-9A-Z]', '', str(x.get('parcel') or '').upper())) for _, x in ((it['src'], it['raw']) for it in items)}
     for src, x in tdx:
         if (x['county'], re.sub(r'[^0-9A-Z]', '', str(x.get('parcel') or '').upper())) in have: continue
@@ -516,7 +529,9 @@ def build_items(args):
         print('offline: sem rede (PropertyOnion/FLWMI/RealAuction) — usando só cache local', flush=True)
         args.fetch = False
     fetch_bids = (not offline) and bool(getattr(args, 'fetch_bids', False) or args.fetch)
-    items = collect_items(fetch_bids=fetch_bids, offline=offline)
+    clerk_off = bool(getattr(args, 'no_clerk', False)) or os.environ.get('LEILOES_NO_CLERK', '').strip().lower() in ('1', 'true', 'yes', 'on')
+    print('clerk sites:', 'cache only' if clerk_off else 'refresh once/day (not RealAuction)', flush=True)
+    items = collect_items(fetch_bids=fetch_bids, offline=offline, clerk_offline=clerk_off)
     if args.fetch: prefetch_all(items, args)
     today = args.data_date
     facts, sales_by_zip, cono, lcd = nal_index(items, today)
@@ -688,8 +703,26 @@ def build_items(args):
                           l=[[c[0], c[2], c[1], None if land else c[3], c[4], c[3] if land else None] for c in lce['comps'][:8]])
                 cest = lce['est']
             lce['comps'] = lce['comps'][:10]
+        # substandard lot: area/frontage below the zoning district minimum (only where the minimum is determinable)
+        subst = None
+        zmin = zoning_min(cs, (P0 or {}).get('zoning'), (nf or {}).get('city') or x.get('addr'))
+        if zmin and land:
+            lsq = num((nf or {}).get('lsq')) or (num((P0 or {}).get('lotSizeAcres')) or 0) * 43560 or None
+            fr = num((P0 or {}).get('lotSizeFrontageFeet'))
+            short = []
+            if lsq and lsq < zmin[1] * 0.98: short.append(f'área {lsq:,.0f} pés² < mínimo {zmin[1]:,} pés²')
+            if fr and fr > 5 and fr < zmin[2] - 0.5: short.append(f'frente {fr:g} pés < mínimo {zmin[2]} pés')
+            if short:
+                subst = dict(zone=zmin[0], why='; '.join(short), min=zmin[1], minw=zmin[2], lsq=lsq, fr=fr)
+                # comps are conforming (buildable) lots: they don't price a substandard one -> cap ARV at the county's own value
+                off = max([v for v in (mkt, ocpa_mkt, lake_mv, jv) if v] or [0])
+                if lce and lce.get('used') and off and val and off < val:
+                    subst['arv0'] = val; val = off; cest = None
+                    vsrc = (f"lote abaixo do mínimo do zoneamento {zmin[0]} ({subst['why']}) — comps de lotes regulares não valem; "
+                            f"usado o maior valor oficial {_usd(val)} (comps locais davam {_usd(subst['arv0'])})")
+                    if cp: cp['est'] = None
         jv85 = None
-        if (val and base and val == base and not pov_as_arv and not avm and not (cp and (cp.get('n') or 0) >= 3 and cest)):
+        if (val and base and val == base and not (subst and subst.get('arv0')) and not pov_as_arv and not avm and not (cp and (cp.get('n') or 0) >= 3 and cest)):
             # Florida just value is set ~15% under market (cost-of-sale deduction, F.S. 193.011(8)); with nothing better, gross it up
             jv85 = val; val = base / 0.85
             vsrc = f"{vsrc} ÷ 0,85 = {_usd(val)} (só valor do condado: o just value fica ~15% abaixo do mercado, F.S. 193.011(8))"
@@ -762,6 +795,7 @@ def build_items(args):
         # RealAuction previews often show only the certificate amount until the clerk updates it.
         if src == 'TD' and homestead and ref and (av or jv) and ref < 0.5 * (av or jv) and not x.get('cver'):
             flags.append('hmob')
+        if subst: flags.append('subst')
         ipx = x.get('inperson')
         if ipx:
             flags.append('ipres')
@@ -880,7 +914,7 @@ def build_items(args):
             rj=rj, jv85=round(jv85) if jv85 else None,
             survDeduct=True if (surv_amt and hoa_pl and src=='FC') else None,
             beds=beds, baths=baths, sqft=sqft, yr=int(yr) if yr else None, ac=round(acres, 3) if acres else None,
-            zon=P0.get('zoning') or None, fz=fz or None, lat=lat, lon=lon, gsrc=gsrc if lat else None,
+            zon=P0.get('zoning') or None, subst=subst, fz=fz or None, lat=lat, lon=lon, gsrc=gsrc if lat else None,
             dist=round(dist) if dist is not None else None, dap=dapprox, rep=repairs, repw=rwhy,
             fl=flags, note=' '.join(notes[:3]) or None, links=dict(auc=x.get('detail'), po=po_url, pa=pa, list=x.get('url')),
             imgs=imgs[:8], zip=zip5, city=str(city).title() if city else None, plaint=plaintiff, hist=hist[:8], tdy=tdy, lsp=lsp, lsd=lsd,
@@ -1207,6 +1241,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--fetch', action='store_true', help='fetch missing PropertyOnion pages + FLWMI utilities into ./cache (polite)')
     ap.add_argument('--fetch-bids', action='store_true', help='also query RealAuction for missing PO-only opening bids (skipped when --offline or LEILOES_OFFLINE=1)')
+    ap.add_argument('--no-clerk', action='store_true', help='do not contact clerk sites either (Lake/Osceola/Sumter/Collier lists, TaxSmart checks); cache only')
     ap.add_argument('--offline', action='store_true', help='never contact RealAuction/PropertyOnion/FLWMI; local files + cache only (or set LEILOES_OFFLINE=1)')
     ap.add_argument('--threads', type=int, default=4, help='PropertyOnion fetch threads (each pauses between requests)')
     ap.add_argument('--no-images', action='store_true', help='(v3 compat; v4 never embeds images – photos are remote, lazy-loaded)')

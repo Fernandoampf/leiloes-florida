@@ -226,6 +226,12 @@ def estimate(d, pid, zh_of, today, ty_hint=None):
     lv, txt, L = pick
     L.sort(key=lambda c: (c['mi'] if c['mi'] is not None else 9, c['age']))
     L = L[:12]
+    # outliers (teardown/assemblage sales coded vacant, distressed transfers): drop comps >1.8x or <0.5x the median when >=3 remain
+    m0 = statistics.median(c['adj'] for c in L)
+    K = [c for c in L if 0.5 * m0 <= c['adj'] <= 1.8 * m0]
+    nout = len(L) - len(K)
+    if len(K) >= 3: L = K
+    else: nout = 0
     vals = sorted(c['adj'] for c in L)
     est = statistics.median(vals)
     q = lambda p: vals[min(len(vals) - 1, int(p * (len(vals) - 1) + 0.5))]
@@ -237,4 +243,4 @@ def estimate(d, pid, zh_of, today, ty_hint=None):
     conf = max(0, min(100, conf))
     return dict(lvl=lv, lvlTxt=txt, n=len(L), est=round(est), lo=round(lo), hi=round(hi), conf=conf,
                 confTxt='alta' if conf >= 70 else 'média' if conf >= 50 else 'baixa', g=g,
-                comps=[[c['addr'], c['d'], c['p'], c['sz'], c['yb'], c['mi'], c['adj']] for c in L], ctx=ctx)
+                comps=[[c['addr'], c['d'], c['p'], c['sz'], c['yb'], c['mi'], c['adj']] for c in L], ctx=ctx, nout=nout)

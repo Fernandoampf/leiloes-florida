@@ -13,11 +13,16 @@ import datetime as dt, glob, html, os, re, subprocess, urllib.request
 DIR = os.path.join(os.environ.get('AUC', '/workspace/auc'), 'statewide', 'inperson')
 UA = 'Mozilla/5.0 (ChallengeCapital daily refresh; 1 request/day)'
 SRC = {
+    'gulf_td': ('https://www.gulfclerk.com/courts/tax-deeds/', 'html'),
     'sumter_td': ('https://www.sumterclerk.com/public-records/tax-deeds/tax-deed-sales/', 'html'),
     'lake': ('https://foreclosurecalendar.lakecountyclerkfl.gov/default.aspx', 'html'),
     'osceola': ('https://courts.osceolaclerk.com/reports/CivilMortgageForeclosuresWeb.pdf', 'pdf'),
 }
 INFO = {
+    'gulf': dict(where='Fórum de Port St. Joe — lobby do Gulf County Courthouse, 1000 Cecil G. Costin Sr. Blvd., Port St. Joe', time='11:00', city='Port St. Joe',
+                 pay='Tax deed PRESENCIAL, 11h (inscrição na hora, 15 min antes; sem lance por internet/correio). Depósito não reembolsável de 5% do lance (mín. US$ 200) na hora, só dinheiro ou cheque administrativo/certified funds (sem cheque comum ou cartão; não pode sair para buscar). Saldo + doc stamps e registro em 24 horas.',
+                 docket='https://www.gulfclerk.com/courts/tax-deeds/', dname='Gulf Clerk — Tax Deed Sales (lista e PDF do processo)',
+                 list='https://www.gulfclerk.com/courts/tax-deeds/'),
     'sumter': dict(where='Fórum de Bushnell — 316 E. Anderson Ave., Bushnell (Sumter)', time='11:00', city='Bushnell',
                    pay='Tax deed PRESENCIAL (não é RealAuction). Depósito de 5% do lance (mín. US$ 200) na hora, em dinheiro/cheque administrativo; saldo conforme o clerk (em geral até o dia útil seguinte).',
                    docket='https://www.sumterclerk.com/public-records/tax-deeds/tax-deed-sales/', dname='Sumter Clerk — Tax Deed Sales',
@@ -154,6 +159,31 @@ def parse_sumter_td(path):
     return out
 
 
+def parse_gulf_td(path):
+    """gulfclerk.com tax-deed page: one '<div class="shadow mb-2">' card per sale."""
+    s = open(path, encoding='utf-8', errors='ignore').read(); out = []
+    txt = lambda h: re.sub(r'\s+', ' ', html.unescape(re.sub(r'<[^>]+>', ' ', h))).strip()
+    for blk in s.split('<div class="shadow mb-2">')[1:]:
+        t = txt(blk)
+        d = re.search(r'Sale Date (\d\d)/(\d\d)/(\d\d)', t)
+        if not d: continue
+        g = lambda rx: (re.search(rx, t) or [None, None])[1]
+        pdf = re.search(r'href="([^"]+\.pdf)"', blk)
+        loc = re.search(r'<strong>Location</strong></p>(.*?)</div>', blk, re.S)
+        lines = [txt(x) for x in re.findall(r'<p>(.*?)</p>', loc.group(1), re.S)] if loc else []
+        street = re.sub(r'^VACANT,?\s*', '', lines[0]) if lines else ''
+        out.append(dict(date=f'20{d.group(3)}-{d.group(1)}-{d.group(2)}', cert=g(r'Certificate No\. (\S+)'), case=g(r'Case No\. (\S+)'),
+                        parcel=g(r'Parcel ID (\S+)'), status=(g(r'Parcel ID \S+ (\w+)') or '').lower(),
+                        holder=g(r'Applicant (.+?) Owner'), owner=g(r'Owner (.+?) Location'), vacant=bool(lines and lines[0].upper().startswith('VACANT')),
+                        street=street, city=(lines[1].title() if len(lines) > 1 else ''), ob=_m(g(r'\$([\d,]+\.\d\d)')), link=pdf.group(1) if pdf else None))
+    return out
+
+
+def _m(v):
+    try: return float(v.replace(',', '')) if v else None
+    except Exception: return None
+
+
 def fetch_collier(offline=False, today=None, max_pages=12):
     """Collier legal notices RSS (genre tax-deeds), paged; 1 request/second, cached once a day as one JSON file."""
     import json, time
@@ -228,6 +258,25 @@ def td_items(offline=False, today=None):
         st['sumter'] = dict(file=os.path.basename(p), listed=len(rows), upcoming=kept,
                             status={k: sum(1 for r in rows if r['status'] == k) for k in {r['status'] for r in rows}},
                             dates=sorted({r['date'] for r in rows if r['date'] >= today}))
+    p = fetch('gulf_td', offline, today)
+    if p:
+        rows = parse_gulf_td(p); i = INFO['gulf']; kept = 0
+        for r in rows:
+            if r['date'] < today or r['status'] not in ('active', 'scheduled', ''): continue
+            ds = f"{r['date'][5:7]}/{r['date'][8:]}/{r['date'][:4]}"
+            addr = (f"{r['street']}, {r['city']}, FL" if r['street'] else '')
+            x = dict(county='gulf', host=None, date=ds, aid='gultd' + re.sub(r'\W', '', r['case'] or r['cert'] or ''), case=r['case'], parcel=r['parcel'],
+                     plink=None, street=r['street'], addr=addr, multi=None, av=None, url=i['list'], detail=r.get('link') or i['list'],
+                     ob=r['ob'], cert=r['cert'], owner=r.get('owner'), time='11:00 AM')
+            if not addr: x['addr'] = f"Processo {r['case']} — endereço pela parcela {r['parcel']}"
+            x['inperson'] = dict(co='gulf', city=i['city'], where=i['where'], time='11:00 AM', pay=i['pay'], docket=i['docket'], dname=i['dname'],
+                                 list=i['list'], detail=x['detail'], plaintiff=r.get('holder'), defendant=r.get('owner'), ptype=None,
+                                 room=None, case=x['case'], kind='TD')
+            x['plaintiff'] = r.get('holder')
+            items.append(('TD', x)); kept += 1
+        st['gulf'] = dict(file=os.path.basename(p), listed=len(rows), upcoming=kept,
+                          status={k: sum(1 for r in rows if r['status'] == k) for k in {r['status'] for r in rows}},
+                          dates=sorted({r['date'] for r in rows if r['date'] >= today}))
     p = fetch_collier(offline, today)
     if p:
         rows = parse_collier(p); i = INFO['collier']; kept = 0

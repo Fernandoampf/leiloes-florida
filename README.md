@@ -49,7 +49,8 @@ Não automatizados (por regra ou termos de uso): Auction.com, Xome, Hubzu, Bid4A
 
 ## Regerar
 ```bash
-python3 build.py --site --offline               # sem rede (RealAuction está bloqueado neste host). Cache local apenas.
+python3 build.py --site --offline               # sem RealAuction/PropertyOnion; sites dos CLERKS (listas presenciais, TaxSmart) atualizam 1x/dia
+python3 build.py --site --offline --no-clerk    # sem rede nenhuma (só cache)
 python3 build.py --site                         # igual, e também não consulta RealAuction (só cache). `--fetch-bids` liga a rede do clerk.
 python3 build.py --fetch --site                 # também baixa o que falta do PropertyOnion e do FDOH (água/esgoto)
 python3 build.py --site --no-encrypt --out .plain/index.html   # versão sem senha, só para teste local

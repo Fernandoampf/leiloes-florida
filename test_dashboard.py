@@ -272,7 +272,7 @@ with sync_playwright() as p:
     check(all(t in gl for t in ('Opening Bid', 'Final Judgment', 'Surviving Lien', 'Certificate Holder', 'Lis Pendens', 'CDD', 'Subdivision', 'Cash to Close', 'NO ROOM', 'CONTESTED')), 'Glossário lista os termos em inglês')
     pg.keyboard.press('Escape'); pg.wait_for_timeout(150)
     # ---- local resale value + manual valuations
-    lc = pg.evaluate("(()=>{const I=window.__dash.ITEMS; return {n:I.filter(r=>r.lc&&r.lc.lvl).length, used:I.filter(r=>r.lc&&r.lc.used).length, sub:I.filter(r=>r.lc&&r.lc.lvl==='sub').length, bad:I.filter(r=>r.lc&&r.lc.used&&!r.man&&!(r.sup&&r.sup.disc)&&!r.bld&&Math.abs(r.val0-r.lc.est)>1).length, lowc:I.filter(r=>r.lc&&r.lc.used&&r.lc.conf<60).length};})()")
+    lc = pg.evaluate("(()=>{const I=window.__dash.ITEMS; return {n:I.filter(r=>r.lc&&r.lc.lvl).length, used:I.filter(r=>r.lc&&r.lc.used).length, sub:I.filter(r=>r.lc&&r.lc.lvl==='sub').length, bad:I.filter(r=>r.lc&&r.lc.used&&!r.man&&!(r.sup&&r.sup.disc)&&!r.bld&&!(r.subst&&r.subst.arv0)&&Math.abs(r.val0-r.lc.est)>1).length, lowc:I.filter(r=>r.lc&&r.lc.used&&r.lc.conf<60).length};})()")
     check(lc['n'] > 1000 and lc['used'] > 500 and lc['sub'] > 100 and lc['bad'] == 0 and lc['lowc'] == 0, f'comps locais {lc}')
     ho = pg.evaluate('window.__dash.ITEMS.find(r=>r.parcel==="01596160")')
     check(ho and ho['val'] == 100000 and ho['addr'].startswith('Hickory Oak Dr') and ho['man']['holdYr'] == 5700 and ho['man']['qt'] == 2000, f"Hickory Oak manual {ho and (ho['val'], ho['addr'], round(ho['mb']))}")
@@ -417,6 +417,12 @@ with sync_playwright() as p:
         pg.evaluate(D + ".openDrawer('" + hb + "')"); pg.wait_for_timeout(400)
         check('Não aceita wire' in pg.evaluate('document.body.textContent'), 'Hillsborough: regra de pagamento do tax deed no drawer')
         pg.keyboard.press('Escape')
+    # Gulf: tax deed presencial (lista do clerk), badge Port St. Joe, resgatado fora
+    gu = pg.evaluate("""(()=>{const I=window.__dash.ITEMS.filter(r=>r.cs==='gulf'&&r.t==='TD'); return {n:I.length, ip:I.filter(r=>r.ip&&r.ip.city==='Port St. Joe').length, ob:I.filter(r=>r.ref>0).length, starfish:I.some(r=>/STARFISH/i.test(r.addr||''))};})()""")
+    check(gu['n'] >= 1 and gu['ip'] == gu['n'] and gu['ob'] == gu['n'] and not gu['starfish'], f'Gulf: tax deed presencial do clerk, badge Port St. Joe, resgatado fora {gu}')
+    # lote abaixo do mínimo (Tampa RS-50): flag + ARV limitado ao valor oficial; Collier 26136 resgatado fora
+    ss = pg.evaluate("""(()=>{const I=window.__dash.ITEMS;const r=I.find(r=>/3506 E CHELSEA/i.test(r.addr||''));return {fl:r&&r.fl, val:r&&r.val, mkt:r&&r.mkt, c:I.some(r=>r.parcel==='40684200008')};})()""")
+    check(ss['fl'] and 'subst' in ss['fl'] and ss['val'] <= max(ss['mkt'] or 0, 1) + 1 and not ss['c'], f'lote abaixo do mínimo: flag e ARV no valor oficial; Collier 26136 resgatado fora {ss}')
     # celular 390px
     m = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
     mp = m.new_page(); merr = []; mp.on('pageerror', lambda e: merr.append(str(e)))
