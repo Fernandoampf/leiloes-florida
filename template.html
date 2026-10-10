@@ -431,7 +431,7 @@ select option{background:#2a303b;color:#eef1f5}
  <section class="kpis" id="kpis"></section>
  <section class="sumline" id="sumline"></section>
  <div id="fnotice" class="fnotice" style="display:none"></div>
- <div class="viewbar"><div class="tabs" id="tabs"><button data-v="table" title="Tabela">📋 Lista</button><button data-v="cards" title="Cartões">🗂 Cards</button><button data-v="cand" title="Checklist pré-lance salvo neste aparelho">🎯 Meus candidatos</button><button data-v="fav" title="Estrelas salvas neste aparelho">⭐ Favoritos</button><button data-v="map" title="Mapa">🗺 Mapa</button><button data-v="intel" title="Por condado">📊 Inteligência</button><button data-v="res" title="Leilões passados">📈 Resultados</button><button data-v="bld" title="Onde as construtoras estão comprando lotes">🏗 Builders</button><button data-v="cal" title="Calendário">📅 Calendário</button><button data-v="day" title="Lista do dia">🖨 Dia do leilão</button></div><button class="btn sm" id="bgloss" type="button" title="Siglas: POV, ARV, J>MAX, FJ, OB, BRRRR, xroi…">Glossário</button><span class="cnt" id="cnt"></span></div>
+ <div class="viewbar"><div class="tabs" id="tabs"><button data-v="table" title="Tabela">📋 Lista</button><button data-v="cards" title="Cartões">🗂 Cards</button><button data-v="cand" title="Checklist pré-lance salvo neste aparelho">🎯 Meus candidatos</button><button data-v="fav" title="Estrelas salvas neste aparelho">⭐ Favoritos</button><button data-v="map" title="Mapa">🗺 Mapa</button><button data-v="intel" title="Por condado">📊 Inteligência</button><button data-v="res" title="Leilões passados">📈 Resultados</button><button data-v="bld" title="Onde as construtoras estão comprando lotes">🏗 Builders</button><button data-v="pac" title="Vários lotes da mesma área no mesmo leilão: comprar juntos e vender em pacote para construtora">📦 Pacotes</button><button data-v="cal" title="Calendário">📅 Calendário</button><button data-v="day" title="Lista do dia">🖨 Dia do leilão</button></div><button class="btn sm" id="bgloss" type="button" title="Siglas: POV, ARV, J>MAX, FJ, OB, BRRRR, xroi…">Glossário</button><span class="cnt" id="cnt"></span></div>
  <section class="panel" id="datesbar">
   <div class="chips" id="dchips">
    <span class="lbl">Quando</span>
@@ -504,6 +504,7 @@ select option{background:#2a303b;color:#eef1f5}
  <div id="v-intel" style="display:none"></div>
  <div id="v-res" style="display:none"></div>
 <div id="v-bld" style="display:none"></div>
+ <div id="v-pac" style="display:none"></div>
  <div id="v-cal" style="display:none"></div>
  <div id="v-day" style="display:none"></div>
  <section class="info">
@@ -719,6 +720,7 @@ const FLAGC=['gold','green','red','blue']; const FLAGL={gold:'Dourado',green:'Ve
 const PF=[
  ['Meta de retorno',[['ret','Retorno mínimo (%) – define o lance máx.',0.5],['flip','ROI p/ veredito FLIP (%)',0.5],['lownet','“Lucro baixo” se NET abaixo de (US$)',1000],['tdxp','Tax deed: NET/ROI no preço esperado do leilão (1) ou no lance inicial (0)',1],['stress','Teste de estresse: FLIP/CONSIDERAR só se não der prejuízo com o ARV este % menor',1],['netHouse','Construído: NET mínimo p/ FLIP/CONSIDERAR (US$)',1000]]],
  ['Escada de retorno – lotes',[['lotS','Lote barato: custo all-in até (US$)',1000],['lotSroi','Lote barato: ROI mínimo (%)',1],['lotSnet','Lote barato: NET mínimo (US$)',500],['lotM','Lote médio: custo all-in até (US$)',1000],['lotMroi','Lote médio: ROI mínimo (%)',1],['supAdd','Subdivisão com oferta alta: + pontos de ROI exigidos (0 = não; valor de venda e posse já descontam a oferta)',1]]],
+ ['Pacotes (vários lotes da mesma área)',[['pkg','Venda em pacote para construtora: % do valor de venda por lote',1],['pkgM','Venda em pacote: meses de posse',1],['pkgMin','Pacote: mínimo de lotes na mesma área e data',1]]],
  ['Capital',[['capc','Custo do capital (% a.a. sobre compra + reforma, nos meses de posse)',0.5]]],
  ['Compra (Flórida)',[['clerk1','Clerk Fee: % sobre os primeiros US$ 500',0.1],['clerk2','Clerk Fee: % sobre o restante do lance',0.1],['docb','Doc Stamps na compra (% do lance)',0.05],['qt','Quiet Title – tax deed construído (US$)',100],['qtLot','Title Certification do lote p/ revenda (US$)',100],['fee','Taxas extras do leilão (US$)',50],['ev','Eviction / Cash-for-Keys se ocupado (US$)',100],['dep','Deposit no leilão (% do lance)',0.5]]],
  ['Rehab (por idade e tamanho)',[['rhb20','Construído 2020+ (US$/sqft)',1],['rhb15','2015–2019 (US$/sqft)',1],['rhb05','2005–2014 (US$/sqft)',1],['rhb95','1995–2004 (US$/sqft)',1],['rhbOld','Antes de 1995 (US$/sqft)',1],['rhbMin','Reforma mínima (US$)',500],['rhbUnk','Ano desconhecido (US$)',1000],['rhbSqft','Área presumida se desconhecida (sqft)',50],['rhbPool','Piscina (+US$)',500],['cont','Contingência (% da reforma)',1]]],
@@ -727,9 +729,9 @@ const PF=[
  ['Aluguel, BRRRR e reconstrução',[['yld','Yield bruto p/ “aluguel forte” (%)',0.5],['refi','Taxa do refinanciamento (% a.a.)',0.1],['ltv','LTV do refi (% do ARV)',1],['tax','Imposto predial BRRRR (% do valor/ano, est.)',0.1],['ins','Seguro BRRRR (% do valor/ano, est.)',0.1],['vac','Vacância + manutenção (% do aluguel)',1],['mgmt','Administração (% do aluguel)',1],['rebuild','Reconstrução (US$/sqft)',5],['depr','Depreciação (% por ano de idade, máx. 60%)',0.1]]]
 ];
 const PKEYS=PF.flatMap(g=>g[1].map(f=>f[0]));
-const PDEF={}; const PFALL={tdxp:1,usedom:0,closem:1,hutilLot:50,months:7,monthsLot:3,evm:2,rhb20:5,rhb15:10,rhb05:30,rhb95:35,rhbOld:48,rhbMin:15000,rhbUnk:35000,rhbSqft:1500,rhbPool:5000,cont:20,hins:2,misc:1000,clear:500,qtLot:1200,wra:399,titleP:100,clerk1:3,clerk2:1.5,
- conc:2,commLot:8,capc:8,stress:10,lotS:15000,lotSroi:40,lotSnet:3000,lotM:60000,lotMroi:25,supAdd:0,netHouse:25000}; PKEYS.forEach(k=>PDEF[k]=isFinite(+P[k])?+P[k]:(PFALL[k]??0));
-const PKEY='leilao_premissas_v7';   // v7 (out/2026): oferta alta sem +pontos na escada (valor e posse já descontam), sem filtro de caixa – reseta premissas antigas
+const PDEF={}; const PFALL={qtm:2,tdxp:1,usedom:0,closem:1,hutilLot:50,months:7,monthsLot:3,evm:2,rhb20:5,rhb15:10,rhb05:30,rhb95:35,rhbOld:48,rhbMin:15000,rhbUnk:35000,rhbSqft:1500,rhbPool:5000,cont:20,hins:2,misc:1000,clear:500,qtLot:1200,wra:399,titleP:100,clerk1:3,clerk2:1.5,
+ conc:2,commLot:8,capc:8,stress:10,lotS:15000,lotSroi:40,lotSnet:3000,lotM:60000,lotMroi:25,supAdd:0,netHouse:25000,pkg:85,pkgM:4,pkgMin:3}; PKEYS.forEach(k=>PDEF[k]=isFinite(+P[k])?+P[k]:(PFALL[k]??0));
+const PKEY='leilao_premissas_v8';   // v8 (out/2026): + pacotes (pkg/pkgM/pkgMin); v7: oferta alta sem +pontos, sem filtro de caixa – reseta premissas antigas
 let PR={...PDEF};
 (()=>{const sv=LS.get(PKEY,null); if(sv) PKEYS.forEach(k=>{if(typeof sv[k]==='number'&&isFinite(sv[k])&&sv[k]>=0) PR[k]=sv[k];});})();
 const custom=()=>PKEYS.some(k=>PR[k]!==PDEF[k]);
@@ -975,7 +977,7 @@ function evaluate(r){
  r.ttf = o.months;
  r.hmo = arv ? holdMonth(r,arv).total : null;
  r.dep = null;
- if(!arv){ r.floor=r.mb=r.be=r.r70=null; r.net=r.roi=r.inv=null; r.jmax=false; r.cush=r.refPct=null; r.eqPct=null; r.xroi=r.xbid=r.roi0=r.net0=r.roiXp=r.cash=r.refU=r.refx=null; }
+ if(!arv){ r.floor=r.mb=r.be=r.r70=null; r.net=r.roi=r.inv=r.roiA=null; r.jmax=false; r.cush=r.refPct=null; r.eqPct=null; r.xroi=r.xbid=r.roi0=r.net0=r.roiXp=r.cash=r.refU=r.refx=null; }
  else {
   const RB=ruleBid(r,o); r.floor=RB.b; r.mb=Math.max(0,r.floor); r.mbWhy=RB.w; r.be=bidAt(r,0,o); r.r70=0.70*arv-o.rehab;
   // researched (manual) valuation: its bid ceiling caps the formula's max bid (the lower one wins)
@@ -991,6 +993,8 @@ function evaluate(r){
   r.xPct = r.xbid!=null ? r.xbid/arv : null;
   r.eqPct = r.ref!=null ? (arv-r.ref-o.lien)/arv : null;
   r.cash = cashNeed(r.xbid);
+  // capital growth (Fernando, out/2026): simple annualized return = ROI at the realistic bid ÷ holding months × 12
+  r.roiA = (r.roi!=null && o.months>0) ? r.roi*12/o.months : null;
  }
  r.dep = r.mb!=null ? r.mb*PR.dep/100 : null;
  r.titleNv = true;
@@ -1202,7 +1206,7 @@ function catFrom(set){ if(!set||!set.size) return ''; const a=[...set].sort(); i
 const catOk = r=>{ const cs=catSet(); return !cs || cs.has(r.ty); };
 function catLabel(){ const cs=catSet(); if(!cs) return ''; return S.cat==='resid' ? 'Residencial (Casa + Townhouse + Condo)' : [...cs].map(t=>t).join(' + '); }
 let S={cat:'resid',kat:'',sort:'sc',today:false,d7:false,fav:false,rent:false,clean:false,newt:false,photo:false,heat:null,view:null};
-const QS=[['sc','★ Melhor nota','Nota usando o ROI realista'],['net','💰 Maior NET','Lucro no lance realista'],['roi','📈 Maior ROI','ROI no lance realista'],['cap','🏦 Melhor cap','Cap rate'],['date','⏱ Mais próximo','Data do leilão'],['yr','🏗 Mais novo',''],['arv','🏠 Maior valor','ARV usado na conta'],['pov','🧅 Maior POV PO','PropertyOnion Value'],['cush','↔ Maior spread','Folga até o lance máx. de 17%'],['yld','🏘 Maior yield','Aluguel anual dividido pelo ARV'],['xroi','🎯 ROI histórico','ROI no preço esperado do condado'],['dist','📍 Perto de Orlando','Distância até Orlando'],['rt','🔥 Revenda mais rápida','Temperatura de revenda do ZIP']];
+const QS=[['sc','★ Melhor nota','Nota usando o ROI realista'],['net','💰 Maior NET','Lucro no lance realista'],['roi','📈 Maior ROI','ROI no lance realista'],['roiA','🚀 Retorno ao ano','ROI no lance realista ÷ meses de posse × 12 (simples): o que mais faz o capital crescer'],['cap','🏦 Melhor cap','Cap rate'],['date','⏱ Mais próximo','Data do leilão'],['yr','🏗 Mais novo',''],['arv','🏠 Maior valor','ARV usado na conta'],['pov','🧅 Maior POV PO','PropertyOnion Value'],['cush','↔ Maior spread','Folga até o lance máx. de 17%'],['yld','🏘 Maior yield','Aluguel anual dividido pelo ARV'],['xroi','🎯 ROI histórico','ROI no preço esperado do condado'],['dist','📍 Perto de Orlando','Distância até Orlando'],['rt','🔥 Revenda mais rápida','Temperatura de revenda do ZIP']];
 const QT=[['rent','🏘 Para alugar'],['clean','✔ Negócios limpos'],['newt','🆕 Novos hoje'],['today','📅 Hoje'],['d7','⏳ ≤ 7 dias'],['photo','📷 Com foto'],['fav','☆ Favoritos']];
 function readF(){ const F={}; for(const k in FIELDS){ F[k]=$(FIELDS[k]).value.trim(); } for(const k in CHECKS){ const e=$(CHECKS[k]); F[k]=e?e.checked:false; } return F; }
 function utilOk(r,u){ const U=r.util||{}; const ww=U.WW||'', dw=U.DW||'', sw=(r.sewer||'').toLowerCase();
@@ -1269,7 +1273,7 @@ function filt(F,ignoreCat){
 const nz=(v,d)=> v==null||!isFinite(v) ? d : v;
 const SORTS={
  sc:(a,b)=>nz(b.sc,-1)-nz(a.sc,-1)||((b.ty==='Casa')-(a.ty==='Casa'))||((b.ty==='Townhouse')-(a.ty==='Townhouse'))||(isRes(b)|0)-(isRes(a)|0)||nz(b.net,-1e12)-nz(a.net,-1e12),
- net:(a,b)=>nz(b.net,-1e12)-nz(a.net,-1e12), roi:(a,b)=>nz(b.roi,-1e9)-nz(a.roi,-1e9), cush:(a,b)=>nz(b.cush,-1e9)-nz(a.cush,-1e9),
+ net:(a,b)=>nz(b.net,-1e12)-nz(a.net,-1e12), roi:(a,b)=>nz(b.roi,-1e9)-nz(a.roi,-1e9), roiA:(a,b)=>nz(b.roiA,-1e9)-nz(a.roiA,-1e9), cush:(a,b)=>nz(b.cush,-1e9)-nz(a.cush,-1e9),
  cap:(a,b)=>nz(b.cap,-1e9)-nz(a.cap,-1e9), xroi:(a,b)=>nz(b.roiXp,-1e9)-nz(a.roiXp,-1e9),
  date:(a,b)=>a.date.localeCompare(b.date)||nz(b.sc,-1)-nz(a.sc,-1), yr:(a,b)=>nz(b.yr,0)-nz(a.yr,0), arv:(a,b)=>nz(b.val,-1)-nz(a.val,-1), pov:(a,b)=>nz(b.pov,-1)-nz(a.pov,-1),
  yld:(a,b)=>nz(b.yld,-1)-nz(a.yld,-1), dist:(a,b)=>nz(a.dist,1e9)-nz(b.dist,1e9), rt:(a,b)=>nz(b.rt&&b.rt.sc,-1)-nz(a.rt&&a.rt.sc,-1),
@@ -1285,7 +1289,7 @@ function renderTypes(list){
   M.types.map(c=>{ const on=!!(cs&&cs.has(c)); return '<button class="chip tchip'+(on?' on':'')+'" aria-pressed="'+on+'" data-cat="'+c+'" data-multi="1" title="Toque para somar ou tirar '+c+' da seleção">'+(on?'✓ ':'')+TYPEL[c]+' ('+(cnt[c]||0)+')</button>'; }).join('');
  if($('#typelg')) $('#typelg').innerHTML='<b>Arquivo '+nf(ITEMS.length)+'</b> = tudo que entrou. <b>Todos ('+list.length+')</b> = depois de ocultar faixas/áreas comuns e execuções de HOA (padrão) e dos filtros, sem o recorte de tipo. <b>Residencial</b> = casa + townhouse + condo. “Mostrando” é o que esta aba lista agora.';
 }
-const QSMAIN=['sc','net','roi','date','dist'];
+const QSMAIN=['sc','net','roi','roiA','date','dist'];
 function renderQS(){
  const btn=([k,l,tip])=>'<button class="chip'+(S.sort===k?' on':'')+'" data-sort="'+k+'"'+(tip?' title="'+esc(tip)+'"':'')+'>'+l+'</button>';
  const main=QS.filter(([k])=>QSMAIN.includes(k)), more=QS.filter(([k])=>!QSMAIN.includes(k));
@@ -1378,6 +1382,7 @@ const COLS=[
  ['mb',()=>'Max Bid ('+nf(PR.ret)+'%)',r=>'<b>'+money(r.mb)+'</b>'+(r.man&&r.man.ceiling!=null?'<div class="mini c-gold">teto manual</div>':'')+'<div class="mini">Deposit '+money(r.dep)+'</div>','mb',1,'num'],
  ['net','NET',r=>'<b class="'+(r.net>=0?'c-green':'c-red')+'" title="No lance realista '+esc(money(r.xbid))+'">'+money(r.net)+'</b>','net',1,'num'],
  ['roi','ROI',r=>'<span class="'+(r.roi>=PR.flip/100?'c-green':r.roi>=PR.ret/100?'c-amber':'c-red')+'" title="Lance realista '+esc(money(r.xbid))+'">'+pct(r.roi)+'</span>'+roiNote(r),'roi',1,'num'],
+ ['roiA','ROI/ano',r=>'<span title="ROI no lance realista ÷ '+nf(r.ttf)+' meses de posse × 12 (simples)">'+pct(r.roiA)+'</span><div class="mini">'+(r.ttf!=null?nf(r.ttf)+' meses':'')+'</div>','roiA',1,'num'],
  ['vd','Verdict',r=>vdHtml(r,false)+(r.vd==='DISPUTADO'?'<div class="mini">até '+money(r.mb)+'</div>':'')+(TRK[r.id]&&TRK[r.id].s?'<div class="mini c-gold">'+STL[TRK[r.id].s]+'</div>':''),'vd',1],
  ['plaint','Plaintiff / Certificate Holder',r=>'<div style="max-width:190px;overflow:hidden;text-overflow:ellipsis" title="'+esc(r.plaint||'')+'">'+esc(r.plaint||'—')+'</div>',null,1],
  ['xp','Expected Price',r=>r.xp?money(r.xp.v)+'<div class="mini" title="ROI se o martelo cair no preço histórico do condado">ROI hist. '+pct(r.roiXp)+'</div>':'—','xroi',0,'num'],
@@ -1461,7 +1466,7 @@ function renderMap(){
 }
 
 // ---------------------------------------------------------------- apply / views
-const VIEWS=['table','cards','cand','fav','map','intel','res','bld','cal','day'];
+const VIEWS=['table','cards','cand','fav','map','intel','res','bld','pac','cal','day'];
 function isoAdd(s,n){ const t=new Date(s+'T00:00:00Z'); t.setUTCDate(t.getUTCDate()+n); return t.toISOString().slice(0,10); }
 function activeWin(){
  const d1=$('#d1')?$('#d1').value:'', d2=$('#d2')?$('#d2').value:'';
@@ -1502,7 +1507,7 @@ function apply(noHash){
  $('#cnt').innerHTML='Mostrando <b>'+nf(CUR.length)+'</b> · base <b>'+nf(noCat.length)+'</b> <span title="Depois das exclusões e filtros, antes do recorte de tipo">sem recortar tipo</span> · arquivo <b>'+nf(ITEMS.length)+'</b>';
  syncDateChips(); filterNotice(); try{ LS.set('leilao_ui_v9', stateObj()); }catch(e){}
  if(view==='table') renderTable(true); else if(view==='cards'||view==='fav') renderCards(true); else if(view==='cand') renderCand(); else if(view==='map') renderMap();
- else if(view==='intel') renderIntel(); else if(view==='bld') renderBld(); else if(view==='res') renderRes(); else if(view==='cal') renderCal(); else if(view==='day') renderDay();
+ else if(view==='intel') renderIntel(); else if(view==='bld') renderBld(); else if(view==='pac') renderPac(); else if(view==='res') renderRes(); else if(view==='cal') renderCal(); else if(view==='day') renderDay();
  if(!noHash) writeHash();
  ftLabel();
 }
@@ -1510,7 +1515,7 @@ function setView(v){
  if(!VIEWS.includes(v)) v='table';
  if(v==='fav'){ S.fav=true; } else if(view==='fav'){ S.fav=false; }
  view=v; S.view=v; $$('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
- const show={'v-table':v==='table','v-cards':v==='cards'||v==='fav'||v==='cand','v-map':v==='map','v-intel':v==='intel','v-res':v==='res','v-bld':v==='bld','v-cal':v==='cal','v-day':v==='day'};
+ const show={'v-table':v==='table','v-cards':v==='cards'||v==='fav'||v==='cand','v-map':v==='map','v-intel':v==='intel','v-res':v==='res','v-bld':v==='bld','v-pac':v==='pac','v-cal':v==='cal','v-day':v==='day'};
  for(const k in show) $('#'+k).style.display=show[k]?'':'none';
  apply();
 }
@@ -2062,6 +2067,40 @@ function renderBld(){
   A.slice(0,150).map(a=>'<tr><td><span class="mini">'+a[0]+'</span> <b>'+esc(a[1])+'</b></td><td>'+esc(a[2])+'</td><td class="n"><div style="display:flex;align-items:center;gap:6px;justify-content:flex-end"><span style="display:inline-block;height:8px;width:'+Math.round(60*a[3]/mx)+'px;background:#4f9a74;border-radius:3px"></span>'+nf(a[3])+'</div></td><td class="n">'+nf(a[4])+'</td><td style="white-space:normal">'+a[5].map(t=>esc(t[0])+' ('+t[1]+')').join(', ')+'</td><td class="n">'+(a[6]==null?'—':(a[7]?'≈':'')+a[6]+' mi')+'</td><td class="n">'+(ours[a[0]+'|'+String(a[1]).toLowerCase()]||'')+'</td></tr>').join('')+'</tbody></table></div>'+
   '<div class="tblwrap" style="max-height:620px"><table class="itbl"><thead><tr><th>Construtora</th><th class="n">Lotes 12m</th><th>Condados</th></tr></thead><tbody>'+B.top.slice(0,30).map(t=>'<tr><td><b>'+esc(t[0])+'</b></td><td class="n">'+nf(t[1])+'</td><td style="white-space:normal" class="mini">'+esc(t[2].join(', '))+'</td></tr>').join('')+'</tbody></table></div></div></section>';
  const sel=$('#bldmax'); if(sel) sel.onchange=()=>{ BLDMAX=+sel.value; renderBld(); };
+}
+// ---- Pacotes (Fernando, out/2026): several biddable lots of the same area going to auction on the same day.
+// Buying them together lets you sell the bundle to a builder already buying there (faster, at a discount per lot).
+let PACMAX=150;
+const PAC_HARD=['jr','surv','red','hmtd','cxl','junk','flood','nobid','code','mtg','avoid','unv'];
+function pacOk(r){
+ return isLand(r) && r.date>=TODAY && r.mb>0 && r._o && r._o.arv && !r.suspect && !r.fl.some(f=>PAC_HARD.includes(f)) &&
+  (r.vd==='FLIP' || r.vd==='CONSIDERAR' || (r.vd==='DISPUTADO' && (r.ref==null || r.ref<r.mb))) && (r.dist==null || r.dist<=PACMAX);
+}
+function pacArea(r){ const c=(r.lc&&r.lc.ctx)||{}; return c.sub ? c.sub : (r.zip ? 'ZIP '+r.zip : (r.city||'?')); }
+function pacBuilders(r){ const b=r.lc&&r.lc.ctx&&r.lc.ctx.bld; if(!b) return []; const s=(b.sub&&b.sub[2]&&b.sub[2].length)?b.sub:b.zip; return s&&s[2]?s[2].slice(0,4):[]; }
+function renderPac(){
+ const G={};
+ ITEMS.forEach(r=>{ if(!pacOk(r)) return; const k=r.date+'|'+r.co+'|'+pacArea(r); (G[k]=G[k]||[]).push(r); });
+ const rows=Object.entries(G).filter(([k,a])=>a.length>=PR.pkgMin).map(([k,a])=>{
+  const sum=f=>a.reduce((s,r)=>s+(f(r)||0),0);
+  const pk=a.map(r=>{ const oP={...r._o, arv:r._o.arv*PR.pkg/100, months:PR.pkgM}; return {mx:pnl(r,r.mb,oP), xp:r.xbid!=null?pnl(r,Math.min(r.xbid,r.mb),oP):null}; });
+  const netMx=pk.reduce((s,p)=>s+p.mx.net,0), invMx=pk.reduce((s,p)=>s+p.mx.inv,0);
+  const netXp=pk.reduce((s,p)=>s+(p.xp?p.xp.net:0),0), invXp=pk.reduce((s,p)=>s+(p.xp?p.xp.inv:0),0);
+  const [d,co,area]=k.split('|');
+  return {d,co,area,a,n:a.length,mb:sum(r=>r.mb),xb:sum(r=>Math.min(r.xbid||r.mb,r.mb)),comps:sum(r=>r.lc&&r.lc.est)/a.length,
+   netMx,roiMx:invMx>0?netMx/invMx:null,netXp,roiXp:invXp>0?netXp/invXp:null,dep:sum(r=>r.mb)*PR.dep/100,
+   dist:Math.min(...a.map(r=>r.dist==null?999:r.dist)),bld:pacBuilders(a.find(r=>pacBuilders(r).length)||a[0]),nb:a.filter(r=>r.fl.includes('bldA')).length};
+ }).sort((x,y)=>y.netXp-x.netXp);
+ const lot=r=>'<tr><td><a href="#" data-open="'+r.id+'">'+esc((r.addr||'').slice(0,46))+'</a><div class="mini">'+esc(r.case||'')+(r.parcel?' · '+esc(r.parcel):'')+'</div></td><td>'+vdHtml(r)+'</td><td class="n">'+money(r.ref)+'</td><td class="n">'+money(r.xbid)+'</td><td class="n"><b>'+money(r.mb)+'</b></td><td class="n">'+money(r.val)+'</td><td class="n">'+money(r.lc&&r.lc.est)+'</td><td class="mini">'+esc(r.fl.filter(f=>['dec','rebid','tconf','supH','supM','bldA'].includes(f)).map(f=>(FL[f]||{}).l||f).join(' · '))+'</td></tr>';
+ $('#v-pac').innerHTML='<section class="panel"><div class="dayh"><h3 style="margin:0">📦 Pacotes: vários lotes da mesma área no mesmo leilão</h3><label>Distância máx. de Orlando<select class="inp" id="pacmax">'+[50,100,150,250,999].map(v=>'<option value="'+v+'"'+(v===PACMAX?' selected':'')+'>'+(v===999?'Flórida toda':v+' mi')+'</option>').join('')+'</select></label></div>'+
+  '<p class="mini">Lotes com espaço para lance (FLIP, CONSIDER ou CONTESTED com lance máx. acima do lance inicial), sem sinal grave, agrupados por subdivisão (ou ZIP) e data. <b>Cenário pacote</b>: vender todos juntos para uma construtora a '+nf(PR.pkg)+'% do valor de venda por lote, em '+nf(PR.pkgM)+' meses (⚙ Premissas). "No teto" = se ganhar todos no lance máximo; "esperado" = no preço esperado. Mínimo de '+nf(PR.pkgMin)+' lotes. Construtoras = quem comprou lotes ali nos últimos 12 meses (cadastro DOR).</p>'+
+  (rows.length?'':'<p>Nenhum pacote com esses critérios.</p>')+
+  rows.map(g=>'<details class="panel" style="margin:8px 0"><summary style="cursor:pointer"><b>'+fdate(g.d)+'</b> · '+esc(g.co)+' · <b>'+esc(g.area)+'</b> · '+g.n+' lotes · '+(g.dist<999?g.dist+' mi':'—')+
+   ' · lances máx. somados <b>'+money(g.mb)+'</b> (depósito '+money(g.dep)+') · pacote no esperado <b class="'+(g.netXp>=0?'c-green':'c-red')+'">'+money(g.netXp)+'</b> ('+pct(g.roiXp)+') · no teto <span class="'+(g.netMx>=0?'c-green':'c-red')+'">'+money(g.netMx)+'</span> ('+pct(g.roiMx)+')'+
+   (g.bld.length?'<div class="mini">🏗 '+g.bld.map(t=>esc(t[0])+' ('+t[1]+')').join(', ')+'</div>':'')+'</summary>'+
+   '<div class="tblwrap"><table class="itbl"><thead><tr><th>Lote</th><th>Verdict</th><th class="n">Abertura</th><th class="n">Preço esperado</th><th class="n">Max Bid</th><th class="n">ARV</th><th class="n">Comps</th><th>Sinais</th></tr></thead><tbody>'+g.a.sort((x,y)=>y.mb-x.mb).map(lot).join('')+'</tbody></table></div></details>').join('')+'</section>';
+ const sel=$('#pacmax'); if(sel) sel.onchange=()=>{ PACMAX=+sel.value; renderPac(); };
+ $('#v-pac').onclick=e=>{ const a=e.target.closest('[data-open]'); if(a){ e.preventDefault(); openDrawer(a.dataset.open); } };
 }
 function closeDrawer(){ document.body.classList.remove('dopen'); $('#drawer').classList.remove('on'); $('#drbg').classList.remove('on'); $('#drawer').setAttribute('aria-hidden','true'); $('#drawer').innerHTML=''; OPEN=null; DR=null; writeHash(); }
 $('#drbg').onclick=closeDrawer;

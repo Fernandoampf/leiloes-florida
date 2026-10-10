@@ -29,6 +29,8 @@ Não automatizados (por regra ou termos de uso): Auction.com, Xome, Hubzu, Bid4A
 - **Premissas mais conservadoras:** reforma US$ 30/35/48 por sqft (2005–14 / 1995–2004 / antes de 1995), mínimo US$ 15 mil, contingência 20%, posse 7 meses (+2 com despejo), seguro 2%/ano, imposto nunca abaixo de 1,8% do valor no construído (o homestead cai na venda), concessões 2% do ARV na venda, lote com comissão total de 8%, **custo do capital 8% a.a.** sobre compra + reforma nos meses de posse.
 - **Cash to Close** = lance inteiro + clerk + doc stamps (só o depósito de 5% é pago no leilão; o saldo vence logo depois).
 - **Filtro "Dar lance (proxy no teto)"** em Verdict: FLIP + CONSIDER + CONTESTED que ainda têm espaço (lance máx. acima do lance inicial/julgamento). O preço esperado é um chute; lançar o proxy no lance máximo em vários lotes é o que pega as pechinchas.
+- **Retorno ao ano** (coluna ROI/ano e ordenação 🚀): ROI no lance realista ÷ meses de posse × 12 (simples) – a métrica de crescimento de capital.
+- **Vista 📦 Pacotes:** lotes com espaço para lance da mesma subdivisão/ZIP no mesmo leilão (mín. 3), com soma dos lances máximos, depósito, construtoras que compram ali e cenário de venda em pacote (85% do valor por lote, 4 meses; editável em ⚙ Premissas).
 - **Teto da nota** quando o dado é fraco: sem julgamento conferido 60 · tax deed com resgate provável/homestead 60 · comercial/outro 50 · construído com menos de 3 comps 70 (asterisco na nota, motivo no tooltip).
 
 ## Conta (estrutura do BidToFlip, padrões realistas – tudo editável no painel)

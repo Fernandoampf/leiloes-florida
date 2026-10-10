@@ -50,7 +50,8 @@ P = dict(
     docb=0.70,              # FL documentary stamp tax on the deed (% of bid)
     fee=0,                  # extra flat auction fees (US$)
     qt=2500,                # quiet title (US$) – built tax deeds
-    qtm=0,                  # extra holding months for quiet title
+    qtm=2,                  # extra holding months for quiet title / title certification (tax deeds and lots) – out/2026:
+                            # without it lots showed 2–3 months of holding and annualized returns of 500%+
     ev=2500,                # eviction / cash-for-keys (US$) when occupied/tenant likely
     evm=2,                  # extra months when eviction likely (out/2026: FL writ of possession + cash-for-keys ≈ 1–3 months)
     # out/2026 (Fernando): blind auction buys – no interior inspection – so rehab, contingency and holding are conservative
@@ -79,6 +80,8 @@ P = dict(
     supAdd=0,               # land in a high-supply subdivision: extra ROI points on the ladder – 0 since out/2026: the
                             # supply discount on the resale value and the longer holding already price that risk (no double count)
     netHouse=25000,         # built: NET ≥ US$ 25k besides the ROI minimum
+    # Pacotes view (Fernando, out/2026): several lots of one area on the same auction day, sold together to a builder
+    pkg=85, pkgM=4, pkgMin=3,  # bundle sale at 85% of the per-lot resale value, 4 months of holding, at least 3 lots
     dep=5.0,                # deposit due at the auction (% of the bid) – RealAuction standard; confirm per county
     yld=9.0,                # gross yield considered 'aluguel forte' (%)
     rebuild=175, depr=1.0,  # replacement cost: US$/sqft, depreciation %/year of age (max 60%)
