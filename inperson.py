@@ -22,7 +22,7 @@ SRC = {
 # clerks on the TaxSmart(Web) product (sale-date search + jqGrid JSON): county -> base URL
 TAXSMART = {'levy': 'https://online.levyclerk.com/TaxSmartWeb/'}
 # counties read from newspaper legal notices (floridapublicnotices.com) — the clerk has no online list
-NOTICE_CO = ['hardee', 'desoto']
+NOTICE_CO = ['hardee', 'desoto', 'bradford', 'glades', 'union']
 _NP = 'Lista montada pelos EDITAIS de jornal (floridapublicnotices.com) — o clerk não publica lista online. Resgates só aparecem como edital que parou de sair: CONFIRMAR com o clerk antes de ir.'
 INFO = {
     'hardee': dict(where='Wauchula — Fórum de Hardee, 2º andar, 417 W. Main St.', time='11:00', city='Wauchula', pay='Tax deed PRESENCIAL (quartas, 11h). ' + _NP + ' Clerk: (863) 773-4174.',
