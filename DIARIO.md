@@ -33,3 +33,9 @@ Formato: `dd/mm hh:mm ET · QUEM · commit · o quê · por quê · teste/estado
 - 22:40 · Claude · — · conferido no ar: checagem de área alagada/FEMA pela parcela (TD 26136 = 70,9% alagado e 100% AH; lotes acompanhados em 0% e zona X) · resposta do Fernando às 2 perguntas: (1) limite de 10% para área alagada E para zona de inundação; abaixo de 10% só selo, sem tirar do veredito; (2) sim à releitura semanal além de 7 dias, só dos candidatos (FLIP, CONSIDER, 'Dar lance', favoritos), com acessos espalhados no dia · **feito pelo Grok em b9d05a5 + cron do box**
 - 23:17 · Grok · b9d05a5 · regra do Fernando: área úmida E inundação FEMA com limite de 10% (≥ 10% tira de FLIP/CONSIDER; abaixo só selo para revisar); premissa salva com 20% migra para 10% · decisão do Fernando 09/10 · 261 lotes excluídos, 30 só com selo; no ar desde 23:18 ET, todos os testes ok
 - 23:17 · Grok · (fora do git, box) · releitura semanal das listas RealAuction de leilões a mais de 7 dias, SÓ datas com candidatos (FLIP, CONSIDER, Dar lance, favoritos), 20–60 min aleatórios entre datas, para no 1º bloqueio; cron do box domingo 01:13 ET (/workspace/auc/statewide/weekly_reread.py) · decisão do Fernando 09/10 · teste a seco: 1.472 candidatos, 6 datas a reler
+
+## 2026-10-09 23:5x ET — Grok: Levy (tax deed presencial) no ar
+- Novo leitor genérico `fetch_taxsmart` em inperson.py (clerks no produto TaxSmartWeb: busca por data de leilão + grid JSON; cache diário; offline usa o último cache). Config `TAXSMART = {county: url}` — basta uma linha por condado novo.
+- Levy: 26 processos listados p/ 09/11/2026 (19 SALE, 7 REDEEMED descartados). Leilão presencial seg. 10h, Government Center, Bronson. 14 dos 19 são terrenos sem endereço no cadastro DOR (identificados pela parcela).
+- Rolos NAL baixados p/ Levy, Hardee, DeSoto, Bradford, Union, Columbia, Dixie, Lafayette, Madison, Jefferson, Liberty, Holmes, Wakulla, Gadsden.
+- Teste novo (Levy) + todos os testes OK.

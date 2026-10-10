@@ -432,6 +432,9 @@ with sync_playwright() as p:
         pg.evaluate(D + ".openDrawer('" + gr['ex'] + "')"); pg.wait_for_timeout(400)
         check('USFWS NWI' in pg.evaluate('document.body.textContent'), 'áreas úmidas: seção no drawer')
         pg.keyboard.press('Escape')
+    # Levy: tax deed presencial pelo TaxSmart do clerk (opening bid, resgatados fora), badge Bronson
+    lv = pg.evaluate("""(()=>{const I=window.__dash.ITEMS.filter(r=>r.cs==='levy'&&r.t==='TD'); return {n:I.length, ip:I.filter(r=>r.ip&&r.ip.city==='Bronson').length, ob:I.filter(r=>r.ref>0).length, addr:I.filter(r=>/^\\d/.test(r.addr||'')).length};})()""")
+    check(lv['n'] >= 1 and lv['ip'] == lv['n'] and lv['ob'] == lv['n'], f'Levy: tax deed presencial (TaxSmart do clerk), opening bid, badge Bronson {lv}')
     # celular 390px
     m = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
     mp = m.new_page(); merr = []; mp.on('pageerror', lambda e: merr.append(str(e)))

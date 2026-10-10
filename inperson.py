@@ -8,7 +8,7 @@ fetch once a day (polite, single request per county) into AUC/statewide/inperson
 offline / network error -> newest cached copy.  merge() matches to items by case number, updates dates, drops
 canceled sales, adds the cases we do not have, and tags every Lake/Osceola foreclosure with the in-person sale info.
 """
-import datetime as dt, glob, html, os, re, subprocess, urllib.request
+import json, time, datetime as dt, glob, html, os, re, subprocess, urllib.request
 
 DIR = os.path.join(os.environ.get('AUC', '/workspace/auc'), 'statewide', 'inperson')
 UA = 'Mozilla/5.0 (ChallengeCapital daily refresh; 1 request/day)'
@@ -18,7 +18,13 @@ SRC = {
     'lake': ('https://foreclosurecalendar.lakecountyclerkfl.gov/default.aspx', 'html'),
     'osceola': ('https://courts.osceolaclerk.com/reports/CivilMortgageForeclosuresWeb.pdf', 'pdf'),
 }
+# clerks on the TaxSmart(Web) product (sale-date search + jqGrid JSON): county -> base URL
+TAXSMART = {'levy': 'https://online.levyclerk.com/TaxSmartWeb/'}
 INFO = {
+    'levy': dict(where='Bronson — Levy County Government Center, sala do BoCC, 310 School St., Bronson', time='10:00', city='Bronson',
+                 pay='Tax deed PRESENCIAL (segundas, 10h). Depósito não reembolsável de 5% do lance (mín. US$ 200) na hora, em dinheiro/cheque administrativo; saldo + doc stamps e registro em 24 horas. A lista do clerk é atualizada com resgates — conferir no dia.',
+                 docket='https://online.levyclerk.com/TaxSmartWeb/', dname='Levy Clerk — TaxSmart (processos de tax deed)',
+                 list='https://levyclerk.com/departments-services/administration/tax-deed-sales/'),
     'gulf': dict(where='Fórum de Port St. Joe — lobby do Gulf County Courthouse, 1000 Cecil G. Costin Sr. Blvd., Port St. Joe', time='11:00', city='Port St. Joe',
                  pay='Tax deed PRESENCIAL, 11h (inscrição na hora, 15 min antes; sem lance por internet/correio). Depósito não reembolsável de 5% do lance (mín. US$ 200) na hora, só dinheiro ou cheque administrativo/certified funds (sem cheque comum ou cartão; não pode sair para buscar). Saldo + doc stamps e registro em 24 horas.',
                  docket='https://www.gulfclerk.com/courts/tax-deeds/', dname='Gulf Clerk — Tax Deed Sales (lista e PDF do processo)',
@@ -184,6 +190,36 @@ def _m(v):
     except Exception: return None
 
 
+def fetch_taxsmart(co, offline=False, today=None):
+    """TaxSmartWeb: read the sale-date list, search today..last future sale, pull the grid JSON. Cached per day."""
+    today = today or dt.date.today().isoformat()
+    path = os.path.join(DIR, f'{co}_tsw_{today}.json')
+    if os.path.exists(path) or offline:
+        olds = sorted(f for f in os.listdir(DIR) if f.startswith(f'{co}_tsw_')) if os.path.isdir(DIR) else []
+        return os.path.join(DIR, olds[-1]) if olds else None
+    import requests
+    base = TAXSMART[co]
+    try:
+        s = requests.Session(); s.headers['User-Agent'] = UA
+        h = s.get(base, timeout=40).text
+        opts = re.findall(r"<OPTION value='([^']+)'", h[h.find('SearchSaleDateTo'):h.find('buttonSubmitSaleDate')])
+        fut = []
+        for o in opts:
+            try: d = dt.datetime.strptime(re.sub(r'\s+\d+:\d+ [AP]M$', '', o), '%A, %B %d, %Y').date()
+            except ValueError: continue
+            if d.isoformat() >= today: fut.append((d, o))
+        if not fut: json.dump(dict(rows=[]), open(path, 'w')); return path
+        fut.sort(); time.sleep(1)
+        s.post(base, data={'SearchSaleDateFrom': fut[0][1], 'SearchSaleDateTo': fut[-1][1], 'buttonSubmitSaleDate': ''}, timeout=40); time.sleep(1)
+        g = s.get(base.rstrip('/') + '/Home/GridSearchData', params={'SearchType': 'Sale Date', '_search': 'false', 'rows': 1000, 'page': 1, 'sidx': '', 'sord': 'asc'},
+                  headers={'X-Requested-With': 'XMLHttpRequest'}, timeout=60).json()
+        g['base'] = base; json.dump(g, open(path, 'w')); return path
+    except Exception as e:
+        print('taxsmart', co, 'falhou:', type(e).__name__, flush=True)
+        olds = sorted(f for f in os.listdir(DIR) if f.startswith(f'{co}_tsw_'))
+        return os.path.join(DIR, olds[-1]) if olds else None
+
+
 def fetch_collier(offline=False, today=None, max_pages=12):
     """Collier legal notices RSS (genre tax-deeds), paged; 1 request/second, cached once a day as one JSON file."""
     import json, time
@@ -258,6 +294,27 @@ def td_items(offline=False, today=None):
         st['sumter'] = dict(file=os.path.basename(p), listed=len(rows), upcoming=kept,
                             status={k: sum(1 for r in rows if r['status'] == k) for k in {r['status'] for r in rows}},
                             dates=sorted({r['date'] for r in rows if r['date'] >= today}))
+    for co in TAXSMART:
+        p = fetch_taxsmart(co, offline, today)
+        if not p: continue
+        g = json.load(open(p)); i = INFO[co]; kept = 0; stc = {}
+        for row in g.get('rows', []):
+            c = row['cell']; holder, case, cert, parcel, d, status, ob = c[:7]; owner = (c[9] if len(c) > 9 else '').strip()
+            stc[status] = stc.get(status, 0) + 1
+            m = re.match(r'(\d+)/(\d+)/(\d{4})', d or '')
+            if not m: continue
+            iso = f'{m.group(3)}-{int(m.group(1)):02d}-{int(m.group(2)):02d}'
+            if iso < today or status.upper() != 'SALE': continue
+            ds = f'{iso[5:7]}/{iso[8:]}/{iso[:4]}'
+            det = g.get('base', TAXSMART[co]).rstrip('/') + f"/Home/Details?id={row['id']}"
+            x = dict(county=co, host=None, date=ds, aid=f'{co[:3]}tsw{row["id"]}', case=case, parcel=parcel, plink=None, street='',
+                     addr=f'Processo {case} — endereço pela parcela {parcel}', multi=None, av=None, url=i['list'], detail=det,
+                     ob=_m(re.sub(r'[$\s]', '', ob or '')), cert=cert, owner=owner, time=i['time'], clink=det)
+            x['inperson'] = dict(co=co, city=i['city'], where=i['where'], time=i['time'], pay=i['pay'], docket=i['docket'], dname=i['dname'],
+                                 list=i['list'], detail=det, plaintiff=holder, defendant=owner, ptype=None, room=None, case=case, kind='TD')
+            x['plaintiff'] = holder
+            items.append(('TD', x)); kept += 1
+        st[co] = dict(file=os.path.basename(p), listed=len(g.get('rows', [])), upcoming=kept, status=stc)
     p = fetch('gulf_td', offline, today)
     if p:
         rows = parse_gulf_td(p); i = INFO['gulf']; kept = 0
