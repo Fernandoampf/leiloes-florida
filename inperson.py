@@ -13,15 +13,20 @@ import datetime as dt, glob, html, os, re, subprocess, urllib.request
 DIR = os.path.join(os.environ.get('AUC', '/workspace/auc'), 'statewide', 'inperson')
 UA = 'Mozilla/5.0 (ChallengeCapital daily refresh; 1 request/day)'
 SRC = {
+    'sumter_td': ('https://www.sumterclerk.com/public-records/tax-deeds/tax-deed-sales/', 'html'),
     'lake': ('https://foreclosurecalendar.lakecountyclerkfl.gov/default.aspx', 'html'),
     'osceola': ('https://courts.osceolaclerk.com/reports/CivilMortgageForeclosuresWeb.pdf', 'pdf'),
 }
 INFO = {
-    'lake': dict(where='Fórum de Tavares — Lake County Courthouse (lobby), 550 W. Main St., Tavares', time='11:00',
+    'sumter': dict(where='Fórum de Bushnell — 316 E. Anderson Ave., Bushnell (Sumter)', time='11:00', city='Bushnell',
+                   pay='Tax deed PRESENCIAL (não é RealAuction). Depósito de 5% do lance (mín. US$ 200) na hora, em dinheiro/cheque administrativo; saldo conforme o clerk (em geral até o dia útil seguinte).',
+                   docket='https://www.sumterclerk.com/public-records/tax-deeds/tax-deed-sales/', dname='Sumter Clerk — Tax Deed Sales',
+                   list='https://www.sumterclerk.com/public-records/tax-deeds/tax-deed-sales/'),
+    'lake': dict(city='Tavares', where='Fórum de Tavares — Lake County Courthouse (lobby), 550 W. Main St., Tavares', time='11:00',
                  pay='Leilão presencial seg–sex 11h. Depósito de 5% na hora do lance; saldo até 16h do mesmo dia.',
                  docket='https://courtrecords.lakecountyclerk.org/showcaseweb/', dname='Lake ShowCase',
                  list='https://foreclosurecalendar.lakecountyclerkfl.gov/default.aspx'),
-    'osceola': dict(where='Fórum de Kissimmee — 3 Courthouse Square, sala 204 (2º andar), Kissimmee', time='11:00',
+    'osceola': dict(city='Kissimmee', where='Fórum de Kissimmee — 3 Courthouse Square, sala 204 (2º andar), Kissimmee', time='11:00',
                     pay='Leilão presencial 11h. Taxa do clerk US$ 70, depósito de 5% na hora; saldo até 16h. Cancelamentos até 10h30 do dia.',
                     docket='https://courts.osceolaclerk.com/BenchmarkWeb/Home.aspx/Search', dname='Osceola Benchmark',
                     list='https://courts.osceolaclerk.com/reports/CivilMortgageForeclosuresWeb.pdf'),
@@ -125,10 +130,54 @@ def parse_osceola(path, ref):
     return out, (upd.group(1) if upd else None)
 
 
+def parse_sumter_td(path):
+    """Sumter clerk page embeds the sale list as JSON in <tax-deed-sales :taxdeeds="[...]">."""
+    import json
+    s = open(path, encoding='utf-8', errors='ignore').read()
+    m = re.search(r':taxdeeds="(\[.*?\])"', s, re.S)
+    if not m: return []
+    rows = json.loads(html.unescape(m.group(1)))
+    out = []
+    for r in rows:
+        try: d = dt.datetime.strptime(r.get('sale_date') or '', '%b %d, %Y').date()
+        except Exception: continue
+        ob = None
+        try: ob = float(str(r.get('opening_bid') or '').replace(',', '').replace('$', ''))
+        except Exception: pass
+        out.append(dict(file=str(r.get('file') or ''), cert=str(r.get('cert') or ''), parcel=(r.get('parcel') or '').strip(), date=d.isoformat(),
+                        ob=ob, holder=r.get('cert_holder'), owner=r.get('owner'), status=(r.get('status') or '').lower(),
+                        notes=re.sub(r'\s+', ' ', r.get('notes') or '').strip(), link=r.get('link')))
+    return out
+
+
+def td_items(offline=False, today=None):
+    """Clerk-run (in-person) TAX DEED sales -> list of ('TD', raw item) in the RealAuction item shape, plus stats."""
+    today = today or dt.date.today().isoformat()
+    items, st = [], {}
+    p = fetch('sumter_td', offline, today)
+    if p:
+        rows = parse_sumter_td(p); i = INFO['sumter']; kept = 0
+        for r in rows:
+            if r['date'] < today or r['status'] not in ('scheduled', 'rescheduled', ''): continue
+            ds = f"{r['date'][5:7]}/{r['date'][8:]}/{r['date'][:4]}"
+            x = dict(county='sumter', host=None, date=ds, aid='sumtd' + r['file'], case='TD ' + r['file'], parcel=r['parcel'] or None,
+                     plink=None, street='', addr='', multi=None, av=None, url=i['list'], detail=r.get('link') or i['list'],
+                     ob=r['ob'], cert=r['cert'], owner=r.get('owner'), time='11:00 AM')
+            x['inperson'] = dict(co='sumter', city=i['city'], where=i['where'], time='11:00 AM', pay=i['pay'], docket=i['docket'], dname=i['dname'],
+                                 list=i['list'], detail=x['detail'], plaintiff=r.get('holder'), defendant=r.get('owner'), ptype=None,
+                                 room=None, case=x['case'], kind='TD')
+            x['plaintiff'] = r.get('holder')
+            items.append(('TD', x)); kept += 1
+        st['sumter'] = dict(file=os.path.basename(p), listed=len(rows), upcoming=kept,
+                            status={k: sum(1 for r in rows if r['status'] == k) for k in {r['status'] for r in rows}},
+                            dates=sorted({r['date'] for r in rows if r['date'] >= today}))
+    return items, st
+
+
 def load(offline=False, today=None):
     ref = dt.date.fromisoformat(today) if today else dt.date.today()
     res = {}
-    for co in SRC:
+    for co in ('lake', 'osceola'):
         p = fetch(co, offline, ref.isoformat())
         if not p: res[co] = dict(rows=[], file=None); continue
         if co == 'lake': rows, upd = parse_lake(p, ref), None
@@ -144,7 +193,7 @@ def tag(x, row, co):
     x['host'] = None                          # in-person sale: never a RealAuction host
     x['url'] = i['list']; x['detail'] = row.get('detail') or i['list']
     if row.get('plaintiff') and not x.get('plaintiff'): x['plaintiff'] = row['plaintiff']
-    x['inperson'] = dict(co=co, where=i['where'], time=row.get('time') or i['time'], pay=i['pay'], docket=i['docket'],
+    x['inperson'] = dict(co=co, city=i.get('city'), kind='FC', where=i['where'], time=row.get('time') or i['time'], pay=i['pay'], docket=i['docket'],
                          dname=i['dname'], list=i['list'], detail=row.get('detail'), plaintiff=row.get('plaintiff'),
                          defendant=row.get('defendant'), ptype=row.get('ptype'), room=row.get('room'), case=row.get('case'))
 

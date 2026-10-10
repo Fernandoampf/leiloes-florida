@@ -355,6 +355,14 @@ def collect_items(fetch_bids=False, offline=True):
     # Lake / Osceola foreclosures are sold IN PERSON at the courthouse: official clerk lists (cached daily) set the dates,
     # drop canceled sales and add the cases PropertyOnion does not have.
     ip_st = inperson.merge(items, offline=offline)
+    # clerk-run (in-person) TAX DEED sales: counties that do not use RealTaxDeed (Sumter, ...)
+    tdx, tdx_st = inperson.td_items(offline=offline)
+    have = {(x['county'], re.sub(r'[^0-9A-Z]', '', str(x.get('parcel') or '').upper())) for _, x in ((it['src'], it['raw']) for it in items)}
+    for src, x in tdx:
+        if (x['county'], re.sub(r'[^0-9A-Z]', '', str(x.get('parcel') or '').upper())) in have: continue
+        items.append(dict(src=src, raw=x, known=known.get(x['aid']), avoid=None))
+    ip_st = dict(ip_st, td=tdx_st)
+    print('tax deed presencial:', json.dumps(tdx_st, ensure_ascii=False), flush=True)
     print('presencial:', json.dumps(ip_st, ensure_ascii=False), flush=True)
     # RealAuction is often blocked (HTTP 403). Default is cache/local files only.
     # Pass fetch_bids=True (--fetch-bids or --fetch, and not --offline) to hit the network.
@@ -791,6 +799,9 @@ def build_items(args):
         if not po_url and poe.get('po_url'): po_url = poe['po_url']
         pa = P0.get('prop_appraiserlink') or x.get('plink') or (poe.get('appraiser') if poe else None)
         if pa and ('key=&' in pa or pa.endswith('/parcel/') or 'MULTIPLE' in pa): pa = None
+        if x['addr'].startswith('Parcela ') and nf and nf.get('addr') and re.match(r'\s*\d', nf['addr']) and 'UNASSIGNED' not in nf['addr'].upper():
+            x['addr'] = f"{nf['addr'].strip()}, {(nf.get('city') or '').strip().title()}, FL {nf.get('zip') or ''}".replace(' ,', ',').strip()
+            x['addr_src'] = 'Endereço do cadastro DOR (NAL) — a lista do leilão só traz a parcela'
         addr = re.sub(r',\s*FL-?\s*', ', FL ', x['addr']).replace(' ,', ',').strip()
         def plist(sv):
             try:

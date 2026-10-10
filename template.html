@@ -1344,7 +1344,7 @@ function badges(r){
  (r.lotBadges||[]).forEach(k=>{ const d=LB[k]; if(d) b.push('<span class="bdg amb" title="'+esc(d[1])+'">'+d[0]+'</span>'); });
  if(r.vd==='FLIP') b.push('<span class="bdg blu">FLIP</span>');
  r.fl.forEach(f=>{ if(f==='flood') return; if(f==='mtg'&&r.fl.includes('surv')) return; const d=FL[f]; if(!d) return;
-  let lab=d.l; if(f==='surv'&&r.survAmt) lab+=' ~'+money(r.survAmt); if(f==='bldA'&&r.bld) lab='🏗 Construtoras ativas: '+r.bld.n+' compras 12m'; if(f==='ipres'&&r.ip) lab='Leilão presencial — Fórum de '+(r.ip.co==='lake'?'Tavares':'Kissimmee')+', 11h';
+  let lab=d.l; if(f==='surv'&&r.survAmt) lab+=' ~'+money(r.survAmt); if(f==='bldA'&&r.bld) lab='🏗 Construtoras ativas: '+r.bld.n+' compras 12m'; if(f==='ipres'&&r.ip) lab='Leilão presencial — Fórum de '+(r.ip.city||(r.ip.co==='lake'?'Tavares':'Kissimmee'))+', 11h';
   if(f==='ipres'&&r.ip){ b.push('<span class="bdg '+d.c+'" title="'+esc(r.ip.where+'. '+r.ip.pay+' Conferir o Final Judgment em '+r.ip.dname+'.')+'">'+lab+'</span>'); return; }
   b.push('<span class="bdg '+d.c+'" title="'+esc(r.survWhy||d.d)+'">'+lab+'</span>'); });
  if((r.olA>0||r.m1) && !r.fl.includes('surv')) b.push('<span class="bdg red" title="Hipotecas/liens em aberto segundo PropertyOnion: '+esc(money(r.olA||r.m1))+(r.olN?' ('+r.olN+')':'')+'. Em tax deed normalmente são extintas; em foreclosure, confirmar se sobrevivem.">LIEN</span>');
@@ -1728,8 +1728,8 @@ function intelHtml(r){
  if(r.comps&&r.comps.est) a.push('Comps (estimativa) '+money(r.comps.est));
  a.push('<b>Dono:</b> '+esc(r.owner||'—'));
  a.push('<b>'+(r.t==='FC'?'Autor (credor)':r.t==='TD'?'Titular do certificado':'Vendedor')+':</b> '+esc(r.plaint||'—'));
- if(r.ip){ const pt={hoa:'<b class="c-red">HOA / condomínio</b> — a 1ª hipoteca do banco provavelmente SOBREVIVE ao leilão (o comprador herda a dívida)',banco:'<b>Banco / credor hipotecário</b>',outro:'Particular / outro credor (verificar posição do lien)'}[r.ip.ptype]||'—';
-  a.push('<b>Tipo de autor:</b> '+pt);
+ if(r.ip){ const pt=r.ip.kind==='TD'?'<b>Tax deed</b> — titular do certificado: '+esc(r.ip.plaintiff||'—'):{hoa:'<b class="c-red">HOA / condomínio</b> — a 1ª hipoteca do banco provavelmente SOBREVIVE ao leilão (o comprador herda a dívida)',banco:'<b>Banco / credor hipotecário</b>',outro:'Particular / outro credor (verificar posição do lien)'}[r.ip.ptype]||'—';
+  a.push('<b>'+(r.ip.kind==='TD'?'Tipo':'Tipo de autor')+':</b> '+pt);
   a.push('<b>Leilão presencial:</b> '+esc(r.ip.where)+' · '+esc(r.ip.time||'11:00 AM')+(r.ip.room?' · '+esc(r.ip.room):''));
   a.push(esc(r.ip.pay)+(r.ref==null?' <b>Sem lance inicial</b> na lista oficial: conferir o valor do Final Judgment no processo.':''));
   a.push('Conferir Final Judgment / cancelamento: <a href="'+esc(r.ip.docket)+'" target="_blank" rel="noopener">'+esc(r.ip.dname)+'</a> (processo '+esc(r.case||'')+')'+' · <a href="'+esc(r.ip.detail||r.ip.list)+'" target="_blank" rel="noopener">lista oficial do clerk</a>'+(r.addrSrc&&/não publicado|sem endereço/.test(r.addrSrc)?' · <a href="https://www.noticeregistry.com/" target="_blank" rel="noopener">edital (NoticeRegistry)</a>':''));

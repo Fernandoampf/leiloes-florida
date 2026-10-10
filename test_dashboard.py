@@ -403,6 +403,9 @@ with sync_playwright() as p:
     fp.evaluate(D + ".openDrawer('" + fz['id'] + "')"); fp.wait_for_timeout(400)
     check('Max Bid do plano' in fp.evaluate('document.body.textContent'), 'drawer mostra o plano (prioridade e Max Bid)')
     fc.close()
+    # tax deed presencial do clerk (Sumter): itens com opening bid, badge Bushnell e sem host RealAuction
+    sm = pg.evaluate("""(()=>{const I=window.__dash.ITEMS.filter(r=>r.cs==='sumter'&&r.t==='TD'); return {n:I.length, ob:I.filter(r=>r.ref>0).length, ip:I.filter(r=>r.ip&&r.ip.city==='Bushnell'&&r.fl.includes('ipres')).length, ra:I.filter(r=>/realtaxdeed|realforeclose/.test(JSON.stringify(r.links))).length};})()""")
+    check(sm['n'] > 0 and sm['ob'] == sm['n'] and sm['ip'] == sm['n'] and sm['ra'] == 0, f'Sumter: tax deed presencial do clerk com opening bid e badge Bushnell {sm}')
     # celular 390px
     m = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
     mp = m.new_page(); merr = []; mp.on('pageerror', lambda e: merr.append(str(e)))
