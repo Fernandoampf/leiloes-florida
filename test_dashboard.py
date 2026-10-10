@@ -406,6 +406,17 @@ with sync_playwright() as p:
     # tax deed presencial do clerk (Sumter): itens com opening bid, badge Bushnell e sem host RealAuction
     sm = pg.evaluate("""(()=>{const I=window.__dash.ITEMS.filter(r=>r.cs==='sumter'&&r.t==='TD'); return {n:I.length, ob:I.filter(r=>r.ref>0).length, ip:I.filter(r=>r.ip&&r.ip.city==='Bushnell'&&r.fl.includes('ipres')).length, ra:I.filter(r=>/realtaxdeed|realforeclose/.test(JSON.stringify(r.links))).length};})()""")
     check(sm['n'] > 0 and sm['ob'] == sm['n'] and sm['ip'] == sm['n'] and sm['ra'] == 0, f'Sumter: tax deed presencial do clerk com opening bid e badge Bushnell {sm}')
+    cl = pg.evaluate("""(()=>{const I=window.__dash.ITEMS.filter(r=>r.cs==='collier'&&r.t==='TD'); return {n:I.length, ip:I.filter(r=>r.ip&&r.ip.city==='Naples').length, nob:I.filter(r=>r.ref==null&&!r.fl.includes('nobid')).length, lot:I.filter(r=>r.ty==='Lote'||r.ty==='Terreno').length};})()""")
+    check(cl['n'] > 0 and cl['ip'] == cl['n'] and cl['nob'] == 0, f'Collier: tax deed presencial (edital do clerk), badge Naples, Sem Opening Bid marcado {cl}')
+    # dados conferidos no clerk: Live Oak Ln (Citrus) opening bid 22.790,32; Gerry Rd (Sarasota) resgatado = fora; endereço pelo DOR
+    dq = pg.evaluate("""(()=>{const I=window.__dash.ITEMS; const lo=I.find(r=>r.cs==='citrus'&&/LIVE OAK/i.test(r.addr)); const g=I.find(r=>r.cs==='sarasota'&&/GERRY/i.test(r.addr));
+      const glued=I.filter(r=>/^\\d{5,}[A-Z]/.test(r.addr||'')).length; return {lo: lo?lo.ref:null, gerry: !!g, glued};})()""")
+    check(dq['lo'] and abs(dq['lo'] - 22790.32) < 1 and not dq['gerry'] and dq['glued'] == 0, f'clerk: opening bid corrigido (Live Oak), resgatado removido (Gerry Rd), sem nº colado na rua {dq}')
+    hb = pg.evaluate("(()=>{const r=window.__dash.ITEMS.find(r=>r.cs==='hillsborough'&&r.t==='TD'); return r?r.id:null;})()")
+    if hb:
+        pg.evaluate(D + ".openDrawer('" + hb + "')"); pg.wait_for_timeout(400)
+        check('Não aceita wire' in pg.evaluate('document.body.textContent'), 'Hillsborough: regra de pagamento do tax deed no drawer')
+        pg.keyboard.press('Escape')
     # celular 390px
     m = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
     mp = m.new_page(); merr = []; mp.on('pageerror', lambda e: merr.append(str(e)))

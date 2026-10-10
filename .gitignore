@@ -10,3 +10,4 @@ live_mobile.png
 *.png
 !icons/*.png
 data/favoritos.json
+data/status_manual.json

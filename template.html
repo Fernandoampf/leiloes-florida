@@ -586,6 +586,7 @@ const FL = {
  vac:{l:'Vago (USPS)',c:'grn',d:'USPS indica imóvel vago (positivo: sem despejo).'},
  junk:{l:'Faixa/área comum',c:'',d:'Faixa estreita, retenção/drenagem, área comum, via ou brejo (código de uso DOR 009/094/095/096 ou descrição legal) – normalmente sem valor de revenda. Oculto por padrão.'},
  hmtd:{l:'Homestead',c:'vio',d:'Imóvel com isenção homestead indo a tax deed: pela lei da Flórida (F.S. 197.502) o lance inicial inclui metade do valor avaliado; o dono costuma lutar para resgatar.'},
+ hmob:{l:'Opening Bid baixo? (homestead)',c:'amb',d:'Imóvel com homestead: pela lei da Flórida o opening bid do tax deed inclui METADE do valor avaliado, e a lista do RealAuction costuma mostrar só o valor do certificado até o clerk atualizar. O lance inicial real pode ser bem maior — conferir no site do clerk antes de qualquer conta.'},
  ipres:{l:'Leilão presencial',c:'cool',d:'Foreclosure vendida NO FÓRUM (não no RealAuction): Lake = Tavares, Osceola = Kissimmee, 11h. Depósito de 5% na hora; saldo até 16h. Datas e cancelamentos vêm da lista oficial do clerk (atualizada todo dia).'},
  nobid:{l:'Sem Opening Bid',c:'amb',d:'Listagem só no export PropertyOnion, sem julgamento/opening bid do RealAuction. NET/ROI usam o preço esperado do condado (como tax deed) quando houver histórico; senão ficam sem dados até o scrape do clerk.'},
  surv:{l:'Surviving Lien',c:'red',d:'Indício de lien que sobrevive ao leilão (HOA/condomínio, hipoteca júnior, ou lien municipal em tax deed). Valor estimado do PropertyOnion quando disponível – confirmar com title search. Reserva no P&L (toggle); veredito/nota penalizados; fora de Negócios limpos.'},
@@ -1734,6 +1735,10 @@ function intelHtml(r){
   a.push(esc(r.ip.pay)+(r.ref==null?' <b>Sem lance inicial</b> na lista oficial: conferir o valor do Final Judgment no processo.':''));
   a.push('Conferir Final Judgment / cancelamento: <a href="'+esc(r.ip.docket)+'" target="_blank" rel="noopener">'+esc(r.ip.dname)+'</a> (processo '+esc(r.case||'')+')'+' · <a href="'+esc(r.ip.detail||r.ip.list)+'" target="_blank" rel="noopener">lista oficial do clerk</a>'+(r.addrSrc&&/não publicado|sem endereço/.test(r.addrSrc)?' · <a href="https://www.noticeregistry.com/" target="_blank" rel="noopener">edital (NoticeRegistry)</a>':''));
  }
+ if(r.cver) a.push('<b>Conferido no clerk</b> ('+esc(fdate(r.cver.at)||r.cver.at||'')+'): opening bid '+money(r.cver.ob)+(r.cver.ob0!=null&&Math.abs(r.cver.ob0-(r.cver.ob||0))>1?' <span class="c-amber">(a lista do RealAuction dizia '+money(r.cver.ob0)+')</span>':'')+(r.cver.status?' · status '+esc(r.cver.status):'')+(r.cver.src&&/^http/.test(r.cver.src)?' · <a href="'+esc(r.cver.src)+'" target="_blank" rel="noopener">ver no clerk</a>':''));
+ else if(r.scan&&!r.ip) a.push('<span class="c-amber">Lista do RealAuction lida em '+esc(fdate(r.scan))+'</span> — opening bid, status (resgatado/cancelado) e data podem ter mudado desde então: conferir no site do clerk/RealAuction antes de dar lance.');
+ if(r.addr0) a.push('<span class="mini">Endereço corrigido pelo cadastro DOR (parcela); a lista do leilão trazia “'+esc(r.addr0)+'”.</span>');
+ if(r.cs==='hillsborough'&&r.t==='TD') a.push('<b>Hillsborough – pagamento do tax deed:</b> saldo até as <b>10h do dia útil seguinte</b>, só com <b>cheque administrativo (cashier’s check) no balcão</b> do clerk ou saldo já depositado na conta do RealAuction. <b>Não aceita wire.</b>');
  a.push('Processo '+esc(r.case||'—')+' · Parcela '+esc(r.parcel||'—'));
  if(r.ucd) a.push('Uso DOR '+esc(r.uc)+' – '+esc(r.ucd));
  if(r.desc) a.push(esc(r.desc.slice(0,300)));

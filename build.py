@@ -33,6 +33,7 @@ sys.path.insert(0, HERE)
 import rawdata, po_fetch, nal, flwmi, po_export, po_bids
 import local_comps
 import inperson
+import clerk_verify
 
 AUC = '/workspace/auc'
 SW = os.path.join(AUC, 'statewide')
@@ -335,6 +336,9 @@ def load_results():
     return stats, recent, dict(rows=len(rows), first=iso(dates[0]) if dates else None, last=iso(dates[-1]) if dates else None)
 
 # ----------------------------------------------------------------------------- collection + enrichment
+ADDR_SUF = {'STREET': 'ST', 'AVENUE': 'AVE', 'ROAD': 'RD', 'DRIVE': 'DR', 'LANE': 'LN', 'COURT': 'CT', 'CIRCLE': 'CIR', 'TERRACE': 'TER', 'PLACE': 'PL',
+            'BOULEVARD': 'BLVD', 'TRAIL': 'TRL', 'HIGHWAY': 'HWY', 'PARKWAY': 'PKWY', 'NORTH': 'N', 'SOUTH': 'S', 'EAST': 'E', 'WEST': 'W'}
+
 def collect_items(fetch_bids=False, offline=True):
     known = {}
     for f in ('td_po.json', 'fc_po.json'):
@@ -344,7 +348,10 @@ def collect_items(fetch_bids=False, offline=True):
     orange_en = jload(os.path.join(AUC, 'orange_enriched.json'), {})
     lake_en = jload(os.path.join(AUC, 'lake_enriched.json'), {})
     items = []
-    for src, x in rawdata.collect():
+    raw_items, cv_st = clerk_verify.refresh(rawdata.collect(), offline=offline)
+    print('clerk (status/opening bid):', json.dumps(cv_st, ensure_ascii=False), flush=True)
+    collect_items._cv = cv_st
+    for src, x in raw_items:
         it = dict(src=src, raw=x, known=known.get(x['aid']))
         if src == 'TD':
             it['ocpa'] = ocpa.get(x['aid']) or orange_en.get(x['aid']); it['lake'] = lake_en.get(x['aid'])
@@ -688,7 +695,7 @@ def build_items(args):
             vsrc = f"{vsrc} ÷ 0,85 = {_usd(val)} (só valor do condado: o just value fica ~15% abaixo do mercado, F.S. 193.011(8))"
         if val and val < 1000: val = None
         ref = num(x.get('ob')) if src == 'TD' else num(x.get('fj')) if src == 'FC' else num(x.get('ref'))
-        nobid = bool(it.get('po_only') and not ref)
+        nobid = bool((it.get('po_only') or x.get('inperson')) and not ref)
         if it.get('bid_fill') and ref:
             notes.append(f"Julgamento/lance obtido no RealAuction ({it['bid_fill'].get('how')}).")
         pool = bool(dictval(P0.get('poolCode')))
@@ -751,6 +758,10 @@ def build_items(args):
             if hoa_pl: flags.append('hoa')
             if ref and val and ref < 0.5 * val: flags.append('jr')
         if 'hoa' not in flags and ty in ('Condo', 'Townhouse'): flags.append('hoa')
+        # Florida: on HOMESTEAD property the tax-deed opening bid must include 1/2 of the assessed value (s. 197.502(6)(c));
+        # RealAuction previews often show only the certificate amount until the clerk updates it.
+        if src == 'TD' and homestead and ref and (av or jv) and ref < 0.5 * (av or jv) and not x.get('cver'):
+            flags.append('hmob')
         ipx = x.get('inperson')
         if ipx:
             flags.append('ipres')
@@ -802,6 +813,18 @@ def build_items(args):
         if x['addr'].startswith('Parcela ') and nf and nf.get('addr') and re.match(r'\s*\d', nf['addr']) and 'UNASSIGNED' not in nf['addr'].upper():
             x['addr'] = f"{nf['addr'].strip()}, {(nf.get('city') or '').strip().title()}, FL {nf.get('zip') or ''}".replace(' ,', ',').strip()
             x['addr_src'] = 'Endereço do cadastro DOR (NAL) — a lista do leilão só traz a parcela'
+        # display address must match the parcel: when DOR (matched BY PARCEL) has a numbered situs that disagrees with the
+        # auction list (glued house number '409742ND SQ', missing SW/NE quadrant, missing unit, placeholder '0 ...'), show DOR's.
+        if nf and nf.get('how') == 'parcela' and nf.get('addr') and re.match(r'\s*[1-9]', nf['addr']) and 'UNASSIGNED' not in nf['addr'].upper() and not x.get('addr_src'):
+            def _tk(v):
+                v = re.sub(r'(\d+)(ST|ND|RD|TH)\b', r'\1', v.upper())
+                return [ADDR_SUF.get(t, t) for t in re.findall(r'[A-Z0-9]+', v)]
+            na = re.sub(r'\s+', ' ', nf['addr']).strip(); tn = _tk(na); ta = _tk(x['addr'])
+            if not (ta and tn[0] == ta[0] and all(t in ta for t in tn[1:])):
+                tail = re.search(r'\b([A-Z][A-Z .]+),?\s*(?:FL-?\s*)?(3\d{4})', x['addr'].upper()[len(street_of(x)):] or '')
+                city = (nf.get('city') or (tail.group(1) if tail else '') or '').strip().title(); z = nf.get('zip') or (tail.group(2) if tail else '')
+                x['addr0'] = x['addr']; x['addr'] = f"{na}, {city}, FL {z}".replace(' ,', ',').replace(', ,', ',').strip()
+                x['addr_src'] = 'Endereço do cadastro DOR pela parcela (a lista do leilão trazia: ' + x['addr0'][:60] + ')'
         addr = re.sub(r',\s*FL-?\s*', ', FL ', x['addr']).replace(' ,', ',').strip()
         def plist(sv):
             try:
@@ -872,7 +895,7 @@ def build_items(args):
             util=({k: util.get(k) for k in ('WW', 'WW_UPD', 'WW_SRC_TYP', 'DW', 'DW_UPD', 'DW_SRC_TYP', 'PARCELNO', 'LANDUSE', 'BLT_STATUS', 'GIS_ACRE')} | {'pt': util.get('_pt', 0)}) if util else None,
             comps=cp, xp=xp, lc=lce or None, dom=dom, desc=x.get('desc'),
             plat=('Presencial' if x.get('inperson') else 'PropertyOnion' if it.get('po_only') else x.get('platform')),
-            ip=x.get('inperson'), addrSrc=x.get('addr_src'),
+            ip=x.get('inperson'), addrSrc=x.get('addr_src'), addr0=x.get('addr0'), scan=x.get('scan'), cver=x.get('cver'),
             pmax=x.get('pmax') if x.get('pmax') not in (None, 'Hidden') else None,
             new=first == today, first=first if first != '0000-00-00' else None, muni=dictval(P0.get('municipality')),
         )

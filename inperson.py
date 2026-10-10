@@ -22,6 +22,10 @@ INFO = {
                    pay='Tax deed PRESENCIAL (não é RealAuction). Depósito de 5% do lance (mín. US$ 200) na hora, em dinheiro/cheque administrativo; saldo conforme o clerk (em geral até o dia útil seguinte).',
                    docket='https://www.sumterclerk.com/public-records/tax-deeds/tax-deed-sales/', dname='Sumter Clerk — Tax Deed Sales',
                    list='https://www.sumterclerk.com/public-records/tax-deeds/tax-deed-sales/'),
+    'collier': dict(where='Fórum de Naples — Collier County Courthouse, 1º andar, Multi-Purpose Room, 3315 Tamiami Trail E., Naples', time='13:00', city='Naples',
+                    pay='Tax deed PRESENCIAL às segundas, 13h (chegar 15 min antes; sem lance por internet). Depósito de 5% do lance (mín. US$ 200) na hora, só dinheiro ou cheque administrativo; saldo + doc stamps e registro em 24 horas. O edital não mostra o opening bid nem resgates: conferir com o clerk (Tax Deeds, 239-252-2646) antes do leilão.',
+                    docket='https://www.collierclerk.com/tax-deed-sales/', dname='Collier Clerk — Tax Deed Sales (lista e edital)',
+                    list='https://notices.collierclerk.com/genre/tax-deeds/'),
     'lake': dict(city='Tavares', where='Fórum de Tavares — Lake County Courthouse (lobby), 550 W. Main St., Tavares', time='11:00',
                  pay='Leilão presencial seg–sex 11h. Depósito de 5% na hora do lance; saldo até 16h do mesmo dia.',
                  docket='https://courtrecords.lakecountyclerk.org/showcaseweb/', dname='Lake ShowCase',
@@ -150,6 +154,59 @@ def parse_sumter_td(path):
     return out
 
 
+def fetch_collier(offline=False, today=None, max_pages=12):
+    """Collier legal notices RSS (genre tax-deeds), paged; 1 request/second, cached once a day as one JSON file."""
+    import json, time
+    today = today or dt.date.today().isoformat()
+    os.makedirs(DIR, exist_ok=True)
+    path = os.path.join(DIR, f'collier_td_{today}.json')
+    if not offline and not os.path.exists(path):
+        pages = []
+        try:
+            for pg in range(1, max_pages + 1):
+                url = 'https://notices.collierclerk.com/genre/tax-deeds/feed/' + (f'?paged={pg}' if pg > 1 else '')
+                req = urllib.request.Request(url, headers={'User-Agent': UA})
+                try: data = urllib.request.urlopen(req, timeout=40).read().decode('utf-8', 'ignore')
+                except Exception: break
+                if '<item>' not in data: break
+                pages.append(data)
+                # stop once a whole page was published > 120 days ago (sales happen ~4-8 weeks after publication)
+                dts = re.findall(r'<pubDate>[A-Za-z]{3}, (\d{1,2} [A-Za-z]{3} \d{4})', data)
+                if dts and all((dt.date.fromisoformat(today) - dt.datetime.strptime(d, '%d %b %Y').date()).days > 120 for d in dts): break
+                time.sleep(1)
+            if pages: json.dump(pages, open(path, 'w'))
+        except Exception as e:
+            print(f'inperson: collier fetch failed ({type(e).__name__}); using cache')
+    files = sorted(glob.glob(os.path.join(DIR, 'collier_td_*.json')))
+    return files[-1] if files else None
+
+
+def parse_collier(path):
+    import json
+    out, seen = [], set()
+    for page in json.load(open(path)):
+        for it in re.findall(r'<item>(.*?)</item>', page, re.S):
+            t = re.sub(r'\s+', ' ', html.unescape(re.sub(r'<[^>]+>', ' ', html.unescape(it))))
+            if 'APPLICATION FOR TAX DEED' not in t.upper(): continue
+            app = re.search(r'Tax Deed Application #\s*(\d+)', t); pid = re.search(r'Parcel ID#?\s*([0-9A-Z-]+)', t)
+            sd = re.search(r'on (?:Monday|Tuesday|Wednesday|Thursday|Friday),\s*([A-Za-z]+ \d{1,2}, \d{4})', t)
+            if not (app and sd): continue
+            if app.group(1) in seen: continue
+            seen.add(app.group(1))
+            try: d = dt.datetime.strptime(sd.group(1), '%B %d, %Y').date()
+            except Exception: continue
+            ad = re.search(r'Property Address:\s*(.*?)\s*Name in Which Assessed', t)
+            cert = re.search(r'Certificate Number:\s*([0-9/]+)', t); desc = re.search(r'Description of Property:\s*(.*?)\s*Parcel ID', t)
+            holder = re.search(r'given that:\s*(.*?)\s*the holder of', t); own = re.search(r'Name in Which Assessed:\s*(.*?)\s*(?:Name on Last|All of said)', t)
+            link = re.search(r'(https://notices\.collierclerk\.com/notice/[^ ]+/)', t)
+            a = (ad.group(1).strip() if ad else '')
+            if a.upper() in ('N/A', 'NONE', 'UNASSIGNED', 'NO SITUS', ''): a = ''
+            out.append(dict(app=app.group(1), cert=cert.group(1) if cert else None, parcel=pid.group(1) if pid else None, addr=a,
+                            desc=(desc.group(1).strip() if desc else None), date=d.isoformat(), holder=holder.group(1).strip() if holder else None,
+                            owner=own.group(1).strip() if own else None, link=link.group(1) if link else None))
+    return out
+
+
 def td_items(offline=False, today=None):
     """Clerk-run (in-person) TAX DEED sales -> list of ('TD', raw item) in the RealAuction item shape, plus stats."""
     today = today or dt.date.today().isoformat()
@@ -171,6 +228,22 @@ def td_items(offline=False, today=None):
         st['sumter'] = dict(file=os.path.basename(p), listed=len(rows), upcoming=kept,
                             status={k: sum(1 for r in rows if r['status'] == k) for k in {r['status'] for r in rows}},
                             dates=sorted({r['date'] for r in rows if r['date'] >= today}))
+    p = fetch_collier(offline, today)
+    if p:
+        rows = parse_collier(p); i = INFO['collier']; kept = 0
+        for r in rows:
+            if r['date'] < today: continue
+            ds = f"{r['date'][5:7]}/{r['date'][8:]}/{r['date'][:4]}"
+            a = r['addr']; street = re.sub(r',.*$', '', a) if a else ''
+            x = dict(county='collier', host=None, date=ds, aid='coltd' + r['app'], case='TD ' + r['app'], parcel=r['parcel'],
+                     plink=None, street=street, addr=(a.replace(', FL ', ', FL- ') if a else ''), multi=None, av=None, url=i['list'],
+                     detail=r.get('link') or i['list'], ob=None, cert=r['cert'], owner=r.get('owner'), time='1:00 PM', desc=r.get('desc'))
+            x['inperson'] = dict(co='collier', city=i['city'], where=i['where'], time='1:00 PM', pay=i['pay'], docket=i['docket'], dname=i['dname'],
+                                 list=i['list'], detail=x['detail'], plaintiff=r.get('holder'), defendant=r.get('owner'), ptype=None, room=None,
+                                 case=x['case'], kind='TD')
+            x['plaintiff'] = r.get('holder')
+            items.append(('TD', x)); kept += 1
+        st['collier'] = dict(file=os.path.basename(p), notices=len(rows), upcoming=kept, dates=sorted({r['date'] for r in rows if r['date'] >= today}))
     return items, st
 
 

@@ -2,7 +2,7 @@
 """v4 raw auction collector: every pending item from the public RealAuction preview scans in /workspace/auc/statewide
 (td/*.json tax deeds, fc/*.json foreclosures, area W = still scheduled) + Orange foreclosures (fc_all.json, scraped
 separately) + extra land sources (extra_*.json). Returns normalized dicts (same shape as fc_all.json)."""
-import glob, json, os, re
+import time, glob, json, os, re
 
 SW = '/workspace/auc/statewide'
 
@@ -56,7 +56,10 @@ def collect():
                 key = (kind, r['AID'])
                 if key in seen: continue
                 seen.add(key)
-                out.append((kind, norm(r, county, host, date, kind)))
+                d = norm(r, county, host, date, kind)
+                d['scan'] = time.strftime('%Y-%m-%d', time.localtime(os.path.getmtime(f)))   # when this RealAuction list was read
+                if r.get('Case #_link'): d['clink'] = r['Case #_link']
+                out.append((kind, d))
     # tax deeds: real host from the RealAuction calendar (some counties run TD on the combined realforeclose site)
     evh = {}
     try:
