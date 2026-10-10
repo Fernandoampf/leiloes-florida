@@ -52,7 +52,7 @@ Formato: `dd/mm hh:mm ET · QUEM · commit · o quê · por quê · teste/estado
 - Publicado condado a condado:
   - 10/10 00:00 Hardee: 10 itens
   - 10/10 00:09 DeSoto: 11 itens
-  - 10/10 00:15 Bradford (+Glades/Union: 0 editais de tax deed publicados agora): 0 itens
+  - 10/10 00:15 Bradford (+Glades/Union: 0 editais de tax deed publicados agora): Bradford 3 itens; Glades 0; Union 0
   - 10/10 00:20 Taylor: 6 itens
   - 10/10 00:26 Madison: 4 itens
   - 10/10 00:32 Dixie: 1 itens
