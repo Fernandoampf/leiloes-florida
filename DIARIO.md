@@ -56,3 +56,9 @@ Formato: `dd/mm hh:mm ET · QUEM · commit · o quê · por quê · teste/estado
   - 10/10 00:20 Taylor: 6 itens
   - 10/10 00:26 Madison: 4 itens
   - 10/10 00:32 Dixie: 1 itens
+
+## 2026-10-10 13:44 ET — Claude: conferência no ar + propostas
+- 13:44 · Claude · — · conferido no ar o build de 10/10 00:32 ET (6a9d2d5): editais de tax deed por jornal — Hardee 10, DeSoto 11, Taylor 6 (sem cadastro → sem valor/tipo), Madison 4 (únicos com opening bid), Bradford 3, Dixie 1; aviso de resgate na ficha ok; lote de Bradford com área úmida + SFHA corretamente fora de FLIP/CONSIDER · conferido pelo Claude
+- PROPOSTA · Claude · **barra de "Meus candidatos" (Exportar/Importar JSON) fica numa coluna estreita no meio da altura da página** na vista 🎯 (é o 1º item do grid de cartões) → o Fernando não achou o botão. Sugestão: tirar a `.candbar` de dentro do grid (ou `grid-column:1/-1; align-self:start`) para ficar no topo, largura total.
+- PROPOSTA · Claude · **favoritos padrão** (`data/favoritos.json`, fora do git) ainda são do plano antigo → trocar pelo plano novo que o Fernando tem (arquivo JSON de candidatos, 21 itens); considerar também ler um `cand` exportado pelo site como fonte do favoritos.json.
+- PROPOSTA · Claude · selo **"Gaio-da-flórida (scrub-jay): licença exigida"** em lotes de Charlotte: camada oficial `agis3.charlottecountyfl.gov/arcgis/rest/services/Essentials/CCGISLayers/MapServer/56` (ScrubjayPermitBoundary, campo INFO = "Permit Required"/"No Permit Required"), interseção com o polígono da parcela; idem para Sarasota/North Port se houver camada equivalente.
