@@ -21,7 +21,26 @@ SRC = {
 }
 # clerks on the TaxSmart(Web) product (sale-date search + jqGrid JSON): county -> base URL
 TAXSMART = {'levy': 'https://online.levyclerk.com/TaxSmartWeb/'}
+# counties read from newspaper legal notices (floridapublicnotices.com) — the clerk has no online list
+NOTICE_CO = ['hardee']
+_NP = 'Lista montada pelos EDITAIS de jornal (floridapublicnotices.com) — o clerk não publica lista online. Resgates só aparecem como edital que parou de sair: CONFIRMAR com o clerk antes de ir.'
 INFO = {
+    'hardee': dict(where='Wauchula — Fórum de Hardee, 2º andar, 417 W. Main St.', time='11:00', city='Wauchula', pay='Tax deed PRESENCIAL (quartas, 11h). ' + _NP + ' Clerk: (863) 773-4174.',
+                   docket='https://www.hardeeclerk.com/departments/tax-deeds/tax-deed-sales/', dname='Hardee Clerk — Tax Deed Sales', list='https://floridapublicnotices.com/'),
+    'desoto': dict(where='Arcadia — Fórum de DeSoto, 1º andar, 115 E. Oak St. (entrar pelo lado leste)', time='11:00', city='Arcadia', pay='Tax deed PRESENCIAL, 11h (chegar 10h30 p/ inscrição levando 5% do lance máximo pretendido; preencher Bidder Information Sheet). ' + _NP + ' Clerk: (863) 993-4876.',
+                   docket='https://www.desotoclerk.com/clerk-services/tax-deeds/', dname='DeSoto Clerk — Tax Deeds', list='https://floridapublicnotices.com/'),
+    'bradford': dict(where='Starke — Fórum de Bradford, 945 N. Temple Ave.', time='11:00', city='Starke', pay='Tax deed PRESENCIAL, 11h. ' + _NP + ' Tax Deed Office: (904) 966-6280.',
+                   docket='https://bradfordclerk.com/tax-deeds/', dname='Bradford Clerk — Tax Deeds', list='https://floridapublicnotices.com/'),
+    'glades': dict(where='Moore Haven — Fórum de Glades, 500 Avenue J', time='11:00', city='Moore Haven', pay='Tax deed PRESENCIAL. ' + _NP + ' Clerk: (863) 946-6010.',
+                   docket='https://gladesclerk.com/clerk-services/tax-deeds/', dname='Glades Clerk — Tax Deeds', list='https://floridapublicnotices.com/'),
+    'taylor': dict(where='Perry — Fórum de Taylor, 108 N. Jefferson St.', time='11:00', city='Perry', pay='Tax deed PRESENCIAL. Depósito NÃO reembolsável de US$ 200 em DINHEIRO por imóvel arrematado; saldo até 11h do dia seguinte (dinheiro, cheque administrativo ou money order; sem cheque pessoal); lances de US$ 50+. ' + _NP,
+                   docket='https://taylorclerk.com/tax-deeds/', dname='Taylor Clerk — Tax Deeds', list='https://floridapublicnotices.com/'),
+    'madison': dict(where='Madison — escadaria oeste do Fórum, 125 SW Range Ave.', time='11:00', city='Madison', pay='Tax deed PRESENCIAL (escadaria do fórum). Depósito não reembolsável de 5% ou US$ 200 (o maior) se não pagar na hora; saldo em 24 horas. ' + _NP + ' Clerk: (850) 973-1500.',
+                   docket='https://www.madisonclerk.com/departments-services/property-sales/tax-deed-sales/', dname='Madison Clerk — Tax Deed Sales', list='https://floridapublicnotices.com/'),
+    'union': dict(where='Lake Butler — saguão do Fórum de Union, 55 W. Main St.', time='11:00', city='Lake Butler', pay='Tax deed PRESENCIAL, 11h. ' + _NP,
+                   docket='https://unionclerk.com/tax-deed-sales/', dname='Union Clerk — Tax Deed Sales', list='https://floridapublicnotices.com/'),
+    'dixie': dict(where='Cross City — sala do Board no Fórum de Dixie, 214 NE Hwy 351', time='11:00', city='Cross City', pay='Tax deed PRESENCIAL (terças, 11h). Inscrição 30 min antes com depósito de US$ 200; saldo em 24 horas só com cheque administrativo/certificado. ' + _NP,
+                   docket='https://dixieclerk.com/departments-services/court-services/tax-deed-sales/', dname='Dixie Clerk — Tax Deed Sales', list='https://floridapublicnotices.com/'),
     'wakulla': dict(where='Crawfordville — saguão do Fórum de Wakulla, 3056 Crawfordville Hwy', time='10:00', city='Crawfordville',
                  pay='Tax deed PRESENCIAL (quartas, 10h). Inscrição no setor de Official Records até 9h45 (recebe paleta). Pagamento conforme regras do clerk (consultar a página). A lista do clerk mostra resgates — conferir no dia.',
                  docket='https://wakullaclerk.org/official_records/tax_deed_sales.php', dname='Wakulla Clerk — Tax Deed Sales (avisos em PDF)',
@@ -258,6 +277,22 @@ def wakulla_rows(offline=False, today=None):
     return p, out
 
 
+_ADDR_IDX = {}
+def parcel_by_addr(county, street):
+    """Unique DOR-roll parcel for a street address in the county (notices without parcel id). None if 0 or >1 hits."""
+    import nal, zipfile, csv, io
+    if county not in _ADDR_IDX:
+        idx = {}; zp = nal.zips().get(county)
+        if zp:
+            z = zipfile.ZipFile(zp); n = [x for x in z.namelist() if x.lower().endswith('.csv')][0]
+            for row in csv.DictReader(io.TextIOWrapper(z.open(n), encoding='latin-1', newline='')):
+                a = nal.nstreet(row.get('PHY_ADDR1'))
+                if a: idx.setdefault(a, []).append(row.get('PARCEL_ID'))
+        _ADDR_IDX[county] = idx
+    hits = _ADDR_IDX[county].get(nal.nstreet(street)) or []
+    return hits[0] if len(hits) == 1 else None
+
+
 def fetch_collier(offline=False, today=None, max_pages=12):
     """Collier legal notices RSS (genre tax-deeds), paged; 1 request/second, cached once a day as one JSON file."""
     import json, time
@@ -367,6 +402,30 @@ def td_items(offline=False, today=None):
                                  docket=i['docket'], dname=i['dname'], list=i['list'], detail=r['pdf'], plaintiff=r.get('holder'), defendant=r.get('owner'), ptype=None, room=None, case=r['case'], kind='TD')
             x['plaintiff'] = r.get('holder'); items.append(('TD', x)); kept += 1
         st['wakulla'] = dict(file=os.path.basename(p), listed=len(rows), upcoming=kept, status=stc)
+    try:
+        import notices
+        nz, nst = notices.collect(NOTICE_CO, offline=offline, today=today)
+    except Exception as e:
+        nz, nst = {}, {'erro': type(e).__name__}
+    for co, L in nz.items():
+        i = INFO[co]
+        for r in L:
+            ds = f"{r['date'][5:7]}/{r['date'][8:]}/{r['date'][:4]}"
+            case = r.get('file') or (f"cert. {r['cert']}" if r.get('cert') else f"edital {r['nid']}")
+            if not r.get('parcel') and r.get('paddr'):
+                pp = parcel_by_addr(co, r['paddr'])
+                if pp: r['parcel'] = re.sub(r'[^0-9A-Z]', '', pp.upper())
+            if r.get('parcel'): addr = f"Processo {case} — endereço pela parcela {r['parcel']}"
+            elif r.get('paddr'): addr = f"{r['paddr'].title()}, {co.title()} County, FL"
+            else: addr = f"Processo {case} — sem parcela no edital: {(r.get('legal') or '')[:80]}"
+            x = dict(county=co, host=None, date=ds, aid=f"{co[:3]}np{r['nid']}", case=case, parcel=r.get('parcel'), plink=None, street='',
+                     addr=addr, multi=None, av=None, url=r['url'], detail=r['url'], ob=r.get('ob'), cert=r.get('cert'), owner=r.get('owner'),
+                     legal=r.get('legal'), time=r.get('time') or i['time'], clink=r['url'])
+            x['inperson'] = dict(co=co, city=i['city'], where=i['where'], time=r.get('time') or i['time'], pay=i['pay'] + f" Edital: {r.get('paper')} ({r.get('pub')}).",
+                                 docket=i['docket'], dname=i['dname'], list=r['url'], detail=r['url'], plaintiff=r.get('holder'), defendant=r.get('owner'), ptype=None, room=None, case=case, kind='TD')
+            x['plaintiff'] = r.get('holder'); items.append(('TD', x))
+    for co, v in nst.items():
+        if isinstance(v, dict): st[co] = dict(fonte='editais', **{k: v.get(k) for k in ('notices', 'td', 'upcoming', 'nopar', 'err')})
     p = fetch('gulf_td', offline, today)
     if p:
         rows = parse_gulf_td(p); i = INFO['gulf']; kept = 0

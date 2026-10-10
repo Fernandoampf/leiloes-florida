@@ -45,3 +45,9 @@ Formato: `dd/mm hh:mm ET · QUEM · commit · o quê · por quê · teste/estado
 - Hardee, DeSoto, Bradford, Glades: clerk não publica lista de parcelas online (só edital em jornal). Union: site do clerk responde 403 ao box — não contornado.
 - NoticeRegistry: termos (seção 7) proíbem raspagem/download sistemático → não usado. floridapublicnotices.com: termos não proíbem, mas só via API interna não documentada → não usado sem aprovação.
 - Columbia: página do clerk sem leilões agendados agora (reler quando houver).
+
+## 2026-10-10 ET — Grok: editais de tax deed (floridapublicnotices.com) para condados sem lista online — aprovado pelo Fernando
+- notices.py: busca JSON do próprio site (POST / com keywords="tax deed" + paper=<jornal do condado>), 1 busca por jornal por dia (cache), PDF/imagem de cada edital baixado uma vez (cache permanente; imagens via OCR tesseract), 3 s entre requisições, para tudo em 403/429/5xx. Sem contorno.
+- Extrai parcela, data/hora/local, certificado, credor, proprietário, endereço e opening bid (quando o edital traz). Sem parcela mas com endereço → parcela única no rolo DOR. Sem opening bid → badge "Sem Opening Bid" (nobid). Resgates não são publicados: aviso no drawer para confirmar com o clerk.
+- Publicado condado a condado:
+  - 10/10 00:00 Hardee: 10 itens

@@ -438,6 +438,10 @@ with sync_playwright() as p:
     # Wakulla: tax deed presencial pelos avisos em PDF do clerk (parcela + opening bid)
     wk = pg.evaluate("""(()=>{const I=window.__dash.ITEMS.filter(r=>r.cs==='wakulla'&&r.t==='TD'); return {n:I.length, ip:I.filter(r=>r.ip&&r.ip.city==='Crawfordville').length, ob:I.filter(r=>r.ref>0).length};})()""")
     check(wk['n'] >= 1 and wk['ip'] == wk['n'] and wk['ob'] == wk['n'], f'Wakulla: tax deed presencial (PDF do clerk), opening bid, badge Crawfordville {wk}')
+    # condados por edital (floridapublicnotices.com): itens presenciais, badge, 'Sem Opening Bid' quando o edital não traz lance
+    np_ = pg.evaluate("""(()=>{const C=['hardee','desoto','bradford','glades','taylor','madison','union','dixie']; const I=window.__dash.ITEMS.filter(r=>C.includes(r.cs)&&r.t==='TD');
+      return {n:I.length, ip:I.filter(r=>r.ip&&/floridapublicnotices/.test(r.ip.list||'')).length, semob:I.filter(r=>r.ref==null).length, semobFlag:I.filter(r=>r.ref==null&&(r.fl||[]).includes('nobid')).length, cos:[...new Set(I.map(r=>r.cs))].sort()};})()""")
+    check(np_['n'] >= 1 and np_['ip'] == np_['n'] and np_['semob'] == np_['semobFlag'], f'editais: tax deeds presenciais dos condados sem lista online, Sem Opening Bid marcado {np_}')
     # celular 390px
     m = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
     mp = m.new_page(); merr = []; mp.on('pageerror', lambda e: merr.append(str(e)))
