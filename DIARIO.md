@@ -51,3 +51,4 @@ Formato: `dd/mm hh:mm ET · QUEM · commit · o quê · por quê · teste/estado
 - Extrai parcela, data/hora/local, certificado, credor, proprietário, endereço e opening bid (quando o edital traz). Sem parcela mas com endereço → parcela única no rolo DOR. Sem opening bid → badge "Sem Opening Bid" (nobid). Resgates não são publicados: aviso no drawer para confirmar com o clerk.
 - Publicado condado a condado:
   - 10/10 00:00 Hardee: 10 itens
+  - 10/10 00:09 DeSoto: 11 itens
