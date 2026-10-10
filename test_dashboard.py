@@ -54,14 +54,14 @@ with sync_playwright() as p:
     check(pg.evaluate(D + '.ITEMS.filter(r=>r.ty==="Lote"||r.ty==="Terreno").length') > 200, 'lotes/terrenos incluídos (>200)')
     # vereditos e categorias
     vds = set(pg.evaluate(D + '.ITEMS.map(r=>r.vd)')); check(vds <= {'FLIP', 'CONSIDERAR', 'DISPUTADO', 'PASSAR'} and {'FLIP','DISPUTADO','PASSAR'} <= vds, f'vereditos {vds}')
-    bad = pg.evaluate(D + '''.ITEMS.filter(r=>r.roi!=null&&r.mb!=null&&!(r.geo&&r.geo.poly!==false&&((r.geo.wetPct||0)>=20||(r.geo.sfhaPct||0)>=10))).filter(r=>{
+    bad = pg.evaluate(D + '''.ITEMS.filter(r=>r.roi!=null&&r.mb!=null&&!(r.geo&&r.geo.poly!==false&&((r.geo.wetPct||0)>=10||(r.geo.sfhaPct||0)>=10))).filter(r=>{
         const room = r.mb>0, over = r.ref!=null && r.ref>r.mb+1;
         if(r.vd==='FLIP'||r.vd==='CONSIDERAR') return !(room && !over && !(r.xbid>r.mb+1) && (r.vd==='FLIP'?r.roi>=0.25:r.roi<0.25));
         if(r.vd==='PASSAR') return !( !room || (r.t!=='FC' && over) );
         if(r.vd==='DISPUTADO') return !( room && ((r.t==='FC' && over) || r.xbid>r.mb+1) );
         return true; }).map(r=>r.addr+' '+r.vd).slice(0,5)''')
     check(not bad, f'veredito por espaço de lance: SEM ESPAÇO / DISPUTADO / FLIP ≥ 25% / CONSIDERAR {bad}')
-    check(pg.evaluate(D + '.ITEMS.filter(r=>r.t==="FC"&&r.vd==="PASSAR"&&r.mb>0&&r.ref>r.mb+1&&!(r.geo&&r.geo.poly!==false&&((r.geo.wetPct||0)>=20||(r.geo.sfhaPct||0)>=10))).length') == 0, 'foreclosure com julgamento acima do lance máx. é DISPUTADO, não SEM ESPAÇO')
+    check(pg.evaluate(D + '.ITEMS.filter(r=>r.t==="FC"&&r.vd==="PASSAR"&&r.mb>0&&r.ref>r.mb+1&&!(r.geo&&r.geo.poly!==false&&((r.geo.wetPct||0)>=10||(r.geo.sfhaPct||0)>=10))).length') == 0, 'foreclosure com julgamento acima do lance máx. é DISPUTADO, não SEM ESPAÇO')
     kats = pg.evaluate(D + '.ITEMS.map(r=>r.kat).join()'); check('NO ROOM' in kats and 'CONTESTED' in kats, 'categorias “NO ROOM” e “CONTESTED”')
     check(pg.evaluate(D + '.ITEMS.filter(r=>r.fl.includes("mtg")&&r.roi!=null&&r.mb>0&&!(r.ref>r.mb)&&!(r.xbid>r.mb+1)).every(r=>r.vd!=="PASSAR")'), 'hipoteca que sobrevive não é PASSAR automático')
     check(pg.evaluate(D + '.ITEMS.filter(r=>r.survOrig).every(r=>r.survAmt<=r.survOrig)'), 'dívida que sobrevive = saldo estimado (≤ valor original)')
@@ -424,7 +424,7 @@ with sync_playwright() as p:
     ss = pg.evaluate("""(()=>{const I=window.__dash.ITEMS;const r=I.find(r=>/3506 E CHELSEA/i.test(r.addr||''));return {fl:r&&r.fl, val:r&&r.val, mkt:r&&r.mkt, c:I.some(r=>r.parcel==='40684200008')};})()""")
     check(ss['fl'] and 'subst' in ss['fl'] and ss['val'] <= max(ss['mkt'] or 0, 1) + 1 and not ss['c'], f'lote abaixo do mínimo: flag e ARV no valor oficial; Collier 26136 resgatado fora {ss}')
     # áreas úmidas / inundação pelo polígono: lote com wetland >= limite ou FEMA A* material não pode ser FLIP/CONSIDER; drawer mostra
-    gr = pg.evaluate("""(()=>{const I=window.__dash.ITEMS; const G=I.filter(r=>r.geo&&r.geo.poly!==false); const wm=20, fm=10;
+    gr = pg.evaluate("""(()=>{const I=window.__dash.ITEMS; const G=I.filter(r=>r.geo&&r.geo.poly!==false); const wm=10, fm=10;
       const badv=G.filter(r=>((r.geo.wetPct||0)>=wm||(r.geo.sfhaPct||0)>=fm)&&(r.vd==='FLIP'||r.vd==='CONSIDERAR')).length;
       const ex=G.find(r=>(r.geo.wetPct||0)>=wm); return {n:G.length, badv, ex: ex?ex.id:null, flagged: ex?(ex.fl||[]).includes('wet'):null};})()""")
     check(gr['n'] > 0 and gr['badv'] == 0 and (gr['ex'] is None or gr['flagged']), f'áreas úmidas/inundação: nenhum lote acima do limite em FLIP/CONSIDER, badge presente {gr}')

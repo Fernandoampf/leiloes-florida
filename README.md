@@ -89,3 +89,6 @@ para `/workspace/auc/statewide/inperson/` (com `--offline` usa só o cache). Cas
 atualiza datas, remove cancelados e o que saiu da lista, adiciona processos novos (sem endereço = "Processo … — endereço
 não publicado"), classifica o autor (HOA/condomínio → alerta de 1ª hipoteca que sobrevive; banco; outro) e mostra o
 badge "Leilão presencial — Fórum de Tavares/Kissimmee, 11h" com depósito/pagamento e link do processo (ShowCase / Benchmark).
+
+### Áreas úmidas e inundação (Fernando, 09/10)
+Para lote/terreno o build mede, sobre o **polígono da parcela** (cadastro estadual DOR), a % coberta por áreas úmidas (USFWS NWI) e por zona FEMA A/AE/AH/AO/VE. **≥ 10% em qualquer dos dois tira o lote de FLIP/CONSIDER**; abaixo de 10% fica só o selo para revisão. Limites ajustáveis nas premissas (`wetMax`, `floodMat`).
