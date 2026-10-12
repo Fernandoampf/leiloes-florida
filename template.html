@@ -597,6 +597,7 @@ const FL = {
  supH:{l:'Oferta alta (Supply)',c:'red',d:'Subdivisão com muitos lotes vagos e poucas vendas (muitos meses de estoque): revenda lenta e abaixo da mediana das vendas fechadas. Valor = P25 dos comps × 0,60–0,70 e posse de 9–12 meses.'},
  supM:{l:'Oferta moderada',c:'amb',d:'Estoque de lotes de 6–12 meses na subdivisão: valor = P25 dos comps × 0,85 e posse de 6 meses.'},
  absL:{l:'Absorption baixa',c:'amb',d:'Menos de 3% dos lotes vagos da subdivisão venderam nos últimos 12 meses (vendas qualificadas DOR).'},
+ cityL:{l:'Cidade credora',c:'amb',d:'Prefeitura (CITY/TOWN/VILLAGE OF) aparece entre os credores notificados do tax deed: pode haver multa de code enforcement ou conta de água/lixo/demolição. Lien municipal pode sobreviver ao tax deed — ligar no code enforcement/utility da cidade antes do depósito.'},
  bldA:{l:'Construtoras ativas',c:'grn',d:'Construtoras compraram lotes vagos nesta subdivisão (≥ 5) ou neste ZIP (≥ 25, com ≥ 10 casas novas) nos últimos 12 meses (cadastro DOR: dono atual de lotes vendidos). Revenda mais rápida: posse menor e desconto de oferta suavizado.'},
  tconf:{l:'Lote? pode ter construção — verificar',c:'amb',d:'Conflito de tipo: o cadastro do DOR diz terreno vago, mas outra fonte (FDOH construído, ano/área de construção ou dono construtora) indica construção. Comps de lote não viram o ARV. Confira fotos, Street View e o PA antes do lance.'},
  vsusp:{l:'Valor suspeito',c:'amb',d:'ARV/POV e comps, ou ARV e valor do condado, divergem mais de 2×. A conta usa o menor número e a nota é cortada. Nunca fica como risco baixo.'}
@@ -973,6 +974,7 @@ function vdHtml(r,long){ return '<span class="vd '+r.vd+'" title="'+esc(r.vdWhy|
 function evaluate(r){
  applySanity(r);
  if(r.hist && r.hist.length && !r.fl.includes('rebid')) r.fl.push('rebid');
+ if(r.t==='TD' && r.plaint && /(CITY|TOWN|VILLAGE) OF/i.test(r.plaint) && !r.fl.includes('code') && !r.fl.includes('cityL')) r.fl.push('cityL');
  const o=base(r); r._o=o; const arv=o.arv; r.rep=o.rehab; r.repw=o.rehabWhy;
  r.yld = (r.rent&&arv) ? r.rent*12/arv : null;
  if(r.rent&&arv){ const noi=r.rent*12*(1-(PR.vac+PR.mgmt)/100)-arv*PR.tax/100-arv*PR.ins/100; r.cap=noi/arv; } else r.cap=null;
@@ -1343,6 +1345,13 @@ function kpis(list){
 }
 $('#kpis').addEventListener('click',e=>{const k=e.target.closest('[data-kat]'); if(!k) return; S.kat = S.kat===k.dataset.kat ? '' : k.dataset.kat; apply();});
 function rtBadge(rt){ if(!rt) return ''; return '<span class="bdg '+rt.lab.toLowerCase()+'" title="Temperatura de revenda do ZIP (Redfin, janela até '+fdate(rt.end)+'): nota '+rt.sc+'/100, '+nf(rt.dom)+' dias medianos no mercado, '+nf(rt.sold)+' vendas em 90 dias'+(rt.thin?' – poucas vendas, pouco confiável':'')+'">'+(rt.lab==='HOT'?'🔥':rt.lab==='WARM'?'♨':rt.lab==='COOL'?'❄':'🧊')+' '+rt.sc+'/100 · '+({HOT:'QUENTE',WARM:'MORNO',COOL:'FRIO',COLD:'GELADO'}[rt.lab])+' · '+nf(rt.dom)+'d'+(rt.thin?'?':'')+'</span>'; }
+// prazo do depósito (estimativa): RealAuction aceita ACH só até alguns dias úteis antes do leilão (ACHD; padrão 7, cauteloso); depois, wire/cheque adm. — regra muda por condado
+const ACHD={indianriver:4,hillsborough:7}; // dias úteis antes do leilão para o ACH: Indian River (clerk, 10/10) e Hillsborough (10/10); demais = 7 (cauteloso)
+function bdBack(ds,n){ const [y,m,dd]=ds.split('-').map(Number); const t=new Date(Date.UTC(y,m-1,dd)); while(n>0){ t.setUTCDate(t.getUTCDate()-1); const w=t.getUTCDay(); if(w!==0&&w!==6) n--; } return t.toISOString().slice(0,10); }
+function depBadge(r){ const u=(r.links&&(r.links.auc||r.links.list))||''; if(!r.date||!/real(taxdeed|foreclose)\.com/.test(u)) return ''; const dl=daysLeft(r.date); if(dl<0||dl>21) return '';
+ const ach=bdBack(r.date,ACHD[r.cs]||7), da=daysLeft(ach), wire=bdBack(r.date,1);
+ const txt = da>=0 ? '💵 Depósito: ACH até '+fdm(ach)+(da===0?' (hoje)':' ('+da+'d)') : '💵 ACH passou · wire até '+fdm(wire);
+ return '<span class="bdg '+(da<=2?'red':'amb')+'" title="Estimativa: na RealAuction o depósito por ACH precisa chegar alguns dias úteis antes do leilão (Indian River 4, Hillsborough 7; demais condados calculados com 7, cauteloso); depois disso só wire ou cheque administrativo (em geral até o dia útil anterior). Cada condado tem a sua regra — confirmar no site do leilão/clerk.">'+txt+'</span>'; }
 function utilBadge(r){ const U=r.util; if(!U) return ''; const w=/Sewer/.test(U.WW)?'esgoto':/Septic/.test(U.WW)?'Septic':''; const d=/Public/.test(U.DW)?'água pública':/Well/.test(U.DW)?'Well':''; const t=[d,w].filter(Boolean).join(' + '); return t?'<span class="bdg '+(/Sewer/.test(U.WW)&&/Public/.test(U.DW)?'grn':'amb')+'" title="FDOH FLWMI: água '+esc(U.DW)+', esgoto '+esc(U.WW)+(U.pt?' (pela coordenada)':' (pela parcela)')+'">💧 '+t+'</span>':''; }
 function badges(r){
  const b=[lcBadge(r)];
@@ -1358,6 +1367,7 @@ function badges(r){
  if((r.olA>0||r.m1) && !r.fl.includes('surv')) b.push('<span class="bdg red" title="Hipotecas/liens em aberto segundo PropertyOnion: '+esc(money(r.olA||r.m1))+(r.olN?' ('+r.olN+')':'')+'. Em tax deed normalmente são extintas; em foreclosure, confirmar se sobrevivem.">LIEN</span>');
  if(r.fz) b.push('<span class="bdg '+(/^(A|V)/.test(r.fz)?'red':'cool')+'" title="Zona FEMA '+esc(r.fz)+'">Flood Zone '+esc(r.fz)+'</span>');
  b.push(utilBadge(r));
+ b.push(depBadge(r));
  if(r.new) b.push('<span class="bdg gld" title="Apareceu pela primeira vez nesta atualização">NOVO</span>');
  if(r.hist&&r.hist.length) b.push('<span class="bdg vio" title="'+esc(r.hist.map(h=>fdate(h.d)+' '+(h.t||'')+' '+(h.s||'')).join(' · '))+'">↺ '+r.hist.length+' leilão(ões) antes</span>');
  if(r.yrsDel) b.push('<span class="bdg" title="Imposto atrasado desde '+r.tdy+'">'+r.yrsDel+'a atraso</span>');
