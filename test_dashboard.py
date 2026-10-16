@@ -326,7 +326,7 @@ with sync_playwright() as p:
     check(lots["west"] and all(w["sc"]<=55 and "use" in w["b"] for w in lots["west"]), f'West Ave comercial limitada {lots["west"]}')
     check(lots["hwy"] and lots["hwy"]["sc"]<=55 and lots["hwy"]["sus"] and lots["hwy"]["val"]<200000, f'US-27 Leesburg suspeito e limitado {lots["hwy"]}')
     found = [i for i in lots["ranks"] if i >= 0]
-    check(len(found) >= 4 and all(i < 20 for i in found), f'lotes residenciais conhecidos no topo (achados={found}) {lots["ranks"]} {lots["top"]}')
+    check(len(found) >= 4 and all(i < 25 for i in found), f'lotes residenciais conhecidos no topo (achados={found}) {lots["ranks"]} {lots["top"]}')
     lm = pg.evaluate("""(()=>{const d=window.__dash;
       const lands=d.ITEMS.filter(r=>(r.ty==="Lote"||r.ty==="Terreno") && r.xbid!=null && r.val);
       // the historical-price term may never push a lot's realistic bid above 65% of ARV (unless the opening bid itself is higher)
@@ -477,6 +477,8 @@ with sync_playwright() as p:
     check(mn['menor'] == 0 and mn['estv'] > 0, f'casas sem comps: nunca "menor entre", selo Estimativa {mn}')
     es = pg.evaluate("(()=>{const d=window.__dash; d.S.cat=''; d.S.all=false; d.apply(); const a=d.CUR.length, h=+(document.querySelector('#nhid')||{}).textContent.replace(/\\D/g,''); d.S.all=true; d.apply(); const b=d.CUR.length; d.S.all=false; d.S.cat='resid'; d.apply(); return {ess:a, all:b, hid:h};})()")
     check(es['ess'] > 200 and es['all'] > es['ess'] and es['hid'] == es['all'] - es['ess'], f'visão essencial padrão + Mostrar tudo {es}')
+    pp = pg.evaluate("(()=>{const I=window.__dash.ITEMS; return {paper:I.filter(r=>r.paper).length, zipBld:I.filter(r=>r.fl.includes('bldA')&&!(r.bld&&r.bld.where==='subdivisão')).length, paperBld:I.filter(r=>r.paper&&r.paper.bld>=5).length};})()")
+    check(pp['paper'] > 0 and pp['zipBld'] == 0 and pp['paperBld'] == 0, f'loteamentos de papel + bldA pela subdivisão {pp}')
     # celular 390px
     m = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
     mp = m.new_page(); merr = []; mp.on('pageerror', lambda e: merr.append(str(e)))

@@ -997,12 +997,19 @@ def build_items(args):
                 rec['fl'] = list(rec.get('fl') or []) + (['supH'] if sup['sev'] == 'alta' else ['supM'])
             if sup and sup.get('rate') is not None and sup['rate'] < 0.03 and sup['nVac'] > 100 and sup['pct'] <= 80:
                 rec['fl'] = list(rec.get('fl') or []) + ['absL']
+        # ---- loteamento de papel: absorção < 3%/ano E mediana de lote < US$ 15 mil, salvo ≥ 5 compras de construtora na subdivisão
+        if land and lce and lce.get('ctx'):
+            ab_ = lce['ctx'].get('abs') or {}; bs_ = ((lce['ctx'].get('bld') or {}).get('sub') or [0])[0]
+            med_ = lce.get('est') if lce.get('lvl') else val
+            if ab_.get('rLots') is not None and (ab_.get('nVac') or 0) >= 50 and ab_['rLots'] < 0.03 and med_ and med_ < 15000 and bs_ < 5:
+                rec['paper'] = dict(rate=ab_['rLots'], med=round(med_), bld=bs_, nVac=ab_.get('nVac'), sub=lce['ctx'].get('sub'))
+                rec['fl'] = list(rec.get('fl') or []) + ['paper']
         # ---- builders buying lots in this subdivision / ZIP (NAL: vacant-lot sales in 12 months to builder-owned companies)
         bx = ((lce or {}).get('ctx') or {}).get('bld') if land else None
         if bx and not rec.get('tconf'):
             bsub = (bx.get('sub') or [0, 0, []]); bzip = (bx.get('zip') or [0, 0, []])
-            if bsub[0] >= 5 or (bzip[0] >= 25 and bzip[1] >= 10):
-                n_, where = (bsub[0], 'subdivisão') if bsub[0] >= 5 else (bzip[0], 'ZIP ' + (bx.get('zk') or ''))
+            if bsub[0] >= 5:                       # selo pela contagem DA SUBDIVISÃO (o ZIP acendia até em Sunny Hills)
+                n_, where = bsub[0], 'subdivisão'
                 rec['bld'] = dict(n=n_, where=where, sub=bsub, zip=bzip, zk=bx.get('zk'))
                 rec['fl'] = list(rec.get('fl') or []) + ['bldA']
                 sup = rec.get('sup')
