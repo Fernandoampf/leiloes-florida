@@ -16,7 +16,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 C = os.path.join(HERE, 'cache', 'local')
 MONTHS = 18                      # sales window
 CUT = re.compile(r'\b(PH(ASE)?|UNIT|UNREC|REPLAT|ADD(ITION)?|SEC(TION)?|BLK|BLOCK|LOT|LOTS|TRACT|TR|PB|PG|ORB|OR|REV|AMENDED|AMD|FIRST|SECOND|THIRD|1ST|2ND|3RD|4TH)\b.*$')
-CACHE_VER = 3
+CACHE_VER = 4
 LANDBANK = re.compile(r'\b(LAND|LANDS|INVEST\w*|PROPERT\w*|HOLDINGS?|CAPITAL|FINANCIAL|REALTY|ACQUISITIONS?|FUNDS?|PARTNERS|VENTURES|ASSETS?|EQUITY|TRUST)\b')
 # builders: national/regional brands + generic builder words (current owner of a vacant lot bought in the last 12 months)
 BRANDS = [('D.R. Horton', r'\bD\s*R\s*HORTON|\bDR HORTON'), ('Lennar', r'LENNAR'), ('LGI Homes', r'\bLGI\b'), ('Adams Homes', r'ADAMS HOMES'),
@@ -79,7 +79,8 @@ def scan(county, zpath, targets, today):
         jv = _i(row.get('JV')); lvg = _i(row.get('TOT_LVG_AREA')); lsq = _i(row.get('LND_SQFOOT')); ayb = _i(row.get('ACT_YR_BLT'))
         res = uc in ('000', '001', '002', '004', '005', '008')
         st = nal.nstreet(row.get('PHY_ADDR1') or ''); st = ('r:' + st + '|' + (row.get('PHY_ZIPCD') or '')[:5]) if st else None
-        for key in (('s:' + sub) if sub else None, ('n:' + nb) if nb else None, st):
+        xk = ('x:%s' % (xy,)) if xy else None             # PLSS section ≈ 1 sq mi ≈ 0.5 mi radius around the lot
+        for key in (('s:' + sub) if sub else None, ('n:' + nb) if nb else None, st, xk):
             if not key or not res: continue
             a = area.get(key)
             if a is None: a = area[key] = [0, 0, 0, []]
@@ -97,13 +98,13 @@ def scan(county, zpath, targets, today):
                 yr_ = _i(row.get('SALE_YR' + k)); mo_ = _i(row.get('SALE_MO' + k)) or 6; pr_ = _i(row.get('SALE_PRC' + k)) or 0
                 if yr_ and yr_ * 12 + mo_ >= ty * 12 + tm - 12 and pr_ >= 1000 and row.get('VI_CD' + k) == 'V':
                     if not row.get('MULTI_PAR_SAL' + k):          # absorption: every single-parcel vacant-lot sale (any qualification code)
-                        for kk in (('s:' + sub) if sub else None, ('n:' + nb) if nb else None, zk):
+                        for kk in (('s:' + sub) if sub else None, ('n:' + nb) if nb else None, zk, xk):
                             if kk: lsale[kk] = lsale.get(kk, 0) + 1
-                    lotbuys.append(((row.get('OWN_NAME') or '').strip(), ('s:' + sub) if sub else None, zk)); break
+                    lotbuys.append(((row.get('OWN_NAME') or '').strip(), ('s:' + sub) if sub else None, zk, xk)); break
         pid = nal.npid(row.get('PARCEL_ID')); ak = nal.npid(row.get('ALT_KEY'))
         hit = pid if pid in targets else (ak if ak and ak in targets else None)
         if hit:
-            subj[hit] = dict(sub=sub, nb=nb, st=st, xy=xy, uc=uc, lsq=lsq, lvg=lvg, ayb=ayb, jv=jv, leg=(row.get('S_LEGAL') or '')[:80], pid=row.get('PARCEL_ID'))
+            subj[hit] = dict(sub=sub, nb=nb, st=st, xy=xy, xk=xk, uc=uc, lsq=lsq, lvg=lvg, ayb=ayb, jv=jv, leg=(row.get('S_LEGAL') or '')[:80], pid=row.get('PARCEL_ID'))
         for k in ('1', '2'):
             prc = _i(row.get('SALE_PRC' + k)); yr = _i(row.get('SALE_YR' + k)); mo = _i(row.get('SALE_MO' + k)) or 6
             if not prc or not yr or yr * 12 + mo < lim: continue
@@ -117,15 +118,15 @@ def scan(county, zpath, targets, today):
         out_area[k] = [a[0], a[1], a[2], round(statistics.median(a[3])) if a[3] else None]
     # builders = known brands / builder words, or companies that bought ≥ 5 vacant lots in 12 months in this county
     cnt = {}
-    for own, _, _ in lotbuys:
+    for own, _, _, _ in lotbuys:
         _, o = builder_name(own); cnt[o] = cnt.get(o, 0) + 1
     bld, tops = {}, {}
-    for own, sk, zk in lotbuys:
+    for own, sk, zk, xk in lotbuys:
         n, o = builder_name(own)
         if not n and cnt.get(o, 0) >= 5 and CORP.search(o) and not NOT_BLD.search(o) and not LANDBANK.search(o): n = o.title()
         if not n: continue
         tops[n] = tops.get(n, 0) + 1
-        for k in (sk, zk):
+        for k in (sk, zk, xk):
             if not k: continue
             b = bld.setdefault(k, [0, {}]); b[0] += 1; b[1][n] = b[1].get(n, 0) + 1
     out_bld = {k: [v[0], newc.get(k, 0), sorted(v[1].items(), key=lambda t: -t[1])[:5]] for k, v in bld.items()}
@@ -175,6 +176,12 @@ def estimate(d, pid, zh_of, today, ty_hint=None):
     zk = 'z:' + (s.get('st') or '|').split('|')[-1] if s.get('st') else None
     bz = B.get(zk) if zk else None
     if bs or bz: ctx['bld'] = dict(sub=bs, zip=bz, zk=zk[2:] if zk else None)
+    # ≈0.5 mi around the lot (its PLSS section): stock, 12-month lot sales and builder buys — used by the supply rule
+    xk = s.get('xk')
+    if xk and d['area'].get(xk):
+        ax = d['area'][xk]; bx = B.get(xk)
+        ctx['sec05'] = dict(nTot=ax[0], nVac=ax[1], nBuilt=ax[2], s12=(d.get('ls') or {}).get(xk, 0), bld=(bx[0] if bx else 0),
+                          pctBuilt=round(100 * ax[2] / ax[0]) if ax[0] else None)
     big = bool(a and a[0] > 3000)
     # absorption: qualified sales in the last 12 months inside the same subdivision (or appraiser neighbourhood)
     ty_, tm_ = int(today[:4]), int(today[5:7]); nowm = ty_ * 12 + tm_

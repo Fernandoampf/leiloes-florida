@@ -466,6 +466,9 @@ with sync_playwright() as p:
     np_ = pg.evaluate("""(()=>{const C=['hardee','desoto','bradford','glades','taylor','madison','union','dixie']; const I=window.__dash.ITEMS.filter(r=>C.includes(r.cs)&&r.t==='TD');
       return {n:I.length, ip:I.filter(r=>r.ip&&/floridapublicnotices/.test(r.ip.list||'')).length, semob:I.filter(r=>r.ref==null).length, semobFlag:I.filter(r=>r.ref==null&&(r.fl||[]).includes('nobid')).length, cos:[...new Set(I.map(r=>r.cs))].sort()};})()""")
     check(np_['n'] >= 1 and np_['ip'] == np_['n'] and np_['semob'] == np_['semobFlag'], f'editais: tax deeds presenciais dos condados sem lista online, Sem Opening Bid marcado {np_}')
+    # leilão vencido sai do site (data < hoje ET ou < data do build); favoritos vencidos só em "Já passaram"
+    pz = pg.evaluate("""(()=>{const I=window.__dash.ITEMS; const t=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date()); return {past:I.filter(r=>r.date&&r.date<t).length, n:I.length};})()""")
+    check(pz['n'] > 0 and pz['past'] == 0, f'leilões vencidos fora do site {pz}')
     # celular 390px
     m = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
     mp = m.new_page(); merr = []; mp.on('pageerror', lambda e: merr.append(str(e)))

@@ -34,7 +34,7 @@ import rawdata, po_fetch, nal, flwmi, po_export, po_bids
 import local_comps
 import inperson
 import clerk_verify
-import geo_risk
+import geo_risk, radius
 
 AUC = '/workspace/auc'
 SW = os.path.join(AUC, 'statewide')
@@ -469,6 +469,14 @@ def load_favs(items):
     if not os.path.exists(p): return None
     d = json.load(open(p)); n = lambda v: re.sub(r'[^0-9A-Z]', '', str(v or '').upper()).lstrip('0')
     out, miss = [], []
+    byid = {r['id']: r for r in items}
+    for iid, c in (d.get('cand') or {}).items():          # site export format ("Meus candidatos" → Exportar JSON)
+        r = byid.get(iid)
+        if not r: miss.append(iid); continue
+        nt = c.get('notes') or ''
+        prio = 'principal' if 'PRINCIPAL' in nt.upper() else ('reserva' if 'RESERVA' in nt.upper() else None)
+        r['plan'] = dict(name=d.get('plan'), prio=prio, mb=c.get('maxBid'), note=nt or None)
+        out.append(dict(id=iid, prio=prio, mb=c.get('maxBid'), note=nt, label=r.get('addr') or iid))
     for f in d.get('items', []):
         cs = re.sub(r'[^a-z]', '', f['county'].lower())
         hits = [r for r in items if (r.get('cs') or '').lower() == cs and (
@@ -509,6 +517,17 @@ def supply_adjust(lce, val, msub):
                mos=round(mos, 1) if mos is not None else None, sBuilt=ab.get('built'), nBuilt=ab.get('nBuilt'))
     if msub: sup.update(ask=msub.get('asking_low'), dom=msub.get('dom_days'), src=msub.get('source'), date=msub.get('date'), notes=msub.get('notes'))
     if pct > 80: sup.update(sev='normal'); return None, sup          # built-out: infill lot, no discount
+    # ≈0.5 mi rule (Claude 12/10, approved 16/10): discount only if the lot's own PLSS section (~1 sq mi) ALSO has high stock
+    # AND builders bought < 5 lots there in 12 months — giant subdivisions (Port Malabar, Cape Coral) are judged locally
+    r5 = x.get('r05')
+    if r5 and r5.get('nTot', 0) >= 20:
+        fs5 = round((r5.get('nVac') or 0) * LIST_SHARE); s5 = r5.get('s12') or 0
+        mos5 = (fs5 / (s5 / 12)) if s5 else None
+        sup.update(r05=dict(nVac=r5.get('nVac'), nTot=r5.get('nTot'), s12=s5, bld=r5.get('bld') or 0, mos=round(mos5, 1) if mos5 is not None else None))
+        if (r5.get('bld') or 0) >= 5 or (mos5 is not None and mos5 <= 12) or (r5.get('pctBuilt') or 0) > 80:
+            sup.update(sev='normal', r05why=('construtoras compraram %d lotes no raio de ~0,5 mi' % r5['bld']) if (r5.get('bld') or 0) >= 5 else
+                       ('raio de ~0,5 mi %s' % ('quase todo construído' if (r5.get('pctBuilt') or 0) > 80 else 'com estoque normal (%.0f meses)' % mos5)))
+            return None, sup
     if mos is None or mos > 24: sev, disc, months = 'alta', (0.60 if pct <= 15 or mos is None or mos > 48 else 0.65), 12
     elif mos > 12: sev, disc, months = 'alta', 0.70, 9
     elif mos > 6: sev, disc, months = 'moderada', 0.85, 6
@@ -516,7 +535,7 @@ def supply_adjust(lce, val, msub):
     domf = (math.ceil(msub['dom_days'] / 30) + 3) if (msub and msub.get('dom_days')) else 0   # observed days on market + buy/list/close
     if domf > months: months = domf
     sup['domFloor'] = domf or None
-    basev = min(v for v in (lce.get('est'), lce.get('lo'), val) if v) if lce.get('lvl') else val
+    basev = (lce.get('est') or val) if lce.get('lvl') else val      # item 1 (16/10): time-adjusted MEDIAN of recent sales, not min(median, P25)
     if not basev: return None, None
     newv = round(basev * disc)
     if msub and msub.get('asking_low'): newv = min(newv, round(msub['asking_low']))
@@ -954,12 +973,18 @@ def build_items(args):
         if land and lce and not rec.get('tconf') and rec.get('val') and (cs, nal.npid(x.get('parcel') or '')) not in manual:
             sub_nm = ((lce.get('ctx') or {}).get('sub') or '').upper()
             msub = msubs.get((cs, sub_nm))
+            rpid = (nf or {}).get('pid')
+            if rpid:
+                if not hasattr(build_items, '_rad'): build_items._rad = radius.load(); build_items._radq = []
+                re5 = build_items._rad.get(f'{cs}|{rpid}')
+                if re5 and re5.get('found'): lce.setdefault('ctx', {})['r05'] = re5
+                else: build_items._radq.append((cs, rpid))
             nv, sup = supply_adjust(lce, rec['val'], msub)
             if sup: rec['sup'] = sup
             if nv:
                 sup['prev'] = rec['val']; rec['val'] = nv; rec['holdM'] = sup['months']
                 rec['vsrc'] = (f"oferta {sup['sev']} na subdivisão ({sup['pct']}% construída, {sup['nVac']:,} lotes vagos, {sup['s12']} vendas de lote em 12 meses ≈ {sup['mos'] if sup['mos'] is not None else '∞'} meses de estoque): "
-                               f"{'P25 dos comps locais' if lce.get('lvl') else 'valor'} {_usd(sup['base'])} × {sup['disc']:.2f}"
+                               f"{'mediana dos comps locais (ajustada no tempo)' if lce.get('lvl') else 'valor'} {_usd(sup['base'])} × {sup['disc']:.2f}"
                                + (f"; anúncios a partir de {_usd(sup['ask'])}, {sup['dom']}+ dias no mercado" if sup.get('ask') else '')
                                + f" = {_usd(nv)}; posse {sup['months']} meses")
                 rec['fl'] = list(rec.get('fl') or []) + (['supH'] if sup['sev'] == 'alta' else ['supM'])
@@ -998,6 +1023,11 @@ def build_items(args):
         rec.setdefault('fl', []); rec.setdefault('links', {})
         if nf and nf.get('pid') and rec.get('ty') in ('Lote', 'Terreno'): rec['_pid'] = nf['pid']
         out.append(rec)
+    # ---- ≈0.5 mi radius (FDOR cadastral) for lots the supply rule would discount; applied from the cache, refreshed incrementally
+    rq = [k for k in getattr(build_items, '_radq', []) if any(r.get('cs') == k[0] and (r.get('sup') or {}).get('disc') for r in out if r.get('_pid') == k[1])]
+    rst = radius.refresh(rq, offline=bool(getattr(args, 'no_clerk', False)) or os.environ.get('LEILOES_NO_CLERK', '').strip().lower() in ('1', 'true', 'yes', 'on'),
+                         limit=int(os.environ.get('RADIUS_LIMIT', '700')), today=today)
+    print('raio 0,5 mi (pendentes p/ próximo build):', json.dumps(rst), flush=True)
     # ---- lots: wetland (USFWS NWI) and flood (FEMA NFHL) share of the PARCEL POLYGON (FDOR cadastral); cached, incremental
     geo_off = bool(getattr(args, 'no_clerk', False)) or os.environ.get('LEILOES_NO_CLERK', '').strip().lower() in ('1', 'true', 'yes', 'on')
     gkeys = sorted({(r['cs'], r['_pid']) for r in out if r.get('_pid')}, key=lambda k: min((r['date'] for r in out if r.get('_pid') == k[1]), default='9'))

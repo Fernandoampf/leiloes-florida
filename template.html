@@ -538,7 +538,13 @@ async function loadDB(){
 }
 const DB = await loadDB();
 document.getElementById('loading').remove();
-const M = DB.meta, ITEMS = DB.items, P = M.params, Z = M.zips || {}, MS = M.mktSrc || {}, ARES = M.ares || {};
+// Fernando 16/10: auctions whose sale date already passed leave the site entirely — by the build date AND by today's date in
+// Florida (ET) on the viewer's clock, so a build from yesterday never shows yesterday's sales. Past favourites/candidates go to PAST
+// (only shown in "Meus candidatos › Já passaram").
+const TODAY_ET = (()=>{ try{ return new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()); }catch(e){ return new Date().toISOString().slice(0,10); } })();
+const CUT_DAY = (DB.meta.dataDate > TODAY_ET) ? DB.meta.dataDate : TODAY_ET;
+const PAST = DB.items.filter(r=>r.date && r.date < CUT_DAY);
+const M = DB.meta, ITEMS = DB.items.filter(r=>!(r.date && r.date < CUT_DAY)), P = M.params, Z = M.zips || {}, MS = M.mktSrc || {}, ARES = M.ares || {};
 const $ = s=>document.querySelector(s), $$ = s=>[...document.querySelectorAll(s)];
 const esc = s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const NF = new Intl.NumberFormat('pt-BR',{maximumFractionDigits:0});
@@ -549,7 +555,7 @@ const pct = (v,d)=> (v==null||!isFinite(v)) ? '—' : nf(v*100,d==null?1:d)+'%';
 const pctp = (v,d)=> (v==null||!isFinite(v)) ? '—' : nf(v,d==null?1:d)+'%';
 const sgn = (v,d)=> (v==null||!isFinite(v)) ? '—' : (v>0?'+':'')+nf(v*100,d==null?1:d)+'%';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-const TODAY = M.dataDate;
+const TODAY = CUT_DAY;
 const dnum = s=>{const [y,m,d]=s.split('-').map(Number); return Date.UTC(y,m-1,d)/864e5;};
 const daysLeft = s=> Math.round(dnum(s)-dnum(TODAY));
 const fdm = s=> s ? s.slice(8,10)+'/'+s.slice(5,7) : '—';
@@ -594,7 +600,7 @@ const FL = {
  nobid:{l:'Sem Opening Bid',c:'amb',d:'Listagem só no export PropertyOnion, sem julgamento/opening bid do RealAuction. NET/ROI usam o preço esperado do condado (como tax deed) quando houver histórico; senão ficam sem dados até o scrape do clerk.'},
  surv:{l:'Surviving Lien',c:'red',d:'Indício de lien que sobrevive ao leilão (HOA/condomínio, hipoteca júnior, ou lien municipal em tax deed). Valor estimado do PropertyOnion quando disponível – confirmar com title search. Reserva no P&L (toggle); veredito/nota penalizados; fora de Negócios limpos.'},
  rebid:{l:'Já foi a leilão',c:'amb',d:'Este imóvel já foi a leilão e voltou (cancelou, não vendeu ou o lance não segurou). Sobe o risco e tira alguns pontos da nota.'},
- supH:{l:'Oferta alta (Supply)',c:'red',d:'Subdivisão com muitos lotes vagos e poucas vendas (muitos meses de estoque): revenda lenta e abaixo da mediana das vendas fechadas. Valor = P25 dos comps × 0,60–0,70 e posse de 9–12 meses.'},
+ supH:{l:'Oferta alta (Supply)',c:'red',d:'Subdivisão E entorno do lote (≈0,5 mi) com muitos lotes vagos, poucas vendas (muitos meses de estoque) e menos de 5 compras de construtora: revenda lenta e abaixo da mediana das vendas fechadas. Valor = P25 dos comps × 0,60–0,70 e posse de 9–12 meses.'},
  supM:{l:'Oferta moderada',c:'amb',d:'Estoque de lotes de 6–12 meses na subdivisão: valor = P25 dos comps × 0,85 e posse de 6 meses.'},
  absL:{l:'Absorption baixa',c:'amb',d:'Menos de 3% dos lotes vagos da subdivisão venderam nos últimos 12 meses (vendas qualificadas DOR).'},
  cityL:{l:'Cidade credora',c:'amb',d:'Prefeitura (CITY/TOWN/VILLAGE OF) aparece entre os credores notificados do tax deed: pode haver multa de code enforcement ou conta de água/lixo/demolição. Lien municipal pode sobreviver ao tax deed — ligar no code enforcement/utility da cidade antes do depósito.'},
@@ -1120,9 +1126,14 @@ let CAND=LS.get(CAND_KEY,{}); // id -> {checks:{proc:bool,...}, maxBid:number|nu
 const saveCand=()=>LS.set(CAND_KEY,CAND);
 // default favourites from the build (data/favoritos.json: Fernando's bidding plan). Each id is seeded ONCE per browser,
 // so removing the ★ or the candidate afterwards sticks.
-(function seedFavs(){ const F=(M.favs&&M.favs.items)||[]; if(!F.length||LS.get('leilao_noseed',0)) return; const done=new Set(LS.get('leilao_favseed_v1',[])); let ch=false;
+(function seedFavs(){ const F=(M.favs&&M.favs.items)||[]; if(!F.length||LS.get('leilao_noseed',0)) return; let done=new Set(LS.get('leilao_favseed_v1',[])); let ch=false;
+ // plan replaced (e.g. Rodada 1 -> GIRO revisado 12/10): un-star ids the OLD plan seeded that are not in the new one; drop their candidate only if the note is still the untouched plan note
+ const plan=M.favs.plan||'', oldPlan=LS.get('leilao_favplan',null);
+ if(oldPlan!==plan){ const keep=new Set(F.map(f=>f.id)); done.forEach(id=>{ if(keep.has(id)) return; FAV.delete(id); if(CAND[id]&&oldPlan&&(CAND[id].notes||'').startsWith(oldPlan)) delete CAND[id]; });
+   if(oldPlan===null){ /* first run of the migration: old seeds carried the Rodada 1 plan name */ done.forEach(id=>{ if(!keep.has(id)){ FAV.delete(id); if(CAND[id]&&/^Plano da Rodada 1/.test(CAND[id].notes||'')) delete CAND[id]; } }); }
+   done=new Set([...done].filter(id=>keep.has(id))); LS.set('leilao_favplan',plan); ch=true; }
  F.forEach(f=>{ if(done.has(f.id)) return; done.add(f.id); ch=true; FAV.add(f.id);
-  if(!CAND[f.id]) CAND[f.id]={checks:{max:!!f.mb}, maxBid:f.mb||null, notes:(M.favs.plan||'Plano')+' · prioridade '+f.prio+(f.note?' · '+f.note:''), added:new Date().toISOString()}; });
+  if(!CAND[f.id]) CAND[f.id]={checks:{max:!!f.mb}, maxBid:f.mb||null, notes:(M.favs.plan||'Plano')+(f.prio?' · prioridade '+f.prio:'')+(f.note?' · '+f.note:''), added:new Date().toISOString()}; });
  if(ch){ LS.set('leilao_favseed_v1',[...done]); LS.set('leilao_fav_v1',[...FAV]); LS.set(CAND_KEY,CAND); } })();
 function candAdd(id){ if(!CAND[id]) CAND[id]={checks:{}, maxBid:null, notes:'', added:new Date().toISOString()}; saveCand(); toast('Adicionado a Meus candidatos'); if(view==='cand') renderCand(); }
 function candRem(id){ delete CAND[id]; saveCand(); toast('Removido dos candidatos'); if(view==='cand') renderCand(); else apply(); }
@@ -1131,6 +1142,7 @@ function candProg(c){ const ch=c.checks||{}; let n=0; CAND_CHECKS.forEach(([k])=
 function renderCand(){
  const ids=Object.keys(CAND);
  const rows=ids.map(id=>{ const r=ITEMS.find(x=>x.id===id); return r?{r,c:CAND[id]}:null; }).filter(Boolean);
+ const gone=ids.map(id=>{ const r=PAST.find(x=>x.id===id); return r?{r,c:CAND[id]}:null; }).filter(Boolean);
  rows.sort((a,b)=>(a.r.date||'').localeCompare(b.r.date||'')||(a.r.addr||'').localeCompare(b.r.addr||''));
  const g=$('#grid'); if(!g) return;
  let bar='<div class="candbar panel" style="padding:10px 12px"><b>🎯 Meus candidatos</b> <span class="mini">'+rows.length+' neste aparelho</span>'+
@@ -1157,6 +1169,8 @@ function renderCand(){
    '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm gold" data-open="'+esc(r.id)+'">Abrir detalhe</button>'+
    (r.fl.includes('surv')||r.survAmt?'<span class="bdg red">Hipoteca pode sobreviver'+(r.survAmt?' ~'+money(r.survAmt):'')+'</span>':'')+'</div></article>';
  }).join('')+'</div>';
+ if(gone.length) g.innerHTML+='<details class="panel" style="margin-top:12px;padding:10px 12px"><summary><b>Já passaram</b> <span class="mini c-mut">'+gone.length+' candidato(s) com leilão vencido — fora da lista; só aqui como histórico</span></summary><ul class="lcx">'+
+   gone.sort((a,b)=>(b.r.date||'').localeCompare(a.r.date||'')).map(({r,c})=>'<li>'+fdate(r.date)+' · '+esc(r.co)+' · '+esc(r.addr||r.id)+(c.maxBid?' · teto '+money(c.maxBid):'')+(c.notes?' <span class="mini c-mut">'+esc(c.notes.slice(0,90))+'</span>':'')+'</li>').join('')+'</ul></details>';
  $('#cmore').style.display='none';
  bindCandBar();
  g.onclick=e=>{
@@ -1883,6 +1897,8 @@ function lcHtml(r){
  if(sp){
   li.push('<span class="tmr">Supply</span> – Oferta: <b>'+nf(sp.nVac)+'</b> lotes vagos ('+sp.pct+'% construído)'+(sp.ask?', anúncios a partir de <b>'+money(sp.ask)+'</b>':'')+(sp.dom?', <span class="tmr">DOM</span> '+sp.dom+'+ dias':'')+(sp.src?' <span class="mini">('+esc(sp.src)+')</span>':''));
   if(sp.disc) li.push('<b class="'+(sp.sev==='alta'?'c-red':'c-amber')+'">Desconto por oferta '+sp.sev+'</b>: '+(sp.base?money(sp.base)+' (o menor entre mediana e P25 dos comps)':'valor')+' × '+nf(sp.disc,2)+(sp.ask?', limitado ao menor anúncio':'')+' = <b>'+money(r.val)+'</b> (antes '+money(sp.prev)+'); posse de <b>'+sp.months+' meses</b>. Estoque à venda '+(sp.estFs?'estimado em 5% dos lotes vagos ('+nf(sp.forsale)+')':nf(sp.forsale)+' anúncios')+'; vendas fechadas não mostram quanto tempo os lotes ficam parados.');
+  if(sp.r05) li.push('Raio ≈0,5 mi (seção do lote): <b>'+nf(sp.r05.nVac)+'</b> vagos de '+nf(sp.r05.nTot)+' · '+sp.r05.s12+' vendas de lote em 12 m'+(sp.r05.mos!=null?' (~'+nf(sp.r05.mos,0)+' meses de estoque)':' (sem venda em 12 m)')+' · <b>'+sp.r05.bld+'</b> compras de construtora');
+  if(!sp.disc&&sp.r05why) li.push('Sem desconto por oferta: '+esc(sp.r05why)+' (a subdivisão inteira tem estoque alto, mas o desconto só vale se o entorno do lote também tiver).');
   else if(sp.sev==='normal') li.push('Sem desconto por oferta ('+(sp.pct>80?'subdivisão '+sp.pct+'% construída: lote de preenchimento':'estoque ≤ 6 meses')+').');
  }
  const bl=r.bld||(x.bld&&{sub:x.bld.sub,zip:x.bld.zip,zk:x.bld.zk});
