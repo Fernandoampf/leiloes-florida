@@ -1236,7 +1236,7 @@ const nwiUrl = 'https://fwsprimary.wim.usgs.gov/wetlands/apps/wetlands-mapper/';
 const dd = fdate(TODAY);
 function hdr(){ $('#hdrr').innerHTML='Dados de <b>'+dd+'</b> · retorno mín. <b>'+pctp(PR.ret)+'</b> · FLIP ≥ <b>'+pctp(PR.flip)+'</b> · <b>'+nf(ITEMS.length)+'</b> no arquivo · '+nf(new Set(ITEMS.map(r=>r.cs)).size)+' condados'+(custom()?'<span class="pbadge">premissas personalizadas</span>':''); }
 hdr();
-const DISC='<b>Aviso:</b> dados de terceiros (sites de leilão RealAuction dos condados, Tranzon, Tesouro dos EUA, PropertyOnion, cadastro do DOR/Property Appraisers, FDOH, Redfin/Zillow) coletados até '+dd+'. Valores, ocupação, hipotecas, água/esgoto, aluguel e riscos são <b>estimativas e podem estar errados ou desatualizados</b>; leilões são cancelados com frequência. <b>Verifique tudo no Clerk (processo/edital) e no Property Appraiser do condado antes de dar qualquer lance</b>, faça busca de título e visite o imóvel. Não é recomendação de investimento. Todos os valores em dólares americanos (US$).';
+const DISC='<b>Aviso:</b> dados de terceiros (sites de leilão RealAuction dos condados, Tranzon, Tesouro dos EUA, PropertyOnion, cadastro do DOR/Property Appraisers, FDOH, Redfin/Zillow) coletados até '+dd+'. Valores, ocupação, hipotecas, água/esgoto, aluguel e riscos são <b>estimativas e podem estar errados ou desatualizados</b>; leilões são cancelados com frequência. <b>Verifique tudo no Clerk (processo/edital) e no Property Appraiser do condado antes de dar qualquer lance</b>, faça busca de título e visite o imóvel. Não é recomendação de investimento. Todos os valores em dólares americanos (US$). Fotos de satélite ao vivo: Esri, Vantor, Earthstar Geographics e GIS User Community.';
 $('#discfull').innerHTML=DISC; $('#disc2').innerHTML=DISC;
 $('#foot').innerHTML='CHALLENGE CAPITAL · LEILÃO – Leilões Flórida v7 · dados de '+dd+' · gerado em '+esc(M.built)+' · '+ITEMS.length+' imóveis';
 
@@ -1436,7 +1436,12 @@ function badges(r){
  return b.join('');
 }
 const scCls = s=> s==null?'na':s>=65?'hi':s>=45?'mid':'lo';
-const firstImg = r=> r.imgs&&r.imgs.length ? r.imgs[0] : null;
+// Esri World Imagery: carregado ao vivo no navegador (termos: não exportar/guardar offline), com atribuição
+const ESRI_ATTR='Imagem de satélite: Esri, Vantor, Earthstar Geographics e GIS User Community';
+function esriBox(lat,lon,halfM,W,H){ const dl=halfM/111320, dn=dl/Math.cos(lat*Math.PI/180)*(W/H); return [lon-dn,lat-dl,lon+dn,lat+dl]; }
+function esriImg(b,W,H){ return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox='+b.map(v=>v.toFixed(6)).join(',')+'&bboxSR=4326&imageSR=4326&size='+W+','+H+'&format=jpg&f=image'; }
+const satThumb = r=> r.lat!=null ? esriImg(esriBox(r.lat,r.lon,isLand(r)?70:55,300,200),300,200) : null;
+const firstImg = r=> isLand(r) ? (satThumb(r)||(r.imgs&&r.imgs[0])||null) : (r.imgs&&r.imgs.length ? r.imgs[0] : satThumb(r));
 const thumb = r=> firstImg(r) ? '<img class="th" loading="lazy" referrerpolicy="no-referrer" src="'+esc(firstImg(r))+'" alt="" onerror="this.outerHTML=\'<div class=thx>sem foto</div>\'">' : '<div class="thx">'+(isLand(r)?'terreno':'sem foto')+'</div>';
 const facts = r=> isLand(r) ? '<span class="ty">'+r.ty+'</span> '+(r.ac?nf(r.ac,2)+' acre':'área —')+(r.zon?' · '+esc(r.zon):'')+(r.ucd?' · '+esc(r.ucd):'') : '<span class="ty">'+r.ty+'</span> '+(r.beds?nf(r.beds)+'qt/':'')+(r.baths?nf(r.baths,1)+'bh · ':'')+(r.sqft?nf(r.sqft)+' sqft':'— sqft')+' · '+(r.yr?'Constr. '+r.yr:'ano —')+(r.ty==='Comercial'&&r.ucd?' · '+esc(r.ucd):'');
 const linksH = r=> '<span class="lk"><a href="'+esc(zillowUrl(r))+'" target="_blank" rel="noopener">Zillow</a><a href="'+esc(realtorUrl(r))+'" target="_blank" rel="noopener">Realtor</a><a href="'+esc(gmapsUrl(r))+'" target="_blank" rel="noopener">Mapa</a></span>';
@@ -1784,9 +1789,25 @@ function marketHtml(r){
 let GAL=null;
 function galHtml(r){
  const im=r.imgs||[], has=r.lat!=null;
- const tabs=[['ph','📷 Fotos ('+im.length+')',im.length>0],['sv','🚶 Street View',has],['sat','🛰 Satélite',has],['map','🗺 Mapa',true]];
+ const tabs=[['ph','📷 Fotos ('+im.length+')',im.length>0],['sat','🛰 Satélite + lote',has],['map','🗺 Mapa',true]];
  return '<div class="gal" id="gal"><div class="galtabs">'+tabs.map(t=>'<button data-gt="'+t[0]+'"'+(t[2]?'':' disabled style="opacity:.4"')+'>'+t[1]+'</button>').join('')+'</div><div class="galmain" id="galmain"></div><div class="galthumbs" id="galthumbs"></div>'+
-  '<div class="mini" style="padding:4px 8px 8px">'+[lnk(zillowUrl(r),'Zillow (fotos do anúncio)'),lnk(realtorUrl(r),'Realtor.com'),lnk(gmapsUrl(r),'Google Maps'),lnk(svUrl(r),'Street View em tela cheia')].join(' · ')+(im.length?' · fotos: PropertyOnion / Property Appraiser (podem ser antigas)':'')+'</div></div>';
+  '<div class="mini" style="padding:4px 8px 8px">'+[lnk(zillowUrl(r),'Zillow (fotos do anúncio)'),lnk(realtorUrl(r),'Realtor.com'),lnk(gmapsUrl(r),'Google Maps'),lnk(svUrl(r),'🚶 Street View (abre no Google)')].join(' · ')+(im.length?' · fotos: PropertyOnion / Property Appraiser (podem ser antigas)':'')+'</div></div>';
+}
+const PARC={};
+function satDraw(r,m,ring){
+ const W=800,H=520; let b;
+ if(ring&&ring.length>2){ let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9; ring.forEach(([x,y])=>{x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);});
+  const cx=(x0+x1)/2, cy=(y0+y1)/2, half=Math.max(45,Math.max((y1-y0)*111320,(x1-x0)*111320*Math.cos(cy*Math.PI/180)/(W/H))*0.8); b=esriBox(cy,cx,half,W,H); }
+ else b=esriBox(r.lat,r.lon,isLand(r)?80:60,W,H);
+ const px=([x,y])=>((x-b[0])/(b[2]-b[0])*W).toFixed(1)+','+((b[3]-y)/(b[3]-b[1])*H).toFixed(1);
+ const ov=ring&&ring.length>2?'<polygon points="'+ring.map(px).join(' ')+'" fill="rgba(255,215,0,.12)" stroke="#ffd700" stroke-width="3"/>':'<circle cx="'+px([r.lon,r.lat]).split(',')[0]+'" cy="'+px([r.lon,r.lat]).split(',')[1]+'" r="9" fill="none" stroke="#ffd700" stroke-width="3"/>';
+ m.innerHTML='<div style="position:relative;width:100%;aspect-ratio:'+W+'/'+H+'"><img id="satimg" referrerpolicy="no-referrer" alt="satélite" src="'+esriImg(b,W,H)+'" style="width:100%;height:100%;object-fit:cover;display:block"><svg viewBox="0 0 '+W+' '+H+'" style="position:absolute;inset:0;width:100%;height:100%">'+ov+'</svg><span class="mini" style="position:absolute;left:4px;bottom:2px;background:rgba(0,0,0,.6);padding:1px 4px">'+ESRI_ATTR+(ring?' · contorno: cadastro estadual FDOR':' · contorno indisponível (ponto aproximado)')+'</span></div>';
+}
+function satShow(r,m){
+ if(PARC[r.id]!==undefined){ satDraw(r,m,PARC[r.id]); return; }
+ satDraw(r,m,null);
+ const u='https://services9.arcgis.com/Gh9awoU677aKree0/arcgis/rest/services/Florida_Statewide_Cadastral/FeatureServer/0/query?geometry='+r.lon+','+r.lat+'&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=PARCEL_ID&returnGeometry=true&outSR=4326&f=json';
+ fetch(u).then(x=>x.json()).then(j=>{ const g=j&&j.features&&j.features[0]&&j.features[0].geometry; PARC[r.id]=g&&g.rings?g.rings[0]:null; if(DR&&DR.r===r&&GAL.tab==='sat') satDraw(r,$('#galmain'),PARC[r.id]); }).catch(()=>{ PARC[r.id]=null; });
 }
 function galShow(){
  const r=DR.r, im=r.imgs||[], m=$('#galmain'), th=$('#galthumbs'); if(!m) return;
@@ -1796,7 +1817,7 @@ function galShow(){
   if(!im.length){ m.innerHTML='<div class="galnone">Sem fotos para este imóvel. Use Street View, satélite ou os links abaixo.</div>'; return; }
   m.innerHTML='<img id="galimg" referrerpolicy="no-referrer" src="'+esc(im[GAL.i])+'" alt="foto '+(GAL.i+1)+'" onerror="this.replaceWith(Object.assign(document.createElement(\'div\'),{className:\'galnone\',textContent:\'Foto indisponível (link externo expirou).\'}))">'+(im.length>1?'<button class="galnav l" data-gn="-1">‹</button><button class="galnav r" data-gn="1">›</button>':'')+'<span class="galcnt">'+(GAL.i+1)+' / '+im.length+'</span>';
   th.innerHTML=im.map((u,i)=>'<img loading="lazy" referrerpolicy="no-referrer" src="'+esc(u)+'" data-gi="'+i+'"'+(i===GAL.i?' class="on"':'')+' onerror="this.remove()">').join('');
- } else {
+ } else if(GAL.tab==='sat'){ satShow(r,m); } else {
   const src = GAL.tab==='sv' ? 'https://www.google.com/maps?layer=c&cbll='+r.lat+','+r.lon+'&cbp=11,0,0,0,0&output=svembed'
    : GAL.tab==='sat' ? 'https://maps.google.com/maps?q='+r.lat+','+r.lon+'&t=k&z=18&output=embed'
    : (r.lat!=null ? 'https://maps.google.com/maps?q='+r.lat+','+r.lon+'&z=15&output=embed' : 'https://maps.google.com/maps?q='+encodeURIComponent(fullAddr(r))+'&z=15&output=embed');
@@ -1998,7 +2019,7 @@ function openDrawer(id){
  const r=ITEMS.find(x=>x.id===id); if(!r) return;
  OPEN=id; writeHash();
  DR={r,o:{...r._o,pr:{...PR}},bid:Math.round(r.refU!=null?r.refU:(r.mb||0)),tab:DR&&DR.r===r?DR.tab:'flip'};
- GAL={i:0,tab:(r.imgs&&r.imgs.length)?'ph':(r.lat!=null?'sv':'map')};
+ GAL={i:0,tab:(r.imgs&&r.imgs.length&&!isLand(r))?'ph':(r.lat!=null?'sat':(r.imgs&&r.imgs.length?'ph':'map'))};
  const L=r.links||{}, t=TRK[r.id]||{};
  const maxS=Math.max(10000,Math.round(Math.max(r.val||0,(r.ref||0)*1.5)/1000)*1000);
  const dl=daysLeft(r.date);
