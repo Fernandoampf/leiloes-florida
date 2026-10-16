@@ -100,7 +100,7 @@ with sync_playwright() as p:
     pg.evaluate(f'{D}.openDrawer("{rid}")'); pg.wait_for_timeout(500)
     dnet = pg.locator('#dplnet').inner_text()
     check(f"{round(tnet):,}".replace(',', '.') in dnet, f'NET do painel = NET da tabela ({dnet} vs {tnet:.0f})')
-    check(pg.locator('#drawer a', has_text='Zillow').count() >= 1 and pg.locator('#drawer a', has_text='Realtor').count() >= 1, 'links Zillow e Realtor no painel')
+    check(pg.locator('#drawer a', has_text='Zillow').count() >= 1 and pg.locator('#drawer a', has_text='Redfin').count() >= 1 and pg.locator('#drawer a', has_text='Realtor').count() == 0, 'links Zillow e Redfin (sem Realtor) no painel')
     check(pg.locator('#galmain img').count() == 1, 'galeria: foto exibida')
     check(pg.locator('#gal [data-gt="sv"]').count() == 0 and pg.locator('#gal a', has_text='Street View').count() >= 1, 'galeria: Street View só como link')
     pg.click('#gal [data-gt="sat"]'); pg.wait_for_timeout(200)

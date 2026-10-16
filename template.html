@@ -1221,6 +1221,7 @@ const saveFlg=()=>LS.set('leilao_flags_v1',FLG);
 // ---------------------------------------------------------------- external links
 const fullAddr = r=> r.addr.replace(/\s+/g,' ').trim();
 function zillowUrl(r){ return 'https://www.zillow.com/homes/'+encodeURIComponent(fullAddr(r).replace(/#/g,'').replace(/,/g,'').replace(/\s+/g,'-'))+'_rb/'; }
+function redfinUrl(r){ return 'https://www.google.com/search?btnI=1&q='+encodeURIComponent('site:redfin.com '+fullAddr(r)); }
 function realtorUrl(r){
  const a=fullAddr(r).replace(/#/g,' '); const m=a.match(/^(.*?),\s*FL\s*(\d{5})?/i);
  let street=m?m[1]:a, zip=(m&&m[2])||r.zip||'', city=r.city||'';
@@ -1444,7 +1445,7 @@ const satThumb = r=> r.lat!=null ? esriImg(esriBox(r.lat,r.lon,isLand(r)?70:55,3
 const firstImg = r=> isLand(r) ? (satThumb(r)||(r.imgs&&r.imgs[0])||null) : (r.imgs&&r.imgs.length ? r.imgs[0] : satThumb(r));
 const thumb = r=> firstImg(r) ? '<img class="th" loading="lazy" referrerpolicy="no-referrer" src="'+esc(firstImg(r))+'" alt="" onerror="this.outerHTML=\'<div class=thx>sem foto</div>\'">' : '<div class="thx">'+(isLand(r)?'terreno':'sem foto')+'</div>';
 const facts = r=> isLand(r) ? '<span class="ty">'+r.ty+'</span> '+(r.ac?nf(r.ac,2)+' acre':'área —')+(r.zon?' · '+esc(r.zon):'')+(r.ucd?' · '+esc(r.ucd):'') : '<span class="ty">'+r.ty+'</span> '+(r.beds?nf(r.beds)+'qt/':'')+(r.baths?nf(r.baths,1)+'bh · ':'')+(r.sqft?nf(r.sqft)+' sqft':'— sqft')+' · '+(r.yr?'Constr. '+r.yr:'ano —')+(r.ty==='Comercial'&&r.ucd?' · '+esc(r.ucd):'');
-const linksH = r=> '<span class="lk"><a href="'+esc(zillowUrl(r))+'" target="_blank" rel="noopener">Zillow</a><a href="'+esc(realtorUrl(r))+'" target="_blank" rel="noopener">Realtor</a><a href="'+esc(gmapsUrl(r))+'" target="_blank" rel="noopener">Mapa</a></span>';
+const linksH = r=> '<span class="lk"><a href="'+esc(zillowUrl(r))+'" target="_blank" rel="noopener">Zillow</a><a href="'+esc(redfinUrl(r))+'" target="_blank" rel="noopener">Redfin</a><a href="'+esc(gmapsUrl(r))+'" target="_blank" rel="noopener">Mapa</a></span>';
 const OPT = r=>{
   if(r.nobid) return r.refx!=null ? '<span class="opt" title="Sem lance inicial (PropertyOnion): NET/ROI no preço esperado ('+money(r.refx)+').">²</span>' : '<span class="opt" title="Sem julgamento/lance inicial (PropertyOnion) e sem histórico de preço esperado – ROI não calculado.">∅</span>';
   if(r.t!=='TD') return '';
@@ -1649,8 +1650,8 @@ function csvDownload(H,rows,name){
 const R0=v=>v==null||!isFinite(v)?'':Math.round(v);
 const P1=v=>v==null||!isFinite(v)?'':(v*100).toFixed(1);
 $('#bcsv').onclick=()=>{
- const H=['nota','categoria','veredito','tipo_imovel','endereco','cidade','zip','condado','tipo_leilao','data','hora','dias','valor_pov_arv_usd','fonte_valor','lance_ref_usd','pct_valor','lance_max_'+PR.ret+'pct_usd','deposito_'+PR.dep+'pct_usd','break_even_usd','preco_esperado_usd','net_usd','roi_pct','reforma_usd','meses','qts','banh','sqft','ano','acres','zoneamento','agua_fdoh','esgoto_fdoh','aluguel_mes_usd','yield_pct','cap_pct','fema','dist_orlando_mi','autor','processo','parcela','alertas','zillow','realtor','leilao','property_appraiser','cor','situacao'];
- const rows=CUR.map(r=>[r.sc,r.kat,r.vd,r.ty,r.addr,r.city,r.zip,r.co,TYPES[r.t],r.date,r.time,daysLeft(r.date),R0(r.val),r.vsrc,r.ref,P1(r.refPct),R0(r.mb),R0(r.dep),R0(r.be),r.xp?r.xp.v:'',R0(r.net),P1(r.roi),R0(r.rep),r.ttf,r.beds,r.baths,r.sqft,r.yr,r.ac,r.zon,r.util&&r.util.DW,r.util&&r.util.WW,r.rent,P1(r.yld),P1(r.cap),r.fz,r.dist,r.plaint,r.case,r.parcel,r.fl.map(f=>FL[f]?FL[f].l:f).join('; '),zillowUrl(r),realtorUrl(r),r.links.auc||r.links.list,r.links.pa,FLG[r.id]?FLAGL[FLG[r.id]]:'',TRK[r.id]&&TRK[r.id].s?STL[TRK[r.id].s]:'']);
+ const H=['nota','categoria','veredito','tipo_imovel','endereco','cidade','zip','condado','tipo_leilao','data','hora','dias','valor_pov_arv_usd','fonte_valor','lance_ref_usd','pct_valor','lance_max_'+PR.ret+'pct_usd','deposito_'+PR.dep+'pct_usd','break_even_usd','preco_esperado_usd','net_usd','roi_pct','reforma_usd','meses','qts','banh','sqft','ano','acres','zoneamento','agua_fdoh','esgoto_fdoh','aluguel_mes_usd','yield_pct','cap_pct','fema','dist_orlando_mi','autor','processo','parcela','alertas','zillow','redfin','leilao','property_appraiser','cor','situacao'];
+ const rows=CUR.map(r=>[r.sc,r.kat,r.vd,r.ty,r.addr,r.city,r.zip,r.co,TYPES[r.t],r.date,r.time,daysLeft(r.date),R0(r.val),r.vsrc,r.ref,P1(r.refPct),R0(r.mb),R0(r.dep),R0(r.be),r.xp?r.xp.v:'',R0(r.net),P1(r.roi),R0(r.rep),r.ttf,r.beds,r.baths,r.sqft,r.yr,r.ac,r.zon,r.util&&r.util.DW,r.util&&r.util.WW,r.rent,P1(r.yld),P1(r.cap),r.fz,r.dist,r.plaint,r.case,r.parcel,r.fl.map(f=>FL[f]?FL[f].l:f).join('; '),zillowUrl(r),redfinUrl(r),r.links.auc||r.links.list,r.links.pa,FLG[r.id]?FLAGL[FLG[r.id]]:'',TRK[r.id]&&TRK[r.id].s?STL[TRK[r.id].s]:'']);
  csvDownload(H,rows,'leiloes-florida-'+TODAY+'.csv');
 };
 $('#bcols').onclick=()=>{ $('#colb').innerHTML=COLS.map(c=>'<label style="flex-direction:row;gap:6px;align-items:center;color:var(--ink)"><input type="checkbox" data-col="'+c[0]+'"'+(COLON[c[0]]?' checked':'')+'> '+(typeof c[1]==='function'?c[1]():c[1])+'</label>').join(''); $('#cols').showModal(); };
@@ -1791,7 +1792,7 @@ function galHtml(r){
  const im=r.imgs||[], has=r.lat!=null;
  const tabs=[['ph','📷 Fotos ('+im.length+')',im.length>0],['sat','🛰 Satélite + lote',has],['map','🗺 Mapa',true]];
  return '<div class="gal" id="gal"><div class="galtabs">'+tabs.map(t=>'<button data-gt="'+t[0]+'"'+(t[2]?'':' disabled style="opacity:.4"')+'>'+t[1]+'</button>').join('')+'</div><div class="galmain" id="galmain"></div><div class="galthumbs" id="galthumbs"></div>'+
-  '<div class="mini" style="padding:4px 8px 8px">'+[lnk(zillowUrl(r),'Zillow (fotos do anúncio)'),lnk(realtorUrl(r),'Realtor.com'),lnk(gmapsUrl(r),'Google Maps'),lnk(svUrl(r),'🚶 Street View (abre no Google)')].join(' · ')+(im.length?' · fotos: PropertyOnion / Property Appraiser (podem ser antigas)':'')+'</div></div>';
+  '<div class="mini" style="padding:4px 8px 8px">'+[lnk(zillowUrl(r),'Zillow (fotos do anúncio)'),lnk(redfinUrl(r),'Redfin'),lnk(gmapsUrl(r),'Google Maps'),lnk(svUrl(r),'🚶 Street View (abre no Google)')].join(' · ')+(im.length?' · fotos: PropertyOnion / Property Appraiser (podem ser antigas)':'')+'</div></div>';
 }
 const PARC={};
 function satDraw(r,m,ring){
@@ -1994,7 +1995,7 @@ function lcHtml(r){
 }
 function compsHtml(r){
  const c=r.comps;
- if(!c||!c.l||!c.l.length) return '<div class="sec"><h3>🏘 Comps do ZIP (estimativa)</h3><p class="mini">Sem vendas qualificadas comparáveis no mesmo ZIP no cadastro do DOR (2025–2026) – ou condado ainda não carregado. Veja '+lnk(zillowUrl(r),'Zillow')+' / '+lnk(realtorUrl(r),'Realtor.com')+'.</p></div>';
+ if(!c||!c.l||!c.l.length) return '<div class="sec"><h3>🏘 Comps do ZIP (estimativa)</h3><p class="mini">Sem vendas qualificadas comparáveis no mesmo ZIP no cadastro do DOR (2025–2026) – ou condado ainda não carregado. Veja '+lnk(zillowUrl(r),'Zillow')+' / '+lnk(redfinUrl(r),'Redfin')+'.</p></div>';
  const land=c.g==='land';
  return '<div class="sec" id="dcomps"><h3>🏘 '+(c.local?'Comps locais · '+esc(c.local):'Comps · ZIP '+esc(r.zip||''))+' <span class="st est">ESTIMATIVA</span></h3>'+
   (c.est?'<div class="lv" style="margin-bottom:6px"><div><span>Valor estimado por comps</span><b class="c-gold">'+money(c.est)+'</b></div><div><span>Mediana '+(land?'US$/sqft de terreno':'US$/sqft construído')+'</span><b>'+money(c.ppsf)+(land?'':'')+'</b></div><div><span>'+(c.local?'Comps usados':'Comps no ZIP')+'</span><b>'+nf(c.n)+'</b></div>'+(r.val?'<div><span>Valor usado vs comps</span><b class="'+(r.val>c.est*1.2?'c-red':r.val<c.est*0.8?'c-green':'')+'">'+sgn(r.val/c.est-1,0)+'</b></div>':'')+'</div>':'<p class="mini">Menos de 3 comparáveis – sem estimativa.</p>')+
@@ -2030,7 +2031,7 @@ function openDrawer(id){
   '<div><span>Orlando</span><b>'+distLbl(r)+'</b></div>'+
   '<div><span title="ROI no lance que a gente assume que ganha o leilão">ROI realista</span><b class="'+(r.roi>=PR.flip/100?'c-green':r.roi>=PR.ret/100?'c-amber':'c-red')+'">'+pct(r.roi)+'</b><span class="mini">'+money(r.net)+(r.roi0!=null&&Math.abs((r.xbid||0)-(r.ref||0))>1?' · inicial '+pct(r.roi0):'')+'</span></div></div>'+
   galHtml(r)+
-  '<div class="dlinks"><a class="btn gold" id="dzil" href="'+esc(zillowUrl(r))+'" target="_blank" rel="noopener">🏠 Zillow</a><a class="btn gold" id="drea" href="'+esc(realtorUrl(r))+'" target="_blank" rel="noopener">🏠 Realtor.com</a><a class="btn" href="'+esc(gmapsUrl(r))+'" target="_blank" rel="noopener">📍 Google Maps</a><a class="btn" href="'+esc(svUrl(r))+'" target="_blank" rel="noopener">🚶 Street View</a>'+(L.pa?'<a class="btn" href="'+esc(L.pa)+'" target="_blank" rel="noopener">🏛 Property Appraiser</a>':'')+(L.auc||L.list?'<a class="btn" href="'+esc(L.auc||L.list)+'" target="_blank" rel="noopener">⚖ Clerk / Leilão</a>':'')+(L.po?'<a class="btn" href="'+esc(L.po)+'" target="_blank" rel="noopener">PropertyOnion</a>':'')+'<button class="btn gold" id="dshare" title="Link que abre o site direto neste imóvel (depois da senha), ignorando filtros">🔗 Copiar link do imóvel</button><button class="btn '+(CAND[r.id]?'':'gold')+'" id="dcand">'+(CAND[r.id]?'✓ Candidato':'＋ Candidato')+'</button></div>'+
+  '<div class="dlinks"><a class="btn gold" id="dzil" href="'+esc(zillowUrl(r))+'" target="_blank" rel="noopener">🏠 Zillow</a><a class="btn gold" id="drea" href="'+esc(redfinUrl(r))+'" target="_blank" rel="noopener">🏠 Redfin</a><a class="btn" href="'+esc(gmapsUrl(r))+'" target="_blank" rel="noopener">📍 Google Maps</a><a class="btn" href="'+esc(svUrl(r))+'" target="_blank" rel="noopener">🚶 Street View</a>'+(L.pa?'<a class="btn" href="'+esc(L.pa)+'" target="_blank" rel="noopener">🏛 Property Appraiser</a>':'')+(L.auc||L.list?'<a class="btn" href="'+esc(L.auc||L.list)+'" target="_blank" rel="noopener">⚖ Clerk / Leilão</a>':'')+(L.po?'<a class="btn" href="'+esc(L.po)+'" target="_blank" rel="noopener">PropertyOnion</a>':'')+'<button class="btn gold" id="dshare" title="Link que abre o site direto neste imóvel (depois da senha), ignorando filtros">🔗 Copiar link do imóvel</button><button class="btn '+(CAND[r.id]?'':'gold')+'" id="dcand">'+(CAND[r.id]?'✓ Candidato':'＋ Candidato')+'</button></div>'+
   (r.tconf?'<div class="survbox" id="tconfbox"><b>⚠ Lote? pode ter construção — verificar</b> As fontes não concordam sobre o tipo:<ul class="lcx">'+r.tconf.map(t=>'<li>'+esc(t)+'</li>').join('')+'</ul><span class="mini">O painel mantém o tipo do DOR, mas não usa comps de lote como ARV. Confira fotos, Street View e o Property Appraiser.</span></div>':'')+
   ((r.fl.includes('surv')||r.survAmt)?('<div class="survbox" id="survbox"><b>⚠ Hipoteca pode sobreviver</b>'+(r.survAmt?' – est. <b>'+money(r.survAmt)+'</b>':'')+'. '+esc(r.survWhy||FL.surv.d)+' <span class="mini">ESTIMATIVA – confirmar com title search. Toggle no P&L para deduzir/omitir.</span></div>'):'')+
   '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="sc '+scCls(r.sc)+'" title="'+esc(r.scKind)+'">'+(r.sc==null?'—':r.sc)+'</span><span class="cat '+r.katk+'">'+r.kat+'</span>'+vdHtml(r,true)+'<span class="bdg">'+TYPES[r.t]+(r.plat?' · '+esc(r.plat):'')+'</span><span class="ty">'+TYPEL[r.ty]+'</span><span class="bdg">🗓 '+whenLbl(r.date)+' · '+fdate(r.date)+'</span><span class="bdg">'+distLbl(r)+'</span><span class="bdg" title="'+CASH_TIP+'">Cash to Close '+money(r.cash)+'</span>'+rtBadge(r.rt)+badges(r)+'</div>'+
@@ -2294,7 +2295,7 @@ if(DL && DL.explicit){ S.cat=''; S.kat=''; }
 if(DL && DL.r){ if(DL.explicit) apply(true); openDrawer(DL.r.id); }
 else if(DL && DL.explicit) setTimeout(()=>toast('Imóvel “'+DL.asked+'” não encontrado (leilão já passou ou foi removido)'),300);
 termify(document.body);
-window.__dash={apply, ITEMS, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
+window.__dash={apply, ITEMS, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, redfinUrl, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
 })();
 </script>
 </body>
