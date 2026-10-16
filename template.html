@@ -1243,7 +1243,27 @@ function utilOk(r,u){ const U=r.util||{}; const ww=U.WW||'', dw=U.DW||'', sw=(r.
  if(u==='well') return /Well/.test(dw);
  return true; }
 function heatCell(r){ if(r.val==null||r.refPct==null) return null; const row=r.val<250000?0:r.val<=600000?1:2; const disc=1-r.refPct; const col=disc<0.15?0:disc<=0.30?1:2; return row+','+col; }
+// Visão essencial (padrão): esconde o que nunca entra no plano; favoritos, candidatos e busca por texto passam sempre
+let HID={};
+function essWhy(r){
+ const L=isLand(r), cs=catSet(), pick=cs&&S.cat!=='resid';
+ if(r.fl.includes('cxl')) return 'cancelado?';
+ const tp=pick&&cs.has(r.ty);
+ if(!tp&&(r.ty==='Outro'||!r.addr)) return 'tipo Outro / sem endereço';
+ if(!tp&&r.ty==='Comercial') return 'comercial';
+ if(r.t==='FC'&&(r.fl.includes('mtg')||r.fl.includes('surv'))) return 'foreclosure com lien que sobrevive';
+ if(r.fl.includes('junk')) return 'faixa/brejo';
+ if(r.val==null&&!(r.lc&&r.lc.lvl)) return 'sem valor nem comps';
+ if(L&&r.val<8000) return 'lote < US$ 8 mil';
+ if(L&&(r.fl.includes('flood')||r.fl.includes('wet')||r.fl.includes('sfha'))) return 'lote alagado / zona FEMA';
+ if(L&&r.fl.includes('supH')&&!r.fl.includes('bldA')) return 'lote com oferta alta e sem construtora';
+ if(L&&r.paper) return 'loteamento de papel';
+ if(!L&&r.dist!=null&&r.dist>150) return 'casa/condo a mais de 150 mi';
+ if(['Condo','Mobile','Multifamiliar'].includes(r.ty)&&!(pick&&cs.has(r.ty))) return 'condo/mobile/multifamiliar (escolha no filtro de tipo)';
+ return null;
+}
 function filt(F,ignoreCat){
+ if(ignoreCat) HID={};
  const q=F.q.toLowerCase().split(/\s+/).filter(Boolean);
  const N=k=>numv(F[k]);
  const mnet=N('mnet'), mroi=N('mroi'), msc=N('msc'), y1=N('y1'), y2=N('y2'), vmin=N('vmin'), mpov=N('mpov'), mpovmin=N('mpovmin'), fpovc=N('fpovc'), mrent=N('mrent'), myld=N('myld'), mcap=N('mcap'), rt1=N('rt1'), rt2=N('rt2'), mmo=N('mmo'), j1=N('j1'), j2=N('j2'), dmax=N('dmax');
@@ -1292,6 +1312,7 @@ function filt(F,ignoreCat){
   if(S.photo && !(r.imgs&&r.imgs.length)) return false;
   if(S.heat && heatCell(r)!==S.heat) return false;
   if(q.length){ const h=(r.addr+' '+(r.city||'')+' '+(r.zip||'')+' '+r.co+' '+(r.case||'')+' '+(r.parcel||'')+' '+(r.owner||'')+' '+(r.plaint||'')+' '+(r.desc||'')).toLowerCase(); if(!q.every(w=>h.includes(w))) return false; }
+  if(!S.all && !q.length && !FAV.has(r.id) && !CAND[r.id]){ const w=essWhy(r); if(w){ if(ignoreCat) HID[w]=(HID[w]||0)+1; return false; } }
   return true;
  });
 }
@@ -1537,7 +1558,9 @@ function apply(noHash){
  const list=noCat.filter(catOk);
  CUR=list.slice().sort(SORTS[S.sort]||SORTS.sc);
  renderQS(); kstrip(CUR); kpis(CUR);
- $('#cnt').innerHTML='Mostrando <b>'+nf(CUR.length)+'</b> · base <b>'+nf(noCat.length)+'</b> <span title="Depois das exclusões e filtros, antes do recorte de tipo">sem recortar tipo</span> · arquivo <b>'+nf(ITEMS.length)+'</b>';
+ const nh=Object.values(HID).reduce((a,b)=>a+b,0);
+ $('#cnt').innerHTML=(S.all?'<button class="btn sm" id="bess" type="button" title="Voltar a esconder o que nunca entra no plano">Visão essencial</button> ':'<button class="btn sm gold" id="bess" type="button" title="'+esc(Object.entries(HID).sort((a,b)=>b[1]-a[1]).map(([k,v])=>v+' · '+k).join('\n'))+'">Visão essencial · <b id="nhid">'+nf(nh)+'</b> ocultos · Mostrar tudo</button> ')+'Mostrando <b>'+nf(CUR.length)+'</b> · base <b>'+nf(noCat.length)+'</b> <span title="Depois das exclusões e filtros, antes do recorte de tipo">sem recortar tipo</span> · arquivo <b>'+nf(ITEMS.length)+'</b>';
+ { const b=$('#bess'); if(b) b.onclick=()=>{ S.all=!S.all; apply(); }; }
  syncDateChips(); filterNotice(); try{ LS.set('leilao_ui_v9', stateObj()); }catch(e){}
  if(view==='table') renderTable(true); else if(view==='cards'||view==='fav') renderCards(true); else if(view==='cand') renderCand(); else if(view==='map') renderMap();
  else if(view==='intel') renderIntel(); else if(view==='bld') renderBld(); else if(view==='pac') renderPac(); else if(view==='res') renderRes(); else if(view==='cal') renderCal(); else if(view==='day') renderDay();
@@ -1552,7 +1575,7 @@ function setView(v){
  for(const k in show) $('#'+k).style.display=show[k]?'':'none';
  apply();
 }
-const SKEYS=['cat','kat','today','d7','fav','rent','clean','newt','photo','heat'];
+const SKEYS=['all','cat','kat','today','d7','fav','rent','clean','newt','photo','heat'];
 function stateObj(){ const F=readF(), o={}; for(const k in F){ const def=!!CHKDEF[k]; if(k in CHECKS){ if(F[k]!==def) o[k]=F[k]; } else if(F[k]!=='') o[k]=F[k]; } SKEYS.forEach(k=>{ if(k==='cat'){ if(S.cat!=='resid') o.cat=S.cat; } else if(S[k]) o[k]=S[k]; }); if(S.sort!=='sc') o.sort=S.sort; if(S.view) o.v=S.view; return o; }
 let OPEN=null;
 function writeHash(){ const o=stateObj(); const parts=[]; if(Object.keys(o).length) parts.push('f='+encodeURIComponent(JSON.stringify(o))); if(OPEN) parts.push('id='+encodeURIComponent(OPEN)); const h=parts.length?'#'+parts.join('&'):''; if(location.hash!==h){ try{history.replaceState(null,'',location.pathname+location.search+(h||''));}catch(e){} } }
@@ -1563,7 +1586,7 @@ function readHash(){
 }
 let tmr; const deb=()=>{clearTimeout(tmr); tmr=setTimeout(()=>apply(),180);};
 Object.keys(FIELDS).map(k=>FIELDS[k]).concat(Object.keys(CHECKS).filter(k=>k!=='hjr').map(k=>CHECKS[k])).forEach(s=>{ $(s).addEventListener('input',deb); $(s).addEventListener('change',deb); });
-$('#breset').onclick=()=>{ Object.values(FIELDS).forEach(s=>$(s).value=''); for(const k in CHECKS){ if(k==='hjr') LAST_HJR=false; else { const el=$(CHECKS[k]); if(el) el.checked=!!CHKDEF[k]; } } S.cat='resid'; S.kat=''; S.heat=null; S.today=S.d7=S.rent=S.clean=S.newt=S.photo=false; S.fav=view==='fav'; S.sort='sc'; if($('#bclean')) $('#bclean').checked=false; apply(); };
+$('#breset').onclick=()=>{ Object.values(FIELDS).forEach(s=>$(s).value=''); for(const k in CHECKS){ if(k==='hjr') LAST_HJR=false; else { const el=$(CHECKS[k]); if(el) el.checked=!!CHKDEF[k]; } } S.cat='resid'; S.kat=''; S.heat=null; S.today=S.d7=S.rent=S.clean=S.newt=S.photo=S.all=false; S.fav=view==='fav'; S.sort='sc'; if($('#bclean')) $('#bclean').checked=false; apply(); };
 if($('#fmorebtn')) $('#fmorebtn').onclick=()=>{ const on=$('#filters').classList.toggle('more'); $('#fmorebtn').textContent=on?'Menos filtros':'Mais filtros'; };
 if($('#bclean')) $('#bclean').addEventListener('change',e=>{ S.clean=e.target.checked; apply(); });
 function fsheet(open){ $('#filters').classList.toggle('open',open); $('#fbg').classList.toggle('on',open && window.innerWidth<760); ftLabel(); }

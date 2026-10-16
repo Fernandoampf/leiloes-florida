@@ -475,6 +475,8 @@ with sync_playwright() as p:
     pg.click('#tabs [data-v="table"]'); pg.wait_for_timeout(200)
     mn = pg.evaluate("(()=>{const I=window.__dash.ITEMS; return {menor:I.filter(r=>/^menor entre/.test(r.vsrc||'')).length, estv:I.filter(r=>(r.fl||[]).includes('estv')).length};})()")
     check(mn['menor'] == 0 and mn['estv'] > 0, f'casas sem comps: nunca "menor entre", selo Estimativa {mn}')
+    es = pg.evaluate("(()=>{const d=window.__dash; d.S.cat=''; d.S.all=false; d.apply(); const a=d.CUR.length, h=+(document.querySelector('#nhid')||{}).textContent.replace(/\\D/g,''); d.S.all=true; d.apply(); const b=d.CUR.length; d.S.all=false; d.S.cat='resid'; d.apply(); return {ess:a, all:b, hid:h};})()")
+    check(es['ess'] > 200 and es['all'] > es['ess'] and es['hid'] == es['all'] - es['ess'], f'visão essencial padrão + Mostrar tudo {es}')
     # celular 390px
     m = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
     mp = m.new_page(); merr = []; mp.on('pageerror', lambda e: merr.append(str(e)))
