@@ -152,8 +152,8 @@ def load(county, targets, today):
 def _group(uc):
     return 'land' if uc == '000' else 'sfr' if uc in ('001', '007') else 'condo' if uc in ('004', '005') else 'mob' if uc == '002' else 'multi' if uc in ('003', '008') else None
 
-LEVELS = [('sub', 'mesma subdivisão'), ('r05', '≈0,5 mi (mesma seção)'), ('r1', '≈1 mi'), ('r3', '≈3 mi')]
-BASE = dict(sub=75, r05=65, r1=55, r3=40)
+LEVELS = [('sub', 'mesma subdivisão'), ('r05', '≈0,5 mi (mesma seção)'), ('r1', '≈1 mi'), ('r2', '≈2 mi (US$/pé², mesma área e idade)'), ('r3', '≈3 mi')]
+BASE = dict(sub=75, r05=65, r1=55, r2=45, r3=40)
 
 def estimate(d, pid, zh_of, today, ty_hint=None):
     """-> dict(lvl, lvlTxt, n, est, lo, hi, conf, confTxt, comps[], ctx{}) or None. zh_of(zip) -> Zillow ZHVI series."""
@@ -226,7 +226,8 @@ def estimate(d, pid, zh_of, today, ty_hint=None):
             L = [c for c in cand if c['sub'] and (not big or (c['mi'] is not None and c['mi'] <= 1.01))]
             if big: txt = 'mesma subdivisão (≤1 mi)'
         else:
-            lim = {'r05': 0.01, 'r1': 1.01, 'r3': 3.01}[lv]
+            if (lv == 'r2' and land) or (lv == 'r3' and not land): continue          # houses widen to 2 mi (same size/age, US$/sqft); lots keep the 3 mi ring
+            lim = {'r05': 0.01, 'r1': 1.01, 'r2': 2.01, 'r3': 3.01}[lv]
             L = [c for c in cand if c['mi'] is not None and c['mi'] <= lim]
         if len(L) >= 3: pick = (lv, txt, L); break
     if not pick: return dict(lvl=None, ctx=ctx, n=0)

@@ -272,7 +272,7 @@ with sync_playwright() as p:
     check(all(t in gl for t in ('Opening Bid', 'Final Judgment', 'Surviving Lien', 'Certificate Holder', 'Lis Pendens', 'CDD', 'Subdivision', 'Cash to Close', 'NO ROOM', 'CONTESTED')), 'Glossário lista os termos em inglês')
     pg.keyboard.press('Escape'); pg.wait_for_timeout(150)
     # ---- local resale value + manual valuations
-    lc = pg.evaluate("(()=>{const I=window.__dash.ITEMS; return {n:I.filter(r=>r.lc&&r.lc.lvl).length, used:I.filter(r=>r.lc&&r.lc.used).length, sub:I.filter(r=>r.lc&&r.lc.lvl==='sub').length, bad:I.filter(r=>r.lc&&r.lc.used&&!r.man&&!(r.sup&&r.sup.disc)&&!r.bld&&!(r.subst&&r.subst.arv0)&&Math.abs(r.val0-r.lc.est)>1).length, lowc:I.filter(r=>r.lc&&r.lc.used&&r.lc.conf<60).length};})()")
+    lc = pg.evaluate("(()=>{const I=window.__dash.ITEMS; return {n:I.filter(r=>r.lc&&r.lc.lvl).length, used:I.filter(r=>r.lc&&r.lc.used).length, sub:I.filter(r=>r.lc&&r.lc.lvl==='sub').length, bad:I.filter(r=>r.lc&&r.lc.used&&!r.man&&!(r.sup&&r.sup.disc)&&!r.bld&&!(r.subst&&r.subst.arv0)&&Math.abs(r.val0-r.lc.est)>1).length, lowc:I.filter(r=>r.lc&&r.lc.used&&r.lc.conf<60&&!(r.fl||[]).includes('estv')).length};})()")
     check(lc['n'] > 1000 and lc['used'] > 500 and lc['sub'] > 100 and lc['bad'] == 0 and lc['lowc'] == 0, f'comps locais {lc}')
     # Avaliações manuais: só checa os que ainda estão na lista (leilão futuro)
     ho = pg.evaluate('window.__dash.ITEMS.find(r=>r.parcel==="01596160")')
@@ -473,6 +473,8 @@ with sync_playwright() as p:
     ve = pg.evaluate("(()=>{const t=document.querySelector('#valerr'); return t?t.querySelectorAll('tbody tr').length:0;})()")
     check(ve >= 20, f'validação do valor por condado (leave-one-out): {ve} condados')
     pg.click('#tabs [data-v="table"]'); pg.wait_for_timeout(200)
+    mn = pg.evaluate("(()=>{const I=window.__dash.ITEMS; return {menor:I.filter(r=>/^menor entre/.test(r.vsrc||'')).length, estv:I.filter(r=>(r.fl||[]).includes('estv')).length};})()")
+    check(mn['menor'] == 0 and mn['estv'] > 0, f'casas sem comps: nunca "menor entre", selo Estimativa {mn}')
     # celular 390px
     m = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
     mp = m.new_page(); merr = []; mp.on('pageerror', lambda e: merr.append(str(e)))

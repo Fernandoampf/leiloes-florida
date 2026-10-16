@@ -668,6 +668,8 @@ def build_items(args):
             topn = max(named, key=lambda kv: kv[1])
             bits = ', '.join(f"{n} {_usd(v)}" for n, v in named)
             base_lbl = (f"{topn[0]} {_usd(topn[1])}" if len(named) == 1 else f"maior valor oficial = {topn[0]} {_usd(topn[1])} [{bits}]")
+        pov = num(poe.get('pov')); pov_conf = num(poe.get('pov_conf'))
+        est_v = False
         if land:
             if base:
                 val, vsrc = base, f"maior valor oficial do condado — {base_lbl}"
@@ -675,30 +677,29 @@ def build_items(args):
                 val, vsrc = avm, f"AVM PropertyOnion {_usd(avm)} (terreno, sem valor de condado)"
             else:
                 val, vsrc = None, None
-        elif base and avm:
-            chosen = min(base, avm)
-            which = 'o valor do condado' if base <= avm else 'o AVM PropertyOnion'
-            val = chosen
-            vsrc = f"menor entre {base_lbl} e AVM PropertyOnion {_usd(avm)} → vale {which} {_usd(chosen)}"
+        elif pov or avm:
+            # casa sem comps locais: POV/AVM do PropertyOnion como estimativa — nunca o "menor entre" valores oficiais
+            v_ = pov or avm; est_v = True
+            val, vsrc = v_, f"{'POV' if pov else 'AVM'} PropertyOnion {_usd(v_)} — estimativa (sem comps locais suficientes)"
+        elif cest:
+            val, vsrc = cest, 'comps DOR do ZIP (estimativa)'; est_v = True
         elif base:
-            val, vsrc = base, f"valor do condado, sem AVM — {base_lbl}"
-        elif avm:
-            val, vsrc = avm, f"AVM PropertyOnion {_usd(avm)} (sem valor de condado)"
+            val, vsrc = base, f"valor do condado, sem AVM/POV — {base_lbl}"
         else:
             val, vsrc = None, None
         if not val and cest:
+            est_v = True
             val = cest; vsrc = 'comps DOR (estimativa)'
-        pov = num(poe.get('pov')); pov_conf = num(poe.get('pov_conf'))
         county_for_pov = next((v for v in [mkt, ocpa_mkt, lake_mv, jv, av] if v), None)
         pov_as_arv = False
         if po_export.pov_ok_for_arv(pov, pov_conf, county_for_pov):
             val = pov
             vsrc = f"POV PropertyOnion {_usd(pov)} (confiança {int(pov_conf)}; dentro de ~35% do condado {_usd(county_for_pov)}) — usado como ARV"
-            pov_as_arv = True
+            pov_as_arv = True; est_v = not land
         elif not val and pov:
             val = pov
             vsrc = f"POV PropertyOnion {_usd(pov)} (sem valor de condado para comparar) — usado como ARV"
-            pov_as_arv = True
+            pov_as_arv = True; est_v = not land
         # ---- local comps (same subdivision -> ~0.5/1/3 mi rings): primary ARV when confidence is good
         lce = None
         if nf and nf.get('pid') and lcd.get(cs):
@@ -722,6 +723,11 @@ def build_items(args):
                           ppsf=statistics.median([c[6] / c[3] for c in lce['comps'] if c[3]]) if sz else None,
                           l=[[c[0], c[2], c[1], None if land else c[3], c[4], c[3] if land else None] for c in lce['comps'][:8]])
                 cest = lce['est']
+            elif not land and lce['lvl'] in ('r1', 'r2') and lce['conf'] >= 35 and not pov and not avm and (cs, nal.npid(x.get('parcel') or '')) not in manual:
+                lce['prev'] = round(val) if val else None; lce['prevSrc'] = vsrc; lce['used'] = True; est_v = True
+                val = lce['est']; cest = lce['est']
+                vsrc = f"comps ampliados — {lce['lvlTxt']}: mediana de {lce['n']} vendas por US$/pé² = {_usd(val)}; confiança {lce['conf']}/100 — estimativa"
+            if lce.get('used') and lce['conf'] >= 60: est_v = False
             lce['comps'] = lce['comps'][:10]
         # substandard lot: area/frontage below the zoning district minimum (only where the minimum is determinable)
         subst = None
@@ -793,6 +799,7 @@ def build_items(args):
         if poe.get('owner_occ'): occupied, absentee = True, False
         if poe.get('vacant') and not land: occupied, absentee = False, False
         if land: occupied = absentee = False
+        if est_v and val and not land: flags.append('estv')
         if occupied: flags.append('occ')
         if DECEASED_RE.search(owner + ' ' + owner2) or (src == 'FC' and re.search(r'DECEASED|ESTATE OF|UNKNOWN HEIRS', defend, re.I)): flags.append('dec')
         usps_vac = P0.get('usps_vacancy') == 'Y' or str(dictval(P0.get('vacantFlag')) or '').upper() in ('Y', 'YES') or bool(poe.get('vacant'))
