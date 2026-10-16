@@ -251,3 +251,30 @@ def estimate(d, pid, zh_of, today, ty_hint=None):
     return dict(lvl=lv, lvlTxt=txt, n=len(L), est=round(est), lo=round(lo), hi=round(hi), conf=conf,
                 confTxt='alta' if conf >= 70 else 'média' if conf >= 50 else 'baixa', g=g,
                 comps=[[c['addr'], c['d'], c['p'], c['sz'], c['yb'], c['mi'], c['adj']] for c in L], ctx=ctx, nout=nout)
+
+def backtest(d, zh_of, today, months=6, cap=400):
+    """Leave-one-out validation on the state roll: each qualified sale of the last `months` months is valued by
+    estimate() from the OTHER sales (the parcel itself is excluded). -> {g: dict(n, mae, bias, maeP25)} for land and sfr.
+    mae = median |est/price − 1| (current rule: median of comps); maeP25 = same for the old rule (P25)."""
+    if not d or not d.get('sales'): return {}
+    ty, tm = int(today[:4]), int(today[5:7]); nowm = ty * 12 + tm
+    out = {}
+    for g in ('land', 'sfr'):
+        rows = [r for r in d['sales'] if _group(r[4]) == g and nowm - (r[6] * 12 + r[7]) <= months
+                and ((r[13] == 'V') if g == 'land' else (r[13] != 'V')) and r[14]]
+        step = max(1, len(rows) // cap); rows = rows[::step][:cap]
+        e1, e0 = [], []
+        for r in rows:
+            sub, nb, x, y, uc, prc, yr, mo, lvg, ayb, lsq, addr, zp, vi, rpid = r
+            k = '__bt__'
+            d['subj'][k] = dict(sub=sub, nb=nb, st=None, xy=(x, y) if x is not None else None, xk=None, uc=uc, lsq=lsq, lvg=lvg,
+                                ayb=ayb, jv=None, leg='', pid=rpid)
+            try: e = estimate(d, k, zh_of, today)
+            finally: d['subj'].pop(k, None)
+            if not e or not e.get('lvl'): continue
+            e1.append(e['est'] / prc - 1); e0.append(e['lo'] / prc - 1)
+        if len(e1) >= 10:
+            out[g] = dict(n=len(e1), tried=len(rows), mae=round(statistics.median(abs(v) for v in e1), 3),
+                          bias=round(statistics.median(e1), 3), maeP25=round(statistics.median(abs(v) for v in e0), 3),
+                          biasP25=round(statistics.median(e0), 3))
+    return out

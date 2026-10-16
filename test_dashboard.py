@@ -469,6 +469,10 @@ with sync_playwright() as p:
     # leilão vencido sai do site (data < hoje ET ou < data do build); favoritos vencidos só em "Já passaram"
     pz = pg.evaluate("""(()=>{const I=window.__dash.ITEMS; const t=new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'}).format(new Date()); return {past:I.filter(r=>r.date&&r.date<t).length, n:I.length};})()""")
     check(pz['n'] > 0 and pz['past'] == 0, f'leilões vencidos fora do site {pz}')
+    pg.click('#tabs [data-v="intel"]'); pg.wait_for_timeout(300)
+    ve = pg.evaluate("(()=>{const t=document.querySelector('#valerr'); return t?t.querySelectorAll('tbody tr').length:0;})()")
+    check(ve >= 20, f'validação do valor por condado (leave-one-out): {ve} condados')
+    pg.click('#tabs [data-v="table"]'); pg.wait_for_timeout(200)
     # celular 390px
     m = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
     mp = m.new_page(); merr = []; mp.on('pageerror', lambda e: merr.append(str(e)))

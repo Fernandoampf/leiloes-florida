@@ -1028,6 +1028,15 @@ def build_items(args):
     rst = radius.refresh(rq, offline=bool(getattr(args, 'no_clerk', False)) or os.environ.get('LEILOES_NO_CLERK', '').strip().lower() in ('1', 'true', 'yes', 'on'),
                          limit=int(os.environ.get('RADIUS_LIMIT', '700')), today=today)
     print('raio 0,5 mi (pendentes p/ próximo build):', json.dumps(rst), flush=True)
+    # validação leave-one-out (rol estadual): erro mediano do valor por comps, por condado
+    ve = {}
+    for c_, d_ in lcd.items():
+        try:
+            bt = local_comps.backtest(d_, lambda z: (mk.get(z) or {}).get('zh'), today)
+            if bt: ve[c_] = bt
+        except Exception as ex: print('backtest', c_, ex)
+    build_items._valerr = ve
+    print('backtest:', {k: (v.get('land') or {}).get('mae') for k, v in sorted(ve.items())}, flush=True)
     # ---- lots: wetland (USFWS NWI) and flood (FEMA NFHL) share of the PARCEL POLYGON (FDOR cadastral); cached, incremental
     geo_off = bool(getattr(args, 'no_clerk', False)) or os.environ.get('LEILOES_NO_CLERK', '').strip().lower() in ('1', 'true', 'yes', 'on')
     gkeys = sorted({(r['cs'], r['_pid']) for r in out if r.get('_pid')}, key=lambda k: min((r['date'] for r in out if r.get('_pid') == k[1]), default='9'))
@@ -1218,7 +1227,7 @@ def render(items, stats, dropped, args):
     meta = dict(dataDate=args.data_date, built=time.strftime('%Y-%m-%d %H:%M'), params=P, zips=zips, mktSrc=mk.get('_src', {}),
                 rehabTiers=REHAB_TIERS, rehabUnknown=REHAB_UNKNOWN, rehabPool=REHAB_POOL, stats=stats, dropped=dropped, orlando=ORLANDO,
                 events=load_events(args.data_date), ares=ares, recent=recent, rmeta=rmeta, types=TYPES, version='v4',
-                builders=getattr(build_items, '_bld', None), favs=favs)
+                builders=getattr(build_items, '_bld', None), favs=favs, valerr=getattr(build_items, '_valerr', None))
     data = json.dumps(dict(meta=meta, items=items), ensure_ascii=False, separators=(',', ':'))
     if args.no_compress:
         blob = 'J:' + data.replace('</', '<\\/')
