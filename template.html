@@ -602,6 +602,7 @@ const FL = {
  rebid:{l:'Já foi a leilão',c:'amb',d:'Este imóvel já foi a leilão e voltou (cancelou, não vendeu ou o lance não segurou). Sobe o risco e tira alguns pontos da nota.'},
  supH:{l:'Oferta alta (Supply)',c:'red',d:'Subdivisão E entorno do lote (≈0,5 mi) com muitos lotes vagos, poucas vendas (muitos meses de estoque) e menos de 5 compras de construtora: revenda lenta e abaixo da mediana das vendas fechadas. Valor = mediana dos comps × desconto de oferta e posse de 9–12 meses.'},
  paper:{l:'Loteamento de papel',c:'red',d:'Subdivisão com absorção < 3% dos lotes vagos por ano e mediana de lote < US$ 15 mil, sem 5 compras de construtora na própria subdivisão: muitos lotes, venda lenta. Oculto na Visão essencial.'},
+ bxok:{l:'Construir rende mais',c:'grn',d:'Para a construtora: o lance máximo do terreno para construir (casa nova padrão médio/luxo pelo bairro, menos obra, licenças, venda, capital e margem) passa o lance máximo de revenda. Premissas de obra pendentes do Fernando.'},
  estv:{l:'Estimativa',c:'amb',d:'Casa sem comps locais suficientes: valor = comps ampliados (1–2 mi, mesma área e idade, US$/pé²) ou POV/AVM do PropertyOnion. Nunca o menor entre valores oficiais. Confirme com corretor antes do lance.'},
  supM:{l:'Oferta moderada',c:'amb',d:'Estoque de lotes de 6–12 meses na subdivisão (e o raio de ≈0,5 mi não desmente): valor = mediana dos comps × desconto moderado e posse de 6 meses.'},
  absL:{l:'Absorption baixa',c:'amb',d:'Menos de 3% dos lotes vagos da subdivisão venderam nos últimos 12 meses (vendas qualificadas DOR).'},
@@ -733,6 +734,7 @@ const FLAGC=['gold','green','red','blue']; const FLAGL={gold:'Dourado',green:'Ve
 const PF=[
  ['Meta de retorno',[['ret','Retorno mínimo (%) – define o lance máx.',0.5],['flip','ROI p/ veredito FLIP (%)',0.5],['lownet','“Lucro baixo” se NET abaixo de (US$)',1000],['tdxp','Tax deed: NET/ROI no preço esperado do leilão (1) ou no lance inicial (0)',1],['stress','Teste de estresse: FLIP/CONSIDERAR só se não der prejuízo com o ARV este % menor',1],['netHouse','Construído: NET mínimo p/ FLIP/CONSIDERAR (US$)',1000]]],
  ['Escada de retorno – lotes',[['lotS','Lote barato: custo all-in até (US$)',1000],['lotSroi','Lote barato: ROI mínimo (%)',1],['lotSnet','Lote barato: NET mínimo (US$)',500],['lotM','Lote médio: custo all-in até (US$)',1000],['lotMroi','Lote médio: ROI mínimo (%)',1],['supAdd','Subdivisão com oferta alta: + pontos de ROI exigidos (0 = não; valor de venda e posse já descontam a oferta)',1],['wetMax','Áreas úmidas (USFWS NWI): tirar de FLIP/CONSIDER se cobrem ≥ (% do lote)',1],['floodMat','Inundação FEMA A/AE/AH/AO/VE: tirar de FLIP/CONSIDER se cobre ≥ (% do lote)',1]]],
+ ['Construir (saída para lotes) — ⚠ premissa pendente do Fernando',[['bMed','Obra padrão MÉDIO (US$/pé² construído) — PREMISSA PENDENTE',1],['bLux','Obra padrão LUXO (US$/pé²) — PREMISSA PENDENTE',1],['bSoft','Licença + impacto + projeto + ligações (US$/casa) — PREMISSA PENDENTE',500],['bSep','Sem rede: fossa + poço (US$) — PREMISSA PENDENTE',500],['bSell','Venda da casa nova: custos (% do preço)',0.5],['bMo','Construir: meses da compra do lote à venda',1],['bCap','Construir: custo do capital (% ao ano)',0.5],['bMarg','Construir: margem mínima da construtora (% do preço)',1]]],
  ['Pacotes (vários lotes da mesma área)',[['pkg','Venda em pacote para construtora: % do valor de venda por lote',1],['pkgM','Venda em pacote: meses de posse',1],['pkgMin','Pacote: mínimo de lotes na mesma área e data',1]]],
  ['Capital',[['capc','Custo do capital (% a.a. sobre compra + reforma, nos meses de posse)',0.5]]],
  ['Compra (Flórida)',[['clerk1','Clerk Fee: % sobre os primeiros US$ 500',0.1],['clerk2','Clerk Fee: % sobre o restante do lance',0.1],['docb','Doc Stamps na compra (% do lance)',0.05],['qt','Quiet Title – tax deed construído (US$)',100],['qtLot','Title Certification do lote p/ revenda (US$)',100],['fee','Taxas extras do leilão (US$)',50],['ev','Eviction / Cash-for-Keys se ocupado (US$)',100],['dep','Deposit no leilão (% do lance)',0.5]]],
@@ -743,7 +745,7 @@ const PF=[
 ];
 const PKEYS=PF.flatMap(g=>g[1].map(f=>f[0]));
 const PDEF={}; const PFALL={qtm:2,tdxp:1,usedom:0,closem:1,hutilLot:50,months:7,monthsLot:3,evm:2,rhb20:5,rhb15:10,rhb05:30,rhb95:35,rhbOld:48,rhbMin:15000,rhbUnk:35000,rhbSqft:1500,rhbPool:5000,cont:20,hins:2,misc:1000,clear:500,qtLot:1200,wra:399,titleP:100,clerk1:3,clerk2:1.5,
- conc:2,commLot:8,capc:8,stress:10,lotS:15000,lotSroi:40,lotSnet:3000,lotM:60000,lotMroi:25,supAdd:0,wetMax:10,floodMat:10,netHouse:25000,pkg:85,pkgM:4,pkgMin:3}; PKEYS.forEach(k=>PDEF[k]=isFinite(+P[k])?+P[k]:(PFALL[k]??0));
+ conc:2,commLot:8,capc:8,stress:10,lotS:15000,lotSroi:40,lotSnet:3000,lotM:60000,lotMroi:25,supAdd:0,wetMax:10,floodMat:10,netHouse:25000,pkg:85,pkgM:4,pkgMin:3,bMed:165,bLux:275,bSoft:25000,bSep:15000,bSell:6,bMo:11,bCap:10,bMarg:15}; PKEYS.forEach(k=>PDEF[k]=isFinite(+P[k])?+P[k]:(PFALL[k]??0));
 const PKEY='leilao_premissas_v8';   // v8 (out/2026): + pacotes (pkg/pkgM/pkgMin); v7: oferta alta sem +pontos, sem filtro de caixa – reseta premissas antigas
 let PR={...PDEF};
 (()=>{const sv=LS.get(PKEY,null); if(sv&&sv.wetMax===20) delete sv.wetMax;   /* Fernando 09/10: área úmida passa de 20% para 10% */
@@ -1109,7 +1111,30 @@ function lotLimits(r){
  return {qualify:resVac && sized && hasComps && !big, badges};
 }
 
-function recalc(){ ITEMS.forEach(evaluate); }
+// ---- saída "construir" para lotes (construtora do Fernando): padrão médio ou luxo pelo que o bairro sustenta (casas novas ≥ 2022 a ≈1 mi)
+const BPEND=['bMed','bLux','bSoft','bSep'];
+const bPend=()=>BPEND.filter(k=>PR[k]===PFALL[k]);
+function buildExit(r,Q){
+ Q=Q||PR; const nh=r.lc&&r.lc.ctx&&r.lc.ctx.newH; if(!isLand(r)||!nh||nh.n<3) return null;
+ const U=r.util||{}, sewer=/Sewer/.test(U.WW||''), water=/Public/.test(U.DW||'');
+ const risks=[];
+ if(r.subst) risks.push(['red','Lote abaixo do mínimo do zoneamento ('+(r.subst.why||'')+'): pode exigir variance']);
+ if(!sewer) risks.push(['amb',r.util?'Sem rede de esgoto: fossa séptica':'Esgoto não confirmado (sem dado FDOH)']);
+ if(!water) risks.push(['amb',r.util?'Sem rede de água: poço':'Água não confirmada']);
+ if(r.fl.includes('flood')||r.fl.includes('sfha')) risks.push(['red','Zona de inundação: aterro/elevação e seguro']);
+ if(r.fl.includes('wet')) risks.push(['red','Área úmida: licença ambiental e área útil menor']);
+ if(r.scrub||r.fl.includes('scrub')) risks.push(['red','Gaio-da-flórida: licença federal']);
+ if(r.paper) risks.push(['amb','Loteamento de papel: poucas casas vendidas no entorno']);
+ const extra=(!sewer||!water)?Q.bSep:0;
+ const one=(std,price,sz,psf)=>{ const obra=sz*psf, cost=obra+Q.bSoft+extra+(Q.clear||0); const sell=price*Q.bSell/100, cap=cost*Q.bCap/100*Q.bMo/12, marg=price*Q.bMarg/100;
+  return {std,price:Math.round(price),sz,psf,obra:Math.round(obra),cost:Math.round(cost),sell:Math.round(sell),cap:Math.round(cap),marg:Math.round(marg),land:Math.round(price-cost-sell-cap-marg)}; };
+ const med=one('médio',nh.p50,nh.sz50,Q.bMed);
+ const lux=nh.p75>=1.2*nh.p50?one('luxo',Math.min(nh.p90,nh.f75*nh.sz75),nh.sz75,Q.bLux):null;
+ const best=lux&&lux.land>med.land?lux:med;
+ return {nh,med,lux,best,risks,pend:bPend()};
+}
+function bxEval(r){ r.bx=buildExit(r); r.fl=r.fl.filter(f=>f!=='bxok'); if(r.bx&&r.bx.best.land>0&&r.bx.best.land>(r.mb||0)) r.fl.push('bxok'); }
+function recalc(){ ITEMS.forEach(evaluate); ITEMS.forEach(bxEval); }
 recalc();
 
 let FAV=new Set(LS.get('leilao_fav_v1',[]));
@@ -1894,6 +1919,12 @@ function lcHtml(r){
  const c=r.lc, m=r.man; if(!c&&!m) return '';
  const land=isLand(r), x=(c&&c.ctx)||{};
  let h='<div class="sec" id="dlocal"><h3>📍 Valor de venda — análise local</h3>';
+ if(r.bx){ const b=r.bx, row=o=>'<tr'+(o===b.best?' class="c-gold"':'')+'><td>'+o.std+'</td><td class="n">'+money(o.price)+'</td><td class="n">'+nf(o.sz)+' pé² × '+money(o.psf)+'</td><td class="n">'+money(o.cost)+'</td><td class="n">'+money(o.sell+o.cap+o.marg)+'</td><td class="n"><b>'+money(o.land)+'</b></td></tr>';
+  h+='<div class="sec" id="dbuild" style="margin:0 0 10px"><h4>🏗 Saída "construir" (construtora)</h4>'+(b.pend.length?'<p class="mini c-amber">⚠ <b>premissa pendente do Fernando</b>: '+b.pend.map(k=>{const f=PF.flatMap(g=>g[1]).find(x=>x[0]===k); return esc(f?f[1].replace(/ — PREMISSA PENDENTE/,''):k);}).join(' · ')+' — valores provisórios, ajuste em ⚙ Premissas.</p>':'')+
+  '<p class="mini">Casas novas (construídas ≥ '+b.nh.since+') vendidas a ≈1 mi: n='+b.nh.n+' · P50 '+money(b.nh.p50)+' · P75 '+money(b.nh.p75)+' · P90 '+money(b.nh.p90)+' · US$/pé² P50 '+money(b.nh.f50)+'. Padrão escolhido: <b>'+b.best.std+'</b>'+(b.lux?'':' (bairro não sustenta luxo: P75 < 1,2 × P50)')+'; luxo nunca acima do P90 do bairro.</p>'+
+  '<div class="tblwrap"><table class="itbl"><thead><tr><th>Padrão</th><th class="n">Venda</th><th class="n">Casa</th><th class="n">Obra + licenças</th><th class="n">Venda + capital + margem</th><th class="n">Lance máx. do terreno</th></tr></thead><tbody>'+row(b.med)+(b.lux?row(b.lux):'')+'</tbody></table></div>'+
+  '<p class="mini">Revender o lote: lance máx. '+money(r.mb)+'. '+(b.best.land>(r.mb||0)?'<b class="c-green">Construir paga mais pelo terreno.</b>':'Revender paga mais.')+'</p>'+
+  (b.risks.length?'<div>'+b.risks.map(([c,t])=>'<span class="bdg '+c+'" style="margin:2px">'+esc(t)+'</span>').join('')+'</div>':'<p class="mini">Sem risco de custo de obra identificado (zoneamento, água/esgoto, inundação, área úmida).</p>')+'</div>'; }
  if(m) h+='<div class="manbox"><b>✍ Avaliação manual ('+esc(fdate(m.date))+')</b> – usada como ARV: <b class="c-gold">'+money(m.mid)+'</b> (faixa '+money(m.low)+' – '+money(m.high)+')'+
    (m.ceiling!=null?' · <span class="tmr">Max Bid</span> pesquisado: <b>'+money(m.ceiling)+'</b>':'')+(m.pass?' · <b class="c-red">PASSAR</b>':'')+
    (m.prev?'<div class="mini">Cálculo automático era '+money(m.prev)+'.</div>':'')+

@@ -479,6 +479,8 @@ with sync_playwright() as p:
     check(es['ess'] > 200 and es['all'] > es['ess'] and es['hid'] == es['all'] - es['ess'], f'visão essencial padrão + Mostrar tudo {es}')
     pp = pg.evaluate("(()=>{const I=window.__dash.ITEMS; return {paper:I.filter(r=>r.paper).length, zipBld:I.filter(r=>r.fl.includes('bldA')&&!(r.bld&&r.bld.where==='subdivisão')).length, paperBld:I.filter(r=>r.paper&&r.paper.bld>=5).length};})()")
     check(pp['paper'] > 0 and pp['zipBld'] == 0 and pp['paperBld'] == 0, f'loteamentos de papel + bldA pela subdivisão {pp}')
+    bx = pg.evaluate("(()=>{const d=window.__dash; const L=d.ITEMS.filter(r=>r.bx); const ok=L.filter(r=>r.fl.includes('bxok')); const r=ok[0]||L[0]; if(!r) return {n:0}; d.openDrawer(r.id); const t=(document.querySelector('#dbuild')||{}).textContent||''; d.closeDrawer(); return {n:L.length, ok:ok.length, lux:L.filter(r=>r.bx.lux).length, pend:t.includes('premissa pendente do Fernando'), cap:L.every(r=>!r.bx.lux||r.bx.lux.price<=r.bx.nh.p90)};})()")
+    check(bx['n'] > 20 and bx['pend'] and bx['cap'], f'saída construir (premissas pendentes, luxo ≤ P90) {bx}')
     # celular 390px
     m = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
     mp = m.new_page(); merr = []; mp.on('pageerror', lambda e: merr.append(str(e)))

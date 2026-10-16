@@ -205,6 +205,18 @@ def estimate(d, pid, zh_of, today, ty_hint=None):
         at = next((v for e, v in zip(ends, vs) if e[:7] == key), None)
         if at is None: at = vs[0] if key < ends[0][:7] else None
         return max(0.85, min(1.15, vs[-1] / at)) if at else 1.0
+    if land and s['xy']:
+        # saída "construir": casas novas (construídas nos últimos 4 anos, ≥ 2022) vendidas a ≈1 mi — P50/P75/P90 de preço e US$/pé²
+        P_, F_, Z_ = [], [], []
+        for r in d['sales']:
+            if _group(r[4]) != 'sfr' or r[13] == 'V' or not r[9] or r[9] < ty - 4 or not r[8] or r[2] is None: continue
+            if math.hypot(r[2] - s['xy'][0], r[3] - s['xy'][1]) > 1.01: continue
+            f = fac(r[12], r[6], r[7]); P_.append(r[5] * f); F_.append(r[5] * f / r[8]); Z_.append(r[8])
+        if len(P_) >= 3:
+            P_.sort(); F_.sort(); Z_.sort()
+            qq = lambda v, p: v[min(len(v) - 1, int(p * (len(v) - 1) + 0.5))]
+            ctx['newH'] = dict(n=len(P_), p50=round(qq(P_, .5)), p75=round(qq(P_, .75)), p90=round(qq(P_, .9)),
+                               f50=round(qq(F_, .5)), f75=round(qq(F_, .75)), f90=round(qq(F_, .9)), sz50=round(qq(Z_, .5)), sz75=round(qq(Z_, .75)), since=ty - 4)
     cand = []
     for r in d['sales']:
         sub, nb, x, y, uc, prc, yr, mo, lvg, ayb, lsq, addr, zp, vi, rpid = r
