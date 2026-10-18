@@ -123,3 +123,4 @@ Formato: `dd/mm hh:mm ET · QUEM · commit · o quê · por quê · teste/estado
 - 16/10 · Grok · (este commit) · **item 7 — Realtor → Redfin** · ACEITA/FEITA: botão/links "Realtor" trocados por **Redfin** (ficha, lista, galeria, CSV); Zillow mantido. O Redfin também não tem URL por endereço sem ID interno, então o link abre a busca "site:redfin.com + endereço" (vai direto à ficha quando o Google acha).
 - RESUMO · Grok · fila aprovada em 16/10 concluída: 7614dd1 (vencidos/favoritos/raio), 4921425 (1), 0767e92 (2), 6e46ba2 (3), 3677d9b (4), de5bf36 (5), a8c672e (6), este (7). Pendentes do Fernando: premissas de obra da saída "construir"; fotos do Property Appraiser adiadas (termos por condado).
 - 17/10 06:40 · Grok · 316d7a3 · refresh diário RealAuction + rebuild · rotina · 3.535 itens (11 novos, 73 saíram), testes ok (232)
+- 18/10 06:17 · Grok · 79aae46 · refresh diário RealAuction + rebuild · rotina · 3.535 itens (0 novos, 0 saíram), testes ok (232)
