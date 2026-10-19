@@ -482,6 +482,8 @@ with sync_playwright() as p:
     check(bx['n'] > 20 and bx['pend'] and bx['cap'], f'saída construir (premissas pendentes, luxo ≤ P90) {bx}')
     st = pg.evaluate("(()=>{const d=window.__dash; const r=d.ITEMS.find(x=>x.lat!=null&&x.ty==='Terreno'||x.lat!=null&&/Lote/.test(x.ty)); d.openDrawer(r.id); const b=document.querySelector('#gal [data-gt=\\'sat\\']'); if(b) b.click(); const img=document.querySelector('#satimg'); const t=(document.querySelector('#galmain')||{}).textContent||''; const sv=!!document.querySelector('#gal [data-gt=\\'sv\\']'); const lk=[...document.querySelectorAll('#gal a')].some(a=>/Street View/.test(a.textContent)); d.closeDrawer(); const nf=d.ITEMS.filter(x=>!(x.imgs&&x.imgs.length)&&x.lat!=null).length; return {esri:!!img&&/World_Imagery/.test(img.src), attr:/Esri/.test(t), svEmbed:sv, svLink:lk, semFotoComSat:nf};})()")
     check(st['esri'] and st['attr'] and not st['svEmbed'] and st['svLink'], f'satélite Esri + atribuição, Street View só link {st}')
+    rf = pg.evaluate("(()=>{const d=window.__dash; const I=d.ITEMS.filter(r=>r.zip); const u=I.slice(0,50).map(d.redfinUrl); return {zip:u.every(x=>/^https:\\/\\/www\\.redfin\\.com\\/zipcode\\/\\d{5}$/.test(x)), btnI:I.slice(0,50).some(r=>/btnI/.test(d.redfinFind(r)))};})()")
+    check(rf['zip'] and not rf['btnI'], f'Redfin abre a página do ZIP (sem btnI) {rf}')
     # celular 390px
     m = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
     mp = m.new_page(); merr = []; mp.on('pageerror', lambda e: merr.append(str(e)))

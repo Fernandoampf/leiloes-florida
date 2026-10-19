@@ -1221,7 +1221,11 @@ const saveFlg=()=>LS.set('leilao_flags_v1',FLG);
 // ---------------------------------------------------------------- external links
 const fullAddr = r=> r.addr.replace(/\s+/g,' ').trim();
 function zillowUrl(r){ return 'https://www.zillow.com/homes/'+encodeURIComponent(fullAddr(r).replace(/#/g,'').replace(/,/g,'').replace(/\s+/g,'-'))+'_rb/'; }
-function redfinUrl(r){ return 'https://www.google.com/search?btnI=1&q='+encodeURIComponent('site:redfin.com '+fullAddr(r)); }
+// Redfin: sem API pública permitida (robots.txt bloqueia /stingray) nem URL por endereço → página do ZIP no próprio Redfin (abre sempre);
+// a ficha exata fica no link secundário de busca no Google (sem btnI, que parava numa tela "Redirect Notice")
+function zip5(r){ const z=String(r.zip||'').match(/\d{5}/)||String(fullAddr(r)).match(/\b(3[234]\d{3})\b/); return z?z[0]:null; }
+function redfinUrl(r){ const z=zip5(r); return z?'https://www.redfin.com/zipcode/'+z:redfinFind(r); }
+function redfinFind(r){ return 'https://www.google.com/search?q='+encodeURIComponent('redfin '+fullAddr(r)); }
 function realtorUrl(r){
  const a=fullAddr(r).replace(/#/g,' '); const m=a.match(/^(.*?),\s*FL\s*(\d{5})?/i);
  let street=m?m[1]:a, zip=(m&&m[2])||r.zip||'', city=r.city||'';
@@ -1792,7 +1796,7 @@ function galHtml(r){
  const im=r.imgs||[], has=r.lat!=null;
  const tabs=[['ph','📷 Fotos ('+im.length+')',im.length>0],['sat','🛰 Satélite + lote',has],['map','🗺 Mapa',true]];
  return '<div class="gal" id="gal"><div class="galtabs">'+tabs.map(t=>'<button data-gt="'+t[0]+'"'+(t[2]?'':' disabled style="opacity:.4"')+'>'+t[1]+'</button>').join('')+'</div><div class="galmain" id="galmain"></div><div class="galthumbs" id="galthumbs"></div>'+
-  '<div class="mini" style="padding:4px 8px 8px">'+[lnk(zillowUrl(r),'Zillow (fotos do anúncio)'),lnk(redfinUrl(r),'Redfin'),lnk(gmapsUrl(r),'Google Maps'),lnk(svUrl(r),'🚶 Street View (abre no Google)')].join(' · ')+(im.length?' · fotos: PropertyOnion / Property Appraiser (podem ser antigas)':'')+'</div></div>';
+  '<div class="mini" style="padding:4px 8px 8px">'+[lnk(zillowUrl(r),'Zillow (fotos do anúncio)'),lnk(redfinUrl(r),'Redfin (ZIP)')+' · '+lnk(redfinFind(r),'Redfin: ficha (Google)'),lnk(gmapsUrl(r),'Google Maps'),lnk(svUrl(r),'🚶 Street View (abre no Google)')].join(' · ')+(im.length?' · fotos: PropertyOnion / Property Appraiser (podem ser antigas)':'')+'</div></div>';
 }
 const PARC={};
 function satDraw(r,m,ring){
@@ -2295,7 +2299,7 @@ if(DL && DL.explicit){ S.cat=''; S.kat=''; }
 if(DL && DL.r){ if(DL.explicit) apply(true); openDrawer(DL.r.id); }
 else if(DL && DL.explicit) setTimeout(()=>toast('Imóvel “'+DL.asked+'” não encontrado (leilão já passou ou foi removido)'),300);
 termify(document.body);
-window.__dash={apply, ITEMS, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, redfinUrl, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
+window.__dash={apply, ITEMS, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, redfinUrl, redfinFind, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
 })();
 </script>
 </body>
