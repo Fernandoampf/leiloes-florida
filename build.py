@@ -286,6 +286,20 @@ def comps_for(sales_by_zip, zp, uc, sqft, yr, lsq, addr_norm, ty):
     return out
 
 # ----------------------------------------------------------------------------- auction results (RealAuction past dates)
+def merge_fav_changes(arch, runs=None):
+    """Junta ao arquivo 'Já passaram' o campo `exited` do favoritos_changes_<data>.json mais recente (favtrack.write_changes).
+    O que veio do favtrack ao vivo prevalece; o arquivo cobre favtrack falhando ou ids fora de favoritos.json."""
+    import glob
+    fs = sorted(glob.glob(os.path.join(runs or os.path.join(SW, 'runs'), 'favoritos_changes_*.json')))
+    out = list(arch or []); seen = {a.get('id') for a in out}
+    if not fs: return out
+    try: ex = json.load(open(fs[-1])).get('exited') or []
+    except Exception as e: print('favoritos_changes ilegível:', fs[-1], e, flush=True); return out
+    for a in ex:
+        if a.get('id') and a['id'] not in seen:
+            seen.add(a['id']); out.append({k: v for k, v in a.items() if k != 'new'})
+    return out
+
 def load_results():
     """-> (stats dict, recent 3rd-party sales list). Basis: RealAuction 'Assessed Value' shown on the auction listing."""
     import glob
@@ -1246,6 +1260,7 @@ def render(items, stats, dropped, args):
         print('favoritos: arquivo', len(farch), '| histórico lance', len(fmbh), '| resultados', len(fh), '| calibração', len(fcal), flush=True)
     except Exception as ex:
         print('favtrack falhou:', ex, flush=True); farch, fmbh, fcal = [], {}, {}
+    farch = merge_fav_changes(farch)              # + lista acumulada 'exited' do favoritos_changes_<data>.json mais recente
     ares, recent, rmeta = load_results()
     meta = dict(dataDate=args.data_date, built=time.strftime('%Y-%m-%d %H:%M'), params=P, zips=zips, mktSrc=mk.get('_src', {}),
                 rehabTiers=REHAB_TIERS, rehabUnknown=REHAB_UNKNOWN, rehabPool=REHAB_POOL, stats=stats, dropped=dropped, orlando=ORLANDO,

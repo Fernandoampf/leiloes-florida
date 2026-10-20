@@ -1170,12 +1170,17 @@ function archHtml(gone){ if(!gone.length) return ''; return '<details class="pan
    gone.sort((a,b)=>(b.r.date||'').localeCompare(a.r.date||'')).map(({r,c,a})=>'<li>'+fdate(r.date)+' · '+esc(r.co)+' · '+esc(r.addr||r.id)+' <span class="mini">'+esc(r.id)+(a&&a.case?' · processo '+esc(a.case):'')+'</span>'+
     (a?'<div class="arcres"><b class="'+(/^sold/.test(a.status)?'c-gold':/redeem|cancel|withdrawn/.test(a.status)?'c-amber':'c-mut')+'">Resultado: '+esc(a.reason)+'</b>'+(a.sold?' · <b>'+money(a.sold)+'</b>':'')+(a.ref?' · lance inicial/julg. '+money(a.ref):'')+(a.mb?' · nosso lance máx. '+money(a.mb):'')+(a.why&&!/^\d/.test(a.why)?' <span class="mini">('+esc(a.why)+')</span>':'')+(a.src?' <span class="mini c-mut">· fonte: '+esc(a.src)+(a.at?' em '+esc(fdate(a.at)):'')+'</span>':'')+'</div>':'<div class="mini c-mut">Resultado ainda não coletado.</div>')+
     ((c&&c.maxBid)?' · teto '+money(c.maxBid):'')+((c&&c.notes)?' <span class="mini c-mut">'+esc(c.notes.slice(0,90))+'</span>':'')+'</li>').join('')+'</ul></details>'; }
+// 'Já passaram': favoritos/candidatos que saíram (PAST) + arquivo do build (M.arch, favtrack/favoritos_changes)
+function archGone(ids){
+ const ARC=(M.arch||[]), seenA=new Set();
+ return [...ids.map(id=>{ const r=PAST.find(x=>x.id===id); return r?{r,c:CAND[id]}:null; }).filter(Boolean).map(o=>{ const a=ARC.find(x=>x.id===o.r.id); seenA.add(o.r.id); return {...o,a}; }),
+  ...ARC.filter(a=>!seenA.has(a.id)).map(a=>({r:{id:a.id,date:a.date,co:(a.co||'').replace(/^\w/,x=>x.toUpperCase()),addr:a.addr},c:CAND[a.id]||{},a}))];
+}
+function favArchHtml(){ return view==='fav' ? archHtml(archGone([...new Set([...FAV, ...Object.keys(CAND)])])) : ''; }
 function renderCand(){
  const ids=Object.keys(CAND);
  const rows=ids.map(id=>{ const r=ITEMS.find(x=>x.id===id); return r?{r,c:CAND[id]}:null; }).filter(Boolean);
- const ARC=(M.arch||[]), seenA=new Set();
- const gone=[...ids.map(id=>{ const r=PAST.find(x=>x.id===id); return r?{r,c:CAND[id]}:null; }).filter(Boolean).map(o=>{ const a=ARC.find(x=>x.id===o.r.id); seenA.add(o.r.id); return {...o,a}; }),
-  ...ARC.filter(a=>!seenA.has(a.id)).map(a=>({r:{id:a.id,date:a.date,co:(a.co||'').replace(/^\w/,x=>x.toUpperCase()),addr:a.addr},c:CAND[a.id]||{},a}))];
+ const gone=archGone(ids);
  rows.sort((a,b)=>(a.r.date||'').localeCompare(b.r.date||'')||(a.r.addr||'').localeCompare(b.r.addr||''));
  const g=$('#grid'); if(!g) return;
  let bar='<div class="candbar panel" style="padding:10px 12px"><b>🎯 Meus candidatos</b> <span class="mini">'+rows.length+' neste aparelho</span>'+
@@ -1516,8 +1521,9 @@ function card(r){
 }
 function renderCards(reset){
  const g=$('#grid'); if(reset){g.innerHTML='';cShown=0;}
- if(!CUR.length){ g.innerHTML='<div class="panel c-mut" style="text-align:center;padding:30px">Nenhum imóvel com esses filtros.</div>'; $('#cmore').style.display='none'; return; }
+ if(!CUR.length){ g.innerHTML='<div class="panel c-mut" style="text-align:center;padding:30px">Nenhum imóvel com esses filtros.</div>'+favArchHtml(); $('#cmore').style.display='none'; return; }
  const next=CUR.slice(cShown,cShown+CPAGE); g.insertAdjacentHTML('beforeend',next.map(card).join('')); cShown+=next.length;
+ if(cShown>=CUR.length) g.insertAdjacentHTML('beforeend',favArchHtml());
  $('#cmore').style.display=cShown<CUR.length?'inline-flex':'none'; $('#cmore').textContent='Mostrar mais ('+(CUR.length-cShown)+' restantes)';
 }
 let MAP=null,LAYER=null;

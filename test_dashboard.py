@@ -486,6 +486,14 @@ with sync_playwright() as p:
     check(rf['zip'] and not rf['btnI'], f'Redfin abre a página do ZIP (sem btnI) {rf}')
     ar = pg.evaluate("(()=>{const d=window.__dash; d.setView('cand'); const t=document.body.textContent; const c=document.querySelector('#calib'); d.setView('intel'); const cal=document.querySelectorAll('#calib tbody tr').length; d.setView('table'); return {arch:/Já passaram/.test(t), palifox:/PALIFOX/.test(t)&&/resgatado pelo dono/.test(t), t1517305:/TD1517305/.test(t), cal};})()")
     check(ar['arch'] and ar['palifox'] and ar['t1517305'] and ar['cal'] >= 2, f'arquivo de favoritos com resultado + calibração {ar}')
+    fa = pg.evaluate("(()=>{const d=window.__dash; d.setView('fav'); for(let i=0;i<60;i++){ const b=document.querySelector('#cmore'); if(!b||b.style.display==='none') break; b.click(); } const g=document.querySelector('#grid').textContent; d.setView('res'); const rr=document.querySelectorAll('#v-res tbody tr').length; d.setView('table'); return {arch:/Já passaram/.test(g), palifox:/PALIFOX/.test(g), t1517305:/TD1517305/.test(g), resRows:rr};})()")
+    check(fa['arch'] and fa['palifox'] and fa['t1517305'] and fa['resRows'] > 0, f'Já passaram no fim de ⭐ Favoritos + linhas em 📈 Resultados {fa}')
+    import tempfile, build as _b
+    with tempfile.TemporaryDirectory() as td:
+        json.dump(dict(exited=[dict(id='X1', addr='A', new=True), dict(id='X2')]), open(os.path.join(td, 'favoritos_changes_2026-01-02.json'), 'w'))
+        json.dump(dict(exited=[dict(id='OLD')]), open(os.path.join(td, 'favoritos_changes_2026-01-01.json'), 'w'))
+        mg = _b.merge_fav_changes([dict(id='X2', status='sold')], runs=td)
+    check([a['id'] for a in mg] == ['X2', 'X1'] and mg[0].get('status') == 'sold' and 'new' not in mg[1], f'build.merge_fav_changes usa o favoritos_changes mais recente {mg}')
     # celular 390px
     m = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
     mp = m.new_page(); merr = []; mp.on('pageerror', lambda e: merr.append(str(e)))
