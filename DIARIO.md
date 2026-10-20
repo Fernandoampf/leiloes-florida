@@ -125,6 +125,7 @@ Formato: `dd/mm hh:mm ET · QUEM · commit · o quê · por quê · teste/estado
 - 17/10 06:40 · Grok · 316d7a3 · refresh diário RealAuction + rebuild · rotina · 3.535 itens (11 novos, 73 saíram), testes ok (232)
 - 18/10 06:17 · Grok · 79aae46 · refresh diário RealAuction + rebuild · rotina · 3.535 itens (0 novos, 0 saíram), testes ok (232)
 - 19/10 06:20 · Grok · a2e0ac7 · refresh diário RealAuction + rebuild · rotina · 3.544 itens (20 novos, 11 saíram), testes ok (232)
+- 20/10 06:15 · Grok · d28b6b6 · refresh diário RealAuction + rebuild · rotina · 3.422 itens (10 novos, 132 saíram), testes ok (233)
 
 ## 2026-10-19 ET — Grok: botão Redfin não abria nada (Fernando)
 - 19/10 · Grok · (este commit) · **correção do Redfin**: o link era Google "Estou com sorte" (btnI), que para numa tela "Redirect Notice" do Google em vez de abrir o Redfin. A API de autocomplete do Redfin (/stingray) é **proibida no robots.txt** → não usada. Agora o botão 🏠 Redfin abre a **página do ZIP no próprio Redfin** (redfin.com/zipcode/XXXXX: casas à venda e vendidas no ZIP), e a galeria tem também "Redfin: ficha (Google)" (busca normal "redfin + endereço", sem btnI) para achar a ficha exata. Testado em Chrome headless clicando o botão em 3 casas (Miami 33133, St. Petersburg 33701, Margate 33063): as 3 abriram a página do ZIP no Redfin. Teste novo no test_dashboard.
