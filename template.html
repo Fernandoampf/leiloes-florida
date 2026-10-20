@@ -1166,17 +1166,23 @@ function candAdd(id){ if(!CAND[id]) CAND[id]={checks:{}, maxBid:null, notes:'', 
 function candRem(id){ delete CAND[id]; saveCand(); toast('Removido dos candidatos'); if(view==='cand') renderCand(); else apply(); }
 function candToggle(id){ if(CAND[id]) candRem(id); else candAdd(id); }
 function candProg(c){ const ch=c.checks||{}; let n=0; CAND_CHECKS.forEach(([k])=>{ if(k==='max'){ if(c.maxBid!=null&&c.maxBid>0) n++; } else if(ch[k]) n++; }); return n; }
+function archHtml(gone){ if(!gone.length) return ''; return '<details class="panel" style="margin-top:12px;padding:10px 12px"><summary><b>Já passaram</b> <span class="mini c-mut">'+gone.length+' favorito(s)/candidato(s) que saíram (vendidos, resgatados, cancelados, adiados ou leilão vencido) — com o resultado quando já coletado</span></summary><ul class="lcx">'+
+   gone.sort((a,b)=>(b.r.date||'').localeCompare(a.r.date||'')).map(({r,c,a})=>'<li>'+fdate(r.date)+' · '+esc(r.co)+' · '+esc(r.addr||r.id)+' <span class="mini">'+esc(r.id)+(a&&a.case?' · processo '+esc(a.case):'')+'</span>'+
+    (a?'<div class="arcres"><b class="'+(/^sold/.test(a.status)?'c-gold':/redeem|cancel|withdrawn/.test(a.status)?'c-amber':'c-mut')+'">Resultado: '+esc(a.reason)+'</b>'+(a.sold?' · <b>'+money(a.sold)+'</b>':'')+(a.ref?' · lance inicial/julg. '+money(a.ref):'')+(a.mb?' · nosso lance máx. '+money(a.mb):'')+(a.why&&!/^\d/.test(a.why)?' <span class="mini">('+esc(a.why)+')</span>':'')+(a.src?' <span class="mini c-mut">· fonte: '+esc(a.src)+(a.at?' em '+esc(fdate(a.at)):'')+'</span>':'')+'</div>':'<div class="mini c-mut">Resultado ainda não coletado.</div>')+
+    ((c&&c.maxBid)?' · teto '+money(c.maxBid):'')+((c&&c.notes)?' <span class="mini c-mut">'+esc(c.notes.slice(0,90))+'</span>':'')+'</li>').join('')+'</ul></details>'; }
 function renderCand(){
  const ids=Object.keys(CAND);
  const rows=ids.map(id=>{ const r=ITEMS.find(x=>x.id===id); return r?{r,c:CAND[id]}:null; }).filter(Boolean);
- const gone=ids.map(id=>{ const r=PAST.find(x=>x.id===id); return r?{r,c:CAND[id]}:null; }).filter(Boolean);
+ const ARC=(M.arch||[]), seenA=new Set();
+ const gone=[...ids.map(id=>{ const r=PAST.find(x=>x.id===id); return r?{r,c:CAND[id]}:null; }).filter(Boolean).map(o=>{ const a=ARC.find(x=>x.id===o.r.id); seenA.add(o.r.id); return {...o,a}; }),
+  ...ARC.filter(a=>!seenA.has(a.id)).map(a=>({r:{id:a.id,date:a.date,co:(a.co||'').replace(/^\w/,x=>x.toUpperCase()),addr:a.addr},c:CAND[a.id]||{},a}))];
  rows.sort((a,b)=>(a.r.date||'').localeCompare(b.r.date||'')||(a.r.addr||'').localeCompare(b.r.addr||''));
  const g=$('#grid'); if(!g) return;
  let bar='<div class="candbar panel" style="padding:10px 12px"><b>🎯 Meus candidatos</b> <span class="mini">'+rows.length+' neste aparelho</span>'+
   '<button class="btn sm" id="cand-export">Exportar JSON</button><button class="btn sm" id="cand-import">Importar JSON</button>'+
   '<input type="file" id="cand-file" accept="application/json,.json" style="display:none">'+
   '<span class="mini c-mut">Checklist + lance máx. salvos só neste aparelho. Esta aba <b>não</b> usa os filtros da lista (calendário e mapa usam). Exporte para levar ao celular/desktop.</span></div>';
- if(!rows.length){ g.innerHTML=bar+'<div class="panel c-mut" style="text-align:center;padding:28px">Nenhum candidato ainda. Abra um imóvel e toque em <b>+ Candidato</b>, ou use o botão na lista.</div>'; $('#cmore').style.display='none'; bindCandBar(); return; }
+ if(!rows.length){ g.innerHTML=bar+'<div class="panel c-mut" style="text-align:center;padding:28px">Nenhum candidato ainda. Abra um imóvel e toque em <b>+ Candidato</b>, ou use o botão na lista.</div>'+archHtml(gone); $('#cmore').style.display='none'; bindCandBar(); return; }
  g.innerHTML=bar+'<div class="clist">'+rows.map(({r,c})=>{
   const prog=candProg(c), tot=CAND_CHECKS.length, dl=daysLeft(r.date);
   const mb17=r.mb; // already at PR.ret (17%)
@@ -1196,8 +1202,7 @@ function renderCand(){
    '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm gold" data-open="'+esc(r.id)+'">Abrir detalhe</button>'+
    (r.fl.includes('surv')||r.survAmt?'<span class="bdg red">Hipoteca pode sobreviver'+(r.survAmt?' ~'+money(r.survAmt):'')+'</span>':'')+'</div></article>';
  }).join('')+'</div>';
- if(gone.length) g.innerHTML+='<details class="panel" style="margin-top:12px;padding:10px 12px"><summary><b>Já passaram</b> <span class="mini c-mut">'+gone.length+' candidato(s) com leilão vencido — fora da lista; só aqui como histórico</span></summary><ul class="lcx">'+
-   gone.sort((a,b)=>(b.r.date||'').localeCompare(a.r.date||'')).map(({r,c})=>'<li>'+fdate(r.date)+' · '+esc(r.co)+' · '+esc(r.addr||r.id)+(c.maxBid?' · teto '+money(c.maxBid):'')+(c.notes?' <span class="mini c-mut">'+esc(c.notes.slice(0,90))+'</span>':'')+'</li>').join('')+'</ul></details>';
+ g.innerHTML+=archHtml(gone);
  $('#cmore').style.display='none';
  bindCandBar();
  g.onclick=e=>{
@@ -1692,6 +1697,10 @@ function renderIntel(){
  { const VE=M.valerr||{}; const ks=Object.keys(VE).sort(); if(ks.length){ const cel=o=>o?'<td class="n">'+pct(o.mae,0)+'</td><td class="n">'+(o.bias>=0?'+':'')+pct(o.bias,0)+'</td><td class="n mini">'+pct(o.maeP25,0)+'</td><td class="n">'+o.n+'</td>':'<td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td>';
   h+='<section class="panel" id="valerr"><h3 style="margin:0 0 6px">🎯 Validação do valor de venda por condado</h3><div class="tblwrap" style="max-height:420px"><table class="itbl"><thead><tr><th>Condado</th><th class="n">Lote: erro med.</th><th class="n">viés</th><th class="n">regra antiga (P25)</th><th class="n">n</th><th class="n">Casa: erro med.</th><th class="n">viés</th><th class="n">P25</th><th class="n">n</th></tr></thead><tbody>'+
   ks.map(k=>'<tr><td>'+esc(k.replace(/(^|[ -])\w/g,x=>x.toUpperCase()))+'</td>'+cel(VE[k].land)+cel(VE[k].sfr)+'</tr>').join('')+'</tbody></table></div><p class="mini">Cada venda qualificada dos últimos 6 meses (rol do DOR) é avaliada pelas outras vendas, sem ela mesma, com a regra atual (mediana ajustada no tempo). Erro = |estimado ÷ preço − 1| (mediana); viés negativo = valor abaixo do mercado. A coluna P25 mostra o erro da regra antiga.</p></section>'; } }
+ // calibração: preço de venda (terceiros) vs nosso lance máx. e vs lance inicial/julgamento
+ { const C=M.calib||{}; const ks=Object.keys(C).filter(k=>!k.startsWith('*|')).sort((a,b)=>C[b].n-C[a].n); if(ks.length){ const row=(k,lbl)=>{ const o=C[k]; return '<tr><td>'+esc(lbl)+'</td><td class="n">'+o.n+'</td><td class="n">'+(o.rref!=null?nf(o.rref,2)+'×':'—')+'</td><td class="n">'+o.nmb+'</td><td class="n">'+(o.rmb!=null?nf(o.rmb,2)+'× <span class="mini">('+nf(o.rmb25,2)+'–'+nf(o.rmb75,2)+')</span>':'—')+'</td><td class="n '+(o.over>0.5?'c-red':'')+'">'+(o.over!=null?pct(o.over,0):'—')+'</td></tr>'; };
+  h+='<section class="panel" id="calib"><h3 style="margin:0 0 6px">🎯 Calibração: quanto os leilões fecharam</h3><div class="tblwrap" style="max-height:420px"><table class="itbl"><thead><tr><th>Condado · tipo</th><th class="n">Vendidos a terceiros</th><th class="n">Preço ÷ lance inicial/julg. (med.)</th><th class="n">Com nosso lance máx.</th><th class="n">Preço ÷ nosso lance máx. (med., P25–P75)</th><th class="n">% acima do nosso máx.</th></tr></thead><tbody>'+
+  ['*|TD','*|FC'].filter(k=>C[k]).map(k=>row(k,'Flórida · '+TYPES[k.slice(2)])).join('')+ks.map(k=>row(k,k.split('|')[0]+' · '+TYPES[k.split('|')[1]])).join('')+'</tbody></table></div><p class="mini">Resultados públicos do RealAuction (results_history). "Nosso lance máx." = lance máx. 17% do último snapshot diário antes do leilão (snapshots desde 09/10, por isso n ainda pequeno). Preço ÷ máx. &gt; 1 = a sala pagou mais do que o nosso teto.</p></section>'; } }
  // coverage: all 67 counties
  const ALL67=['Alachua','Baker','Bay','Bradford','Brevard','Broward','Calhoun','Charlotte','Citrus','Clay','Collier','Columbia','DeSoto','Dixie','Duval','Escambia','Flagler','Franklin','Gadsden','Gilchrist','Glades','Gulf','Hamilton','Hardee','Hendry','Hernando','Highlands','Hillsborough','Holmes','Indian River','Jackson','Jefferson','Lafayette','Lake','Lee','Leon','Levy','Liberty','Madison','Manatee','Marion','Martin','Miami-Dade','Monroe','Nassau','Okaloosa','Okeechobee','Orange','Osceola','Palm Beach','Pasco','Pinellas','Polk','Putnam','St. Johns','St. Lucie','Santa Rosa','Sarasota','Seminole','Sumter','Suwannee','Taylor','Union','Volusia','Wakulla','Walton','Washington'];
  const RA0=['Calhoun','Gulf','Monroe','St. Johns'];

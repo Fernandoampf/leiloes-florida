@@ -484,6 +484,8 @@ with sync_playwright() as p:
     check(st['esri'] and st['attr'] and not st['svEmbed'] and st['svLink'], f'satélite Esri + atribuição, Street View só link {st}')
     rf = pg.evaluate("(()=>{const d=window.__dash; const I=d.ITEMS.filter(r=>r.zip); const u=I.slice(0,50).map(d.redfinUrl); return {zip:u.every(x=>/^https:\\/\\/www\\.redfin\\.com\\/zipcode\\/\\d{5}$/.test(x)), btnI:I.slice(0,50).some(r=>/btnI/.test(d.redfinFind(r)))};})()")
     check(rf['zip'] and not rf['btnI'], f'Redfin abre a página do ZIP (sem btnI) {rf}')
+    ar = pg.evaluate("(()=>{const d=window.__dash; d.setView('cand'); const t=document.body.textContent; const c=document.querySelector('#calib'); d.setView('intel'); const cal=document.querySelectorAll('#calib tbody tr').length; d.setView('table'); return {arch:/Já passaram/.test(t), palifox:/PALIFOX/.test(t)&&/resgatado pelo dono/.test(t), t1517305:/TD1517305/.test(t), cal};})()")
+    check(ar['arch'] and ar['palifox'] and ar['t1517305'] and ar['cal'] >= 2, f'arquivo de favoritos com resultado + calibração {ar}')
     # celular 390px
     m = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
     mp = m.new_page(); merr = []; mp.on('pageerror', lambda e: merr.append(str(e)))

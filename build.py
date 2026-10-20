@@ -1237,11 +1237,20 @@ def render(items, stats, dropped, args):
         if z and z in mk and z not in zips and mk[z].get('rf'):
             zips[z] = dict(rf=mk[z]['rf'], zh=mk[z].get('zh'), zr=mk[z].get('zr')); zips[z]['rt'] = resale_temp(mk[z].get('rf'))
     favs = load_favs(items)
+    try:                                            # resultados + arquivo dos favoritos que saíram + histórico de lance máx.
+        import favtrack
+        fh = favtrack.update_history()
+        farch = favtrack.archive({r['id'] for r in items}, args.data_date, fh)
+        fmbh = favtrack.mbhist([i for i in favtrack.fav_ids() if any(r['id'] == i for r in items)])
+        fcal = favtrack.calib(fh)
+        print('favoritos: arquivo', len(farch), '| histórico lance', len(fmbh), '| resultados', len(fh), '| calibração', len(fcal), flush=True)
+    except Exception as ex:
+        print('favtrack falhou:', ex, flush=True); farch, fmbh, fcal = [], {}, {}
     ares, recent, rmeta = load_results()
     meta = dict(dataDate=args.data_date, built=time.strftime('%Y-%m-%d %H:%M'), params=P, zips=zips, mktSrc=mk.get('_src', {}),
                 rehabTiers=REHAB_TIERS, rehabUnknown=REHAB_UNKNOWN, rehabPool=REHAB_POOL, stats=stats, dropped=dropped, orlando=ORLANDO,
                 events=load_events(args.data_date), ares=ares, recent=recent, rmeta=rmeta, types=TYPES, version='v4',
-                builders=getattr(build_items, '_bld', None), favs=favs, valerr=getattr(build_items, '_valerr', None))
+                builders=getattr(build_items, '_bld', None), favs=favs, valerr=getattr(build_items, '_valerr', None), arch=farch, mbh=fmbh, calib=fcal)
     data = json.dumps(dict(meta=meta, items=items), ensure_ascii=False, separators=(',', ':'))
     if args.no_compress:
         blob = 'J:' + data.replace('</', '<\\/')
