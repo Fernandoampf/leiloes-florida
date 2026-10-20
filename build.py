@@ -1064,7 +1064,7 @@ def build_items(args):
         if not e or 'err' in e: continue
         if not e.get('poly'): r['geo'] = dict(poly=False, at=e.get('at')); continue
         gl['poly'] += 1
-        r['geo'] = {k: e.get(k) for k in ('ac', 'wet', 'wetPct', 'fz', 'sfhaPct', 'at')}
+        r['geo'] = {k: e.get(k) for k in ('ac', 'wet', 'wetPct', 'fz', 'sfhaPct', 'fzErr', 'at')}
         if (e.get('wetPct') or 0) >= 10: gl['wet20'] += 1
         if (e.get('sfhaPct') or 0) >= 10: gl['sfha'] += 1
         if (e.get('wetPct') or 0) > 0: r['fl'].append('wet')

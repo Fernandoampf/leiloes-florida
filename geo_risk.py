@@ -12,6 +12,7 @@ warnings.filterwarnings('ignore', category=DeprecationWarning)
 DIR = '/workspace/auc/statewide/georisk'; CACHE = os.path.join(DIR, 'cache.json')
 FDOR = 'https://services9.arcgis.com/Gh9awoU677aKree0/arcgis/rest/services/Florida_Statewide_Cadastral/FeatureServer/0/query'
 NWI = 'https://fwspublicservices.wim.usgs.gov/wetlandsmapservice/rest/services/Wetlands/MapServer/0/query'
+RETRY = 3                      # dias entre novas tentativas de parcela/FEMA com erro
 NFHL = 'https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query'
 SFHA = {'A', 'AE', 'AH', 'AO', 'VE', 'V', 'A99', 'AR'}
 UA = {'User-Agent': 'ChallengeCapital lot risk check (polite, cached)'}
@@ -59,9 +60,15 @@ def analyze(pid, s):
         return {k: round(100 * v / pm.area, 1) for k, v in out.items() if v > 0}
     time.sleep(0.4); wet = cover(_q(NWI, geom, 'WETLAND_TYPE', s), 'WETLAND_TYPE')
     # NWI types that are not wetland habitat for buildability purposes: deepwater lake/riverine are still water -> keep all
-    time.sleep(0.4); fz = cover(_q(NFHL, geom, 'FLD_ZONE', s), 'FLD_ZONE')
-    return dict(poly=True, ac=round(pm.area / 4046.86, 3), wet=wet, wetPct=round(min(100, sum(wet.values())), 1), fz=fz,
-                sfhaPct=round(min(100, sum(v for k, v in fz.items() if k in SFHA)), 1))
+    out = dict(poly=True, ac=round(pm.area / 4046.86, 3), wet=wet, wetPct=round(min(100, sum(wet.values())), 1))
+    # FEMA NFHL falha sozinho (erro ArcGIS / conexão derrubada): guarda a área úmida e marca só a FEMA para nova tentativa
+    try:
+        time.sleep(0.4); fz = cover(_q(NFHL, geom, 'FLD_ZONE', s), 'FLD_ZONE')
+        out.update(fz=fz, sfhaPct=round(min(100, sum(v for k, v in fz.items() if k in SFHA)), 1))
+    except PermissionError: raise
+    except Exception as e:
+        out['fzErr'] = (type(e).__name__ + ': ' + str(e))[:160]
+    return out
 
 
 def refresh(keys, offline=False, limit=600):
@@ -72,7 +79,10 @@ def refresh(keys, offline=False, limit=600):
     todo = []
     for co, pid in keys:
         k = f'{co}|{pid}'; e = c.get(k)
-        if e and e.get('at') and (today - dt.date.fromisoformat(e['at'])).days < MAXAGE and 'err' not in e: continue
+        if e and e.get('at'):
+            age = (today - dt.date.fromisoformat(e['at'])).days
+            if 'err' not in e and 'fzErr' not in e and age < MAXAGE: continue
+            if ('err' in e or 'fzErr' in e) and age < RETRY: continue      # falha: nova tentativa só a cada RETRY dias (não todo dia)
         todo.append((k, pid))
     st['asked'] = len(todo)
     os.makedirs(DIR, exist_ok=True)
@@ -89,11 +99,13 @@ def refresh(keys, offline=False, limit=600):
         except PermissionError as e:
             st['blocked'] = str(e); stop.set(); return
         except Exception as e:
-            res = dict(err=type(e).__name__, at=today.isoformat())
+            res = dict(err=(type(e).__name__ + ': ' + str(e))[:160], at=today.isoformat())
         with lock:
             c[k] = res
             if 'err' in res: st['err'] += 1
-            else: st['fetched'] += 1; st['nopoly'] += 0 if res.get('poly') else 1
+            else:
+                st['fetched'] += 1; st['nopoly'] += 0 if res.get('poly') else 1
+                if 'fzErr' in res: st['fzErr'] = st.get('fzErr', 0) + 1
             if (st['fetched'] + st['err']) % 25 == 0: json.dump(c, open(CACHE, 'w'))
         time.sleep(0.4)
     with ThreadPoolExecutor(3) as ex: list(ex.map(job, todo[:limit]))
