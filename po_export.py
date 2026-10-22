@@ -3,7 +3,9 @@
 
 Drop zone (outside the public repo): /workspace/auc/statewide/po_exports/
   Files: po_<county>_<YYYY-MM-DD>.csv   e.g. po_orange_2026-10-08.csv
-  Newest file per county wins; county also read from the CSV "County" column when present.
+  All files per county are merged, newer rows win by key (case+parcel → parcel → address); rows only in
+  older files are kept (partial exports, e.g. 21-day window, don't wipe later auctions). County also read
+  from the CSV "County" column when present.
 
 build.py calls enrich() after rawdata.collect(). Raw CSVs are NEVER committed to the site repo.
 """
@@ -184,15 +186,40 @@ def normalize_row(row, file_county=None):
     )
 
 
-def load_exports(directory=None):
-    """Load newest export per county → list of normalized rows (Upcoming only)."""
+def list_all_export_files(directory=None):
+    """Every export file, oldest → newest (by date in filename, then mtime)."""
+    directory = directory or EXPORT_DIR
+    if not os.path.isdir(directory): return []
     out = []
-    for co, date, path in list_export_files(directory):
+    for path in glob.glob(os.path.join(directory, 'po_*.csv')):
+        co, date = _file_county_date(path)
+        if co and date: out.append((date, os.path.getmtime(path), co, path))
+    return [(co, d, p) for d, _, co, p in sorted(out)]
+
+
+def row_key(n):
+    """Merge key across export files: case (+parcel for MLTI) → parcel → street+zip."""
+    if n['case_n']: return (n['county'], n['kind'], 'c', n['case_n'], n['parcel'] or '')
+    if n['parcel']: return (n['county'], n['kind'], 'p', n['parcel'])
+    return (n['county'], n['kind'], 'a', n['street_n'], n['zip'])
+
+
+def load_exports(directory=None):
+    """Merge ALL exports per county → list of normalized rows (Upcoming only).
+
+    Files are read oldest → newest; a row in a newer file replaces the older row with the same key,
+    rows only in older files are kept (a 21-day export must not wipe later auctions from a full export).
+    Past-dated rows are dropped later by enrich()/build."""
+    merged = {}
+    for co, date, path in list_all_export_files(directory):
         with open(path, newline='', encoding='utf-8-sig') as f:
             for row in csv.DictReader(f):
                 n = normalize_row(row, file_county=co)
-                if n: out.append(n)
-    return out
+                if n:
+                    k = row_key(n)
+                    merged.pop(k, None)          # newer wins (re-insert keeps newest order)
+                    merged[k] = n
+    return list(merged.values())
 
 
 def _index_items(items):

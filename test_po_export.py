@@ -51,6 +51,25 @@ class TestPoExport(unittest.TestCase):
         rows = po_export.load_exports(self.dir)
         self.assertEqual(rows[0]['pov'], 200000)
 
+    def test_merge_partial_newer_export_keeps_older_rows(self):
+        # full export 10-08 (2 auctions) + 21-day export 10-22 (only the near one, new POV)
+        self._write('po_orange_2026-10-08.csv', [
+            row(**{'Case Number': '2024-CA-000001-O', 'Auction Date': '2026-10-27', 'POV': '100000'}),
+            row(**{'Case Number': '2024-CA-000009-O', 'Street Address': '900 Far Ave',
+                   'Parcel Number': '10-24-28-2495-00-690', 'Appraiser Link': '',
+                   'Auction Date': '2026-12-03', 'POV': '150000'}),
+        ])
+        self._write('po_orange_2026-10-22.csv', [
+            row(**{'Case Number': '2024-CA-000001-O', 'Auction Date': '2026-10-29', 'POV': '120000'}),
+        ])
+        rows = po_export.load_exports(self.dir)
+        by = {r['case_n']: r for r in rows}
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(by['2024CA000001O']['pov'], 120000)            # newer row wins
+        self.assertEqual(by['2024CA000001O']['date_iso'], '2026-10-29')
+        self.assertEqual(by['2024CA000009O']['pov'], 150000)            # only in older file: kept
+        self.assertEqual(len(po_export.list_all_export_files(self.dir)), 2)
+
     def test_match_case_parcel_address_no_dup(self):
         self._write('po_orange_2026-10-08.csv', [
             row(**{'Case Number': '2024-CA-000001-O', 'Street Address': '100 Main St'}),
