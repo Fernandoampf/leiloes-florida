@@ -494,6 +494,11 @@ with sync_playwright() as p:
         json.dump(dict(exited=[dict(id='OLD')]), open(os.path.join(td, 'favoritos_changes_2026-01-01.json'), 'w'))
         mg = _b.merge_fav_changes([dict(id='X2', status='sold')], runs=td)
     check([a['id'] for a in mg] == ['X2', 'X1'] and mg[0].get('status') == 'sold' and 'new' not in mg[1], f'build.merge_fav_changes usa o favoritos_changes mais recente {mg}')
+    ml = pg.evaluate("(()=>{const d=window.__dash; const M=d.ITEMS.filter(r=>r.fl.includes('mlot')); const bb=d.ITEMS.filter(r=>/Butler Bay/i.test(r.addr)); return {n:M.length, bad:M.filter(r=>r.t==='FC'&&(r.vd==='FLIP'||r.vd==='CONSIDERAR')).map(r=>r.addr), bb:bb.map(r=>[r.addr,r.ref,r.vd,r.fl.includes('mlot')]), cv:d.ITEMS.filter(r=>/CRESTVIEW, FL 32536/i.test(r.addr)&&r.co!=='Okaloosa').map(r=>r.addr+' '+r.co)};})()")
+    check(ml['n'] >= 2 and not ml['bad'], f'processo com vários lotes: flag mlot e nunca FLIP/CONSIDER {ml["n"]} {ml["bad"]}')
+    check(len(ml['bb']) == 0 or all(x[3] and x[1] and x[1] > 2e6 and x[2] not in ('FLIP', 'CONSIDERAR') for x in ml['bb']), f'Butler Bay (2024-CA-010169-O): julgamento do processo inteiro nos 2 lotes {ml["bb"]}')
+    check(not ml['cv'], f'Crestview (Okaloosa) não aparece em outro condado {ml["cv"]}')
+    check(_b.county_zip_mismatch('seminole', 'okaloosa') and not _b.county_zip_mismatch('stlucie', 'saintlucie') and not _b.county_zip_mismatch('polk', 'osceola'), 'build.county_zip_mismatch: só condados distantes')
     # celular 390px
     m = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
     mp = m.new_page(); merr = []; mp.on('pageerror', lambda e: merr.append(str(e)))

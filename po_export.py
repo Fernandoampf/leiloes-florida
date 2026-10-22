@@ -354,6 +354,13 @@ def enrich(items, directory=None, today=None, closed=None):
         else:
             unmatched.append(row)
     added = 0
+    # multi-parcel cases (PO 'case.mlti1', '.mlti2' …): one judgment covers ALL lots — never split or pair it to one lot
+    groups = {}
+    for row in rows:
+        if row['date_iso'] < today or not row['case_n']: continue
+        g = groups.setdefault((row['county'], row['kind'], row['case_n'], row['date_iso']), {})
+        g[row['parcel'] or row['street_n'] or row['addr']] = row
+    multi = {k: g for k, g in groups.items() if len(g) > 1}
     closed_n = {(ncase(c), d) for c, d in (closed or ())}
     for row in unmatched:
         if row['case_n'] and (row['case_n'], row['date_iso']) in closed_n:   # canceled/redeemed on the clerk site
@@ -362,9 +369,35 @@ def enrich(items, directory=None, today=None, closed=None):
         items.append(po_only_item(row))
         added += 1
         how_c['po_only'] = how_c.get('po_only', 0) + 1
+    mstat = mark_multi_lots(items, multi)
+    how_c.update(mstat)
     stats = dict(files=[{'county': c, 'date': d, 'path': p} for c, d, p in files],
                  rows=len(rows), matched=matched, added=added, by_how=how_c)
     return items, stats
+
+
+def mark_multi_lots(items, multi):
+    """Tag every item of a multi-parcel case with it['mlot'] and give PO-only lots the case judgment.
+
+    The RealAuction item carries the judgment of the WHOLE case; PO lists one row per lot. Without this, the
+    judgment sat on whichever lot was paired first and the other lot looked like a cheap FLIP."""
+    if not multi: return {}
+    by_key = {}
+    for it in items:
+        x = it['raw']
+        k = (it['src'], ncase(x.get('case')), parse_date(x.get('date'))[0])
+        by_key.setdefault(k, []).append(it)
+    n_items = 0
+    for k, g in multi.items():
+        lots = sorted({(r['addr'] or r['parcel_raw'] or '').strip() for r in g.values()})
+        its = by_key.get(k[1:], []) if k[2] else []
+        fj = max([v for v in (it['raw'].get('fj') for it in its if not it.get('po_only')) if isinstance(v, (int, float)) and v == v and v > 0] or [0]) or None
+        for it in its:
+            it['mlot'] = dict(case=k[2], n=max(len(g), len(its)), lots=lots, fj=fj)
+            if fj and it['src'] == 'FC' and not it['raw'].get('fj'):
+                it['raw']['fj'] = fj; it['raw']['fj_case'] = True
+            n_items += 1
+    return dict(multi_cases=len(multi), multi_items=n_items)
 
 
 def type_from_prop(prop_type, sqft, lot):

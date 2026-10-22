@@ -95,6 +95,32 @@ class TestPoExport(unittest.TestCase):
         aids = [it['raw']['aid'] for it in items if not it.get('po_only')]
         self.assertEqual(len(aids), len(set(aids)))
 
+    def test_multi_lot_case_shares_judgment(self):
+        # Orange 2024-CA-010169-O: one judgment, 2 lots (PO .mlti1/.mlti2); RealAuction lists one item
+        self._write('po_orange_2026-10-22.csv', [
+            row(**{'Case Number': '2024-ca-010169-o.mlti1', 'Street Address': '2710 Butler Bay Dr N # 3', 'City': 'Windermere',
+                   'Zip': '34786', 'Auction Date': '2026-10-29', 'Parcel Number': '01-23-27-1108-00-001',
+                   'Appraiser Link': 'https://ocpaweb.ocpafl.org/parcelsearch/parcel%20id/272301110800001'}),
+            row(**{'Case Number': '2024-ca-010169-o.mlti2', 'Street Address': '2730 Butler Bay Dr N', 'City': 'Windermere',
+                   'Zip': '34786', 'Auction Date': '2026-10-29', 'Parcel Number': '01-23-27-1117-00-001',
+                   'Appraiser Link': 'https://ocpaweb.ocpafl.org/parcelsearch/parcel%20id/272301111700001'}),
+            row(**{'Case Number': '2024-CA-000001-O', 'Auction Date': '2026-10-29'}),
+        ])
+        items = [dict(src='FC', raw=dict(county='orange', case='2024-CA-010169-O', parcel='', street='2730 BUTLER BAY DR N',
+                                         addr='2730 Butler Bay Dr N Windermere, FL 34786', date='10/29/2026', aid='1515954', fj=2060966.11)),
+                 dict(src='FC', raw=dict(county='orange', case='2024-CA-000001-O', parcel='292228000000001', street='100 MAIN ST',
+                                         addr='100 MAIN ST ORLANDO, 32801', date='10/29/2026', aid='9', fj=1000))]
+        items, st = po_export.enrich(items, directory=self.dir, today='2026-10-22')
+        lots = [it for it in items if po_export.ncase(it['raw']['case']) == '2024CA010169O']
+        self.assertEqual(len(lots), 2)
+        for it in lots:
+            self.assertEqual(it['mlot']['n'], 2)
+            self.assertEqual(it['raw']['fj'], 2060966.11)       # whole-case judgment, never split
+            self.assertEqual(it['mlot']['fj'], 2060966.11)
+        self.assertEqual(st['by_how']['multi_cases'], 1)
+        single = next(it for it in items if it['raw'].get('aid') == '9')
+        self.assertNotIn('mlot', single)
+
     def test_pov_rule(self):
         self.assertTrue(po_export.pov_ok_for_arv(300000, 80, 280000))
         self.assertFalse(po_export.pov_ok_for_arv(300000, 60, 280000))

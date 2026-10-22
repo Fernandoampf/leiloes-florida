@@ -597,6 +597,7 @@ const FL = {
  subst:{l:'Lote abaixo do mínimo (pode não ser edificável)',c:'red',d:'Área ou frente do lote menor que o mínimo do zoneamento. Pode não dar licença para construir (só com variance ou se for “lot of record” anterior à regra). Comps de lotes regulares não valem: ARV limitado ao valor oficial do condado. Confirmar com o zoning da prefeitura antes de dar lance.'},
  hmob:{l:'Opening Bid baixo? (homestead)',c:'amb',d:'Imóvel com homestead: pela lei da Flórida o opening bid do tax deed inclui METADE do valor avaliado, e a lista do RealAuction costuma mostrar só o valor do certificado até o clerk atualizar. O lance inicial real pode ser bem maior — conferir no site do clerk antes de qualquer conta.'},
  ipres:{l:'Leilão presencial',c:'cool',d:'Foreclosure vendida NO FÓRUM (não no RealAuction): Lake = Tavares, Osceola = Kissimmee, 11h. Depósito de 5% na hora; saldo até 16h. Datas e cancelamentos vêm da lista oficial do clerk (atualizada todo dia).'},
+ mlot:{l:'Processo com vários lotes',c:'red',d:'Um só processo de foreclosure cobre vários lotes/parcelas: o julgamento vale para o processo inteiro, não para cada lote. Nunca FLIP/CONSIDER por lote — ver o edital e somar os lotes.'},
  nobid:{l:'Sem Opening Bid',c:'amb',d:'Listagem só no export PropertyOnion, sem julgamento/opening bid do RealAuction. NET/ROI usam o preço esperado do condado (como tax deed) quando houver histórico; senão ficam sem dados até o scrape do clerk.'},
  surv:{l:'Surviving Lien',c:'red',d:'Indício de lien que sobrevive ao leilão (HOA/condomínio, hipoteca júnior, ou lien municipal em tax deed). Valor estimado do PropertyOnion quando disponível – confirmar com title search. Reserva no P&L (toggle); veredito/nota penalizados; fora de Negócios limpos.'},
  rebid:{l:'Já foi a leilão',c:'amb',d:'Este imóvel já foi a leilão e voltou (cancelou, não vendeu ou o lance não segurou). Sobe o risco e tira alguns pontos da nota.'},
@@ -849,7 +850,7 @@ function ruleBid(r,o){
  }
  return best || {b:-1, w:'escada – '+last};
 }
-const HI=['avoid','mtg','surv','code','flood','jr'], MD=['occ','ten','hoa','dec','red','unv','cxl','hmtd','nobid','rebid'];
+const HI=['mlot','avoid','mtg','surv','code','flood','jr'], MD=['occ','ten','hoa','dec','red','unv','cxl','hmtd','nobid','rebid'];
 // Lance que a gente assume que ganha o leilão (capa do ROI). Premissas documentam as frações.
 // xbid = max(lance inicial ou julgamento, preço histórico do condado, fração do lance máx. de 17%, fração do ARV).
 const XBID_MB={TD:0.55,FC:0.70,PV:0.50,GOV:0.45};
@@ -963,6 +964,7 @@ function verdict(r){
    if((r.geo.sfhaPct||0)>=fm) return {vd:'PASSAR', why:'zona de inundação FEMA '+Object.keys(r.geo.fz||{}).filter(z=>/^(A|AE|AH|AO|A99|AR|VE|V)$/.test(z)).join('/')+' cobre '+nf(r.geo.sfhaPct)+'% do lote (limite '+fm+'%)', geo:1}; }
  if(r.roi==null || r.mb==null) return {vd:'PASSAR', why:'sem dados'};
  if(!(r.mb>0)) return {vd:'PASSAR', why:'nenhum lance atende: '+(r.mbWhy||nf(PR.ret)+'%')};
+ if(r.fl.includes('mlot') && r.t==='FC') return {vd:'DISPUTADO', why:'processo com vários lotes'+(r.mlot&&r.mlot.n?' ('+r.mlot.n+')':'')+': julgamento '+(r.mlot&&r.mlot.fj?money(r.mlot.fj):'do processo')+' vale para o processo inteiro – não é FLIP de um lote só', sub:'vários lotes'};
  if(r.t!=='FC' && r.ref!=null && r.ref>r.mb+1) return {vd:'PASSAR', why:'lance inicial '+money(r.ref)+' acima do lance máx. '+money(r.mb)};
  if(r.t==='FC' && r.ref!=null && r.ref>r.mb+1) return {vd:'DISPUTADO', why:'julgamento '+money(r.ref)+' acima do lance máx. – banco pode aceitar menos que o julgamento', sub:'banco pode aceitar menos'};
  if(r.xbid!=null && r.xbid>r.mb+1) return {vd:'DISPUTADO', why:'preço esperado '+money(r.xbid)+' acima do lance máx. – há espaço até '+money(r.mb)+', mas é provável perder na disputa'};
@@ -1085,6 +1087,7 @@ function evaluate(r){
   // data-confidence caps (out/2026): a high score only on numbers that were checked
   const caps=[];
   if(r.fl.includes('nobid') || (r.t==='FC' && r.ref==null)) caps.push([60,'sem julgamento conferido']);
+  if(r.fl.includes('mlot')) caps.push([50,'processo com vários lotes']);
   if(r.t==='TD' && (r.fl.includes('red')||r.fl.includes('hmtd'))) caps.push([60,'tax deed com resgate provável/homestead']);
   if(r.ty==='Comercial' || r.ty==='Outro') caps.push([50,'comercial/outro: avaliação fraca']);
   if(built && !r.man && !((r.comps&&r.comps.n)>=3)) caps.push([70,'menos de 3 comps']);
@@ -2215,7 +2218,7 @@ function renderBld(){
 // ---- Pacotes (Fernando, out/2026): several biddable lots of the same area going to auction on the same day.
 // Buying them together lets you sell the bundle to a builder already buying there (faster, at a discount per lot).
 let PACMAX=999;   // Fernando (09/10): lotes na Flórida toda
-const PAC_HARD=['jr','surv','red','hmtd','cxl','junk','flood','nobid','code','mtg','avoid','unv'];
+const PAC_HARD=['mlot','jr','surv','red','hmtd','cxl','junk','flood','nobid','code','mtg','avoid','unv'];
 function pacOk(r){
  return isLand(r) && r.date>=TODAY && r.mb>0 && r._o && r._o.arv && !r.suspect && !r.fl.some(f=>PAC_HARD.includes(f)) &&
   (r.vd==='FLIP' || r.vd==='CONSIDERAR' || (r.vd==='DISPUTADO' && (r.ref==null || r.ref<r.mb))) && (r.dist==null || r.dist<=PACMAX);

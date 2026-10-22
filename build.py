@@ -619,6 +619,8 @@ def build_items(args):
         nf = facts.get(x['aid'])
         cs = county_slug(x.get('county') or '') or zcounty.get((zips_of(x) or [''])[-1], '')
         if not cs: drop('condado desconhecido'); continue
+        if county_zip_mismatch(cs, zcounty.get((zips_of(x) or [''])[-1], '')):
+            drop('cidade/ZIP de outro condado (dado inconsistente)'); continue
         # ---- values
         av = num(x.get('av')); mkt = num(P0.get('marketTotalValue'))
         o = it.get('ocpa'); ocpa_mkt = num(o['vals'][0].get('marketValue')) if (o and o.get('vals')) else None
@@ -803,6 +805,11 @@ def build_items(args):
         status = [a.get('auction_status') for a in same]
         # ---- flags
         flags, notes = [], []
+        ml = it.get('mlot')
+        if ml:
+            flags.append('mlot')
+            notes.append(f"Processo com vários lotes ({ml['n']}): o julgamento {_usd(ml['fj']) if ml.get('fj') else '—'} vale para o processo inteiro "
+                         f"({'; '.join(ml['lots'][:4])}), não para este lote sozinho.")
         occ_v = str(dictval(P0.get('ownerOccupied')) or '').lower()
         owner = (P0.get('ownerNAME1FULL') or (nf or {}).get('own') or (o or {}).get('owner') or (lk or {}).get('owner') or (poe.get('owner') if poe else None) or x.get('owner') or '').strip()
         owner2 = P0.get('ownerNAME2FULL') or ''
@@ -950,7 +957,7 @@ def build_items(args):
             pov=round(pov) if pov else None, povConf=int(pov_conf) if pov_conf else None,
             povAsArv=pov_as_arv or None, clv=num(poe.get('clv')) if poe else None,
             prevSale=poe.get('prev_sale_type') if poe else None,
-            nobid=nobid or None, poeHow=(poe.get('how') if poe else None),
+            mlot=it.get('mlot') or None, nobid=nobid or None, poeHow=(poe.get('how') if poe else None),
             survAmt=round(surv_amt) if surv_amt else None, survWhy=surv_why, survOrig=round(surv_orig) if surv_orig else None,
             rj=rj, jv85=round(jv85) if jv85 else None,
             survDeduct=True if (surv_amt and hoa_pl and src=='FC') else None,
@@ -1124,6 +1131,16 @@ def build_items(args):
                  poExport=po_st, pov=sum(1 for r in out if r.get('pov')), povArv=sum(1 for r in out if r.get('povAsArv')),
                  poOnly=sum(1 for r in out if r.get('plat') == 'PropertyOnion'))
     return out, stats, dropped
+
+def county_zip_mismatch(cs, zc, max_mi=110):
+    """True when the address ZIP belongs to a county far from the auction county (e.g. Crestview/Okaloosa listed
+    under Seminole). Border ZIPs of neighbouring counties are normal and kept (centroids < max_mi apart)."""
+    norm = lambda c: re.sub(r'^saint', 'st', c or '')
+    cs, zc = norm(cs), norm(zc)
+    if not cs or not zc or cs == zc: return False
+    a, b = COUNTY_LL.get(cs), COUNTY_LL.get(zc)
+    return bool(a and b and hav(a, b) > max_mi)
+
 
 def zip_county_map():
     """ZIP -> county slug from the Zillow files (CountyName column)."""
