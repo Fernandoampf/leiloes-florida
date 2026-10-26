@@ -157,3 +157,27 @@ Formato: `dd/mm hh:mm ET · QUEM · commit · o quê · por quê · teste/estado
 
 ## 2026-10-26 ET — Claude: proposta para a nota de lote (pedido do Fernando)
 - PROPOSTA · Claude · **nota de lote ganhar "concorrência" e "liquidez", e perder peso de distância** · motivo: nos leilões de 20/10 os lotes bons fecharam bem acima do preço esperado (Vero 2026-0052TD US$ 39.100 com inicial 3.360; 2026-0050TD US$ 18.000; Port Charlotte 26-0466 US$ 9.900) e um lote de mercado parado (Lehigh Acres, Bristo St, TD1517711) aparece com nota 86. Sugestões: (a) **fechamento real no condado** — usar os resultados que o site já guarda desde 20/10 (results.py) para calcular, por condado/tipo, a razão vendido ÷ preço esperado e vendido ÷ ARV; usar no preço esperado e na nota (lote onde a sala paga acima do lance máx. perde pontos ou vira DISPUTADO); (b) **liquidez do bairro** — vendas de lote vago no último ano na subdivisão/raio 1 mi e compras de construtoras (o site já tem comps e a lista de construtoras do Pacotes), somando até ~14 pontos; % de lotes arrematados no condado (ex.: Lee/Lehigh ~13%) tirando pontos; (c) **distância** de 14 para ~6 pontos (estratégia de lote é Flórida toda); (d) mostrar no tooltip da nota as parcelas (sp) já com esses itens. Importante: **a nota é para ordenar, não para cortar** — não criar filtro de nota mínima; os tetos de 50/55/60 continuam como estão.
+
+## 2026-10-26 ET — Grok: proposta do Claude para a nota aplicada (aprovada pelo Fernando)
+- 26/10 · Grok · 883bee3 · **1 — concorrência**: `favtrack.calib` agora guarda também condado × tipo × lote(L)/construído(B) com vendido ÷ preço esperado (rxp) e vendido ÷ valor (rval) do último snapshot. Hoje: Flórida TD lote n=20 rxp 1,11 / rval 0,80 (sala paga acima do nosso máx. em 83%); TD construído n=8 rxp 0,52; FC construído n=97 rxp 0,85. Preço esperado = menor entre rxp×esperado, rval×valor e teto 65%/90% — **só sobe** (condado se ≥3 vendas, senão Flórida ≥5); acima do lance máx. → DISPUTADO (regra já existente). Condado com ≥3 casos vs. nosso máx.: até −8 pela % acima do máx. (hoje nenhum condado tem 3 casos — Vero/Port Charlotte entram conforme os resultados chegam). Tabela Calibração ganhou 2 colunas (preço ÷ esperado, preço ÷ valor).
+- 26/10 · Grok · 883bee3 · **2 — liquidez do bairro (lote, 0–14)**: vendas de lote vago 12 m ÷ lotes vagos (raio ≈0,5 mi; senão subdivisão) até 10 + construtoras comprando até 4; sem dado = 4. **Condado com pouco arremate a terceiros** (vendidos ÷ realizados vs. Flórida, ≥30 leilões): <50% → −6, <75% → −3 (lote e construído; Lee, Charlotte, Volusia TD caem −6).
+- 26/10 · Grok · 883bee3 · **3 — distância do lote 14 → 6** (≤20 mi 6 · ≤35 5 · ≤50 4 · ≤80 3 · resto 1). **4 — tooltip da nota** lista cada parcela, ajustes e tetos (lista e ficha). **5 —** sem filtro de nota mínima; tetos 50/55/60 mantidos. Doc seção 4 atualizada.
+- Efeito geral: 25 FLIP→CONSIDERAR, 23 FLIP→DISPUTADO, 14 CONSIDERAR→DISPUTADO, 1 FLIP→PASSAR (2388 W Bentley St Dunnellon: regra "lote barato" ROI 39,4% < 40%). Testes: test_dashboard só as 2 falhas antigas (Chantilly, Wakulla); ajustei 2 checagens (PASSAR por "lote barato" é válido; lotes conhecidos no top 60 em vez de top 25, efeito da distância 14→6); test_po_export/po_bids ok.
+
+| Favorito | Leilão | Nota antes → depois | Veredito | Preço esperado antes → depois | Motivo |
+|---|---|---|---|---|---|
+| 5210/5212 Bristo St, Lehigh Acres (TD1517711) | 27/10 | 86 → 80 | FLIP | 185.384 (=) | condado Lee −6 |
+| Royal Palm Dr, Groveland (TD1520361) | 03/11 | 61 → 55 | FLIP | 29.873 → 33.159 | distância 11→5, liquidez 3 |
+| 1 Princess Luise Ln, Palm Coast (TD1514719) | 17/11 | 66 → 69 | FLIP | 27.591 → 30.626 | liquidez 7 |
+| 1542 SE Ladner St, Port St. Lucie (TD1520667) | 09/11 | 64 → 60 | FLIP | 56.637 → 62.867 | liquidez 0 |
+| 513 NW Dover Ct, Port St. Lucie (TD1523327) | 11/01 | 66 → 62 | FLIP | 52.020 → 57.742 | liquidez 0 |
+| Land 800905140290, Orange City (TD1522781) | 17/11 | 69 → 58 | FLIP | 11.789 → 13.086 | Volusia −6, distância |
+| 1510 Avenue J, Fort Pierce (TD1519933) | 09/11 | 50 → 54 | FLIP | 7.328 → 8.134 | liquidez 7 |
+| Parcela 2404-609-0098, St. Lucie (TD1520669) | 09/11 | 55 → 59 | FLIP | 8.619 → 9.567 | liquidez 7 |
+| North Port (Sarasota) TD1522097/098/100/108/121/122/123/125/132/133/136/137 | 04–05/11 | 50–55 → 52–60 | FLIP | +11% | liquidez 3–9 |
+| 2488 Case Ln, N. Fort Myers (TD1520087) | 17/11 | 35 → 33 | DISPUTADO | 29.340 (=) | Lee −6 |
+| 25125 Estrada Cir, Punta Gorda (TD1522233) | 03/11 | 33 → 33 | DISPUTADO | = | Charlotte −6 |
+| 1285 N Chance Way, Inverness (TD1523002) | 04/11 | 37 → 47 | DISPUTADO | = | liquidez 12 |
+
+- 26/10 · Grok · — · **Resultados de 22/10 (RealAuction, 2 páginas públicas, sem bloqueio)**: Palm Bay 146 Frante Ave (TD1517831), 620 Caballero Ave (TD1513740), 864 Seven Gables Cir (TD1513746) seguem **encerrados sem resultado publicado** (res vazio) — nada novo a gravar; 2403 E Palifox St Tampa (TD1516472) confirmado **Redeemed** (já no arquivo).
+- 26/10 · Grok · — · CSV "dar lance" (FLIP/CONSIDERAR, leilões 03–17/11, 206 itens) em `lances_2026-11-03_a_11-17.csv` — **fora do git** (repo público; `lances_*.csv` no .gitignore).
