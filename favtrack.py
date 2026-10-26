@@ -187,16 +187,23 @@ def calib(hist=None):
         except Exception: continue
         for it in items:
             h = sold.get(it.get('id'))
-            if h and d < h['date']: last[it['id']] = (it.get('maxBid17'), it.get('ty'), it.get('county'))
+            if h and d < h['date']: last[it['id']] = (it.get('maxBid17'), it.get('ty'), it.get('county'), it.get('xbid'), it.get('val'))
     q = lambda v, p: sorted(v)[min(len(v) - 1, int(p * (len(v) - 1) + 0.5))] if v else None
     g = {}
     for k, v in sold.items():
-        mb, ty, co = last.get(k, (None, None, None))
+        mb, ty, co, xb, val = last.get(k, (None, None, None, None, None))
         kind = 'Lote/terreno' if ty in ('Lote', 'Terreno') else ('Casa/condo' if ty else '?')
-        for key in ((co or v['co'].title()) + '|' + v['t'], '*|' + v['t']):
-            o = g.setdefault(key, dict(n=0, rref=[], rmb=[], over=0, nmb=0, kinds={}))
+        kk = 'L' if ty in ('Lote', 'Terreno') else ('B' if ty else None)
+        cn = co or v['co'].title()
+        keys = [cn + '|' + v['t'], '*|' + v['t']]
+        # concorrência (proposta Claude 26/10, aprovada): também por condado × tipo de leilão × lote/construído (L/B)
+        if kk: keys += [cn + '|' + v['t'] + '|' + kk, '*|' + v['t'] + '|' + kk]
+        for key in keys:
+            o = g.setdefault(key, dict(n=0, rref=[], rmb=[], over=0, nmb=0, kinds={}, rxp=[], rval=[]))
             o['n'] += 1
             if v.get('ref'): o['rref'].append(v['sold'] / v['ref'])
+            if xb: o['rxp'].append(v['sold'] / xb)
+            if val: o['rval'].append(v['sold'] / val)
             if mb:
                 o['rmb'].append(v['sold'] / mb); o['nmb'] += 1; o['over'] += v['sold'] > mb
                 o['kinds'][kind] = o['kinds'].get(kind, 0) + 1
@@ -204,5 +211,8 @@ def calib(hist=None):
     for k, o in g.items():
         out[k] = dict(n=o['n'], nmb=o['nmb'], rref=round(q(o['rref'], .5), 2) if o['rref'] else None,
                       rmb=round(q(o['rmb'], .5), 2) if o['rmb'] else None, rmb25=round(q(o['rmb'], .25), 2) if o['rmb'] else None,
-                      rmb75=round(q(o['rmb'], .75), 2) if o['rmb'] else None, over=round(o['over'] / o['nmb'], 2) if o['nmb'] else None, kinds=o['kinds'])
+                      rmb75=round(q(o['rmb'], .75), 2) if o['rmb'] else None, over=round(o['over'] / o['nmb'], 2) if o['nmb'] else None, kinds=o['kinds'],
+                      # vendido ÷ preço esperado e vendido ÷ valor (ARV) do último snapshot antes do leilão (medianas)
+                      nxp=len(o['rxp']), rxp=round(q(o['rxp'], .5), 2) if o['rxp'] else None,
+                      nval=len(o['rval']), rval=round(q(o['rval'], .5), 2) if o['rval'] else None)
     return out

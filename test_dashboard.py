@@ -57,7 +57,7 @@ with sync_playwright() as p:
     bad = pg.evaluate(D + '''.ITEMS.filter(r=>r.roi!=null&&r.mb!=null&&!(r.geo&&r.geo.poly!==false&&((r.geo.wetPct||0)>=10||(r.geo.sfhaPct||0)>=10))).filter(r=>{
         const room = r.mb>0, over = r.ref!=null && r.ref>r.mb+1;
         if(r.vd==='FLIP'||r.vd==='CONSIDERAR') return !(room && !over && !(r.xbid>r.mb+1) && (r.vd==='FLIP'?r.roi>=0.25:r.roi<0.25));
-        if(r.vd==='PASSAR') return !( !room || (r.t!=='FC' && over) );
+        if(r.vd==='PASSAR') return !( !room || (r.t!=='FC' && over) || /^lote barato/.test(r.vdWhy||'') );
         if(r.vd==='DISPUTADO') return !( room && ((r.t==='FC' && over) || r.xbid>r.mb+1) );
         return true; }).map(r=>r.addr+' '+r.vd).slice(0,5)''')
     check(not bad, f'veredito por espaço de lance: SEM ESPAÇO / DISPUTADO / FLIP ≥ 25% / CONSIDERAR {bad}')
@@ -325,7 +325,8 @@ with sync_playwright() as p:
     check(lots["west"] and all(w["sc"]<=55 and "use" in w["b"] for w in lots["west"]), f'West Ave comercial limitada {lots["west"]}')
     check(lots["hwy"] and lots["hwy"]["sc"]<=55 and lots["hwy"]["sus"] and lots["hwy"]["val"]<200000, f'US-27 Leesburg suspeito e limitado {lots["hwy"]}')
     found = [i for i in lots["ranks"] if i >= 0]
-    check(len(found) >= 4 and all(i < 25 for i in found), f'lotes residenciais conhecidos no topo (achados={found}) {lots["ranks"]} {lots["top"]}')
+    # 26/10: distância do lote 14 → 6 e liquidez do bairro (até 14) — lotes longe de Orlando com liquidez boa sobem; teto 60
+    check(len(found) >= 4 and all(i < 60 for i in found), f'lotes residenciais conhecidos no topo (achados={found}) {lots["ranks"]} {lots["top"]}')
     lm = pg.evaluate("""(()=>{const d=window.__dash;
       const lands=d.ITEMS.filter(r=>(r.ty==="Lote"||r.ty==="Terreno") && r.xbid!=null && r.val);
       // the historical-price term may never push a lot's realistic bid above 65% of ARV (unless the opening bid itself is higher)

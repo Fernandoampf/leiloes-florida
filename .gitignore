@@ -11,3 +11,4 @@ live_mobile.png
 !icons/*.png
 data/favoritos.json
 data/status_manual.json
+lances_*.csv
