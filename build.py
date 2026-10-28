@@ -1005,7 +1005,8 @@ def build_items(args):
             if rpid:
                 if not hasattr(build_items, '_rad'): build_items._rad = radius.load(); build_items._radq = []
                 re5 = build_items._rad.get(f'{cs}|{rpid}')
-                if re5 and re5.get('found'): lce.setdefault('ctx', {})['r05'] = re5
+                aw = '%04d-%02d' % local_comps.anchor_ym(lcd.get(cs), today)
+                if re5 and re5.get('found') and re5.get('win') == aw: lce.setdefault('ctx', {})['r05'] = re5   # same sales window as the roll
                 else: build_items._radq.append((cs, rpid))
             nv, sup = supply_adjust(lce, rec['val'], msub)
             if sup: rec['sup'] = sup
@@ -1061,7 +1062,8 @@ def build_items(args):
     # ---- ≈0.5 mi radius (FDOR cadastral) for lots the supply rule would discount; applied from the cache, refreshed incrementally
     rq = [k for k in getattr(build_items, '_radq', []) if any(r.get('cs') == k[0] and (r.get('sup') or {}).get('disc') for r in out if r.get('_pid') == k[1])]
     rst = radius.refresh(rq, offline=bool(getattr(args, 'no_clerk', False)) or os.environ.get('LEILOES_NO_CLERK', '').strip().lower() in ('1', 'true', 'yes', 'on'),
-                         limit=int(os.environ.get('RADIUS_LIMIT', '700')), today=today)
+                         limit=int(os.environ.get('RADIUS_LIMIT', '700')), today=today,
+                         anchors={c_: local_comps.anchor_ym(d_, today) for c_, d_ in lcd.items() if d_})
     print('raio 0,5 mi (pendentes p/ próximo build):', json.dumps(rst), flush=True)
     # validação leave-one-out (rol estadual): erro mediano do valor por comps, por condado
     ve = {}

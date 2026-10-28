@@ -16,7 +16,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 C = os.path.join(HERE, 'cache', 'local')
 MONTHS = 18                      # sales window
 CUT = re.compile(r'\b(PH(ASE)?|UNIT|UNREC|REPLAT|ADD(ITION)?|SEC(TION)?|BLK|BLOCK|LOT|LOTS|TRACT|TR|PB|PG|ORB|OR|REV|AMENDED|AMD|FIRST|SECOND|THIRD|1ST|2ND|3RD|4TH)\b.*$')
-CACHE_VER = 4
+CACHE_VER = 5
 LANDBANK = re.compile(r'\b(LAND|LANDS|INVEST\w*|PROPERT\w*|HOLDINGS?|CAPITAL|FINANCIAL|REALTY|ACQUISITIONS?|FUNDS?|PARTNERS|VENTURES|ASSETS?|EQUITY|TRUST)\b')
 # builders: national/regional brands + generic builder words (current owner of a vacant lot bought in the last 12 months)
 BRANDS = [('D.R. Horton', r'\bD\s*R\s*HORTON|\bDR HORTON'), ('Lennar', r'LENNAR'), ('LGI Homes', r'\bLGI\b'), ('Adams Homes', r'ADAMS HOMES'),
@@ -61,6 +61,19 @@ def trs_xy(twn, rng, sec):
     north = -(t - 1) * 6 if ns == 'S' else t * 6
     return (round(west + col + 0.5, 2), round(north - row - 0.5, 2))
 
+def data_anchor(hist, nowm):
+    """last month (y*12+m) with >= 50% of the median monthly sale count — the roll's sales cutoff; never after today."""
+    vs = sorted(v for m, v in hist.items() if m <= nowm)
+    if len(vs) < 6: return nowm
+    med = vs[len(vs) // 2]
+    ok = [m for m, v in hist.items() if m <= nowm and v >= 0.5 * med]
+    return max(ok) if ok else nowm
+
+def anchor_ym(d, today):
+    """(year, month) where the 12-month sales window ends for this county cache (falls back to today)."""
+    a = (d or {}).get('anc')
+    return (int(a[0]), int(a[1])) if a else (int(today[:4]), int(today[5:7]))
+
 def _i(v):
     try: return int(float(v))
     except Exception: return None
@@ -72,6 +85,7 @@ def scan(county, zpath, targets, today):
     ty, tm = int(today[:4]), int(today[5:7]); lim = ty * 12 + tm - MONTHS
     subj, sales, area = {}, [], {}
     lotbuys, newc, lsale = [], {}, {}            # (owner, sub key, zip key) of vacant-lot sales in 12 months; new construction per area
+    hist, cand = {}, []                          # sale-month histogram (data cutoff) and candidate vacant-lot sales (window applied after the pass)
     for row in rd:
         uc = (row.get('DOR_UC') or '').zfill(3)
         sub = subname(row.get('S_LEGAL')); nb = (row.get('NBRHD_CD') or '').strip().lstrip('0')
@@ -93,14 +107,14 @@ def scan(county, zpath, targets, today):
         if uc in ('001', '002', '004', '007') and ayb and ayb >= int(today[:4]) - 2:
             for k in (('s:' + sub) if sub else None, zk):
                 if k: newc[k] = newc.get(k, 0) + 1
+        for k in ('1', '2'):
+            yr_ = _i(row.get('SALE_YR' + k))
+            if yr_ and yr_ >= ty - 2:
+                mm = yr_ * 12 + (_i(row.get('SALE_MO' + k)) or 6); hist[mm] = hist.get(mm, 0) + 1
         if uc == '000':
-            for k in ('1', '2'):
-                yr_ = _i(row.get('SALE_YR' + k)); mo_ = _i(row.get('SALE_MO' + k)) or 6; pr_ = _i(row.get('SALE_PRC' + k)) or 0
-                if yr_ and yr_ * 12 + mo_ >= ty * 12 + tm - 12 and pr_ >= 1000 and row.get('VI_CD' + k) == 'V':
-                    if not row.get('MULTI_PAR_SAL' + k):          # absorption: every single-parcel vacant-lot sale (any qualification code)
-                        for kk in (('s:' + sub) if sub else None, ('n:' + nb) if nb else None, zk, xk):
-                            if kk: lsale[kk] = lsale.get(kk, 0) + 1
-                    lotbuys.append(((row.get('OWN_NAME') or '').strip(), ('s:' + sub) if sub else None, zk, xk)); break
+            ks_ = [(_i(row.get('SALE_YR' + k)), _i(row.get('SALE_MO' + k)) or 6, _i(row.get('SALE_PRC' + k)) or 0, row.get('VI_CD' + k), (row.get('MULTI_PAR_SAL' + k) or '').strip()) for k in ('1', '2')]
+            if any(y and y >= ty - 3 for y, *_ in ks_):
+                cand.append((ks_, (row.get('OWN_NAME') or '').strip(), ('s:' + sub) if sub else None, ('n:' + nb) if nb else None, zk, xk))
         pid = nal.npid(row.get('PARCEL_ID')); ak = nal.npid(row.get('ALT_KEY'))
         hit = pid if pid in targets else (ak if ak and ak in targets else None)
         if hit:
@@ -113,6 +127,16 @@ def scan(county, zpath, targets, today):
             sales.append([sub, nb, xy[0] if xy else None, xy[1] if xy else None, uc, prc, yr, mo, lvg, ayb, lsq,
                           (row.get('PHY_ADDR1') or '').strip().title(), (row.get('PHY_ZIPCD') or '')[:5], row.get('VI_CD' + k), pid])
             break
+    # 12-month window ends at the roll's data cutoff (last month with ≥ 50% of the median monthly sales), not at today:
+    # the 2026 preliminary roll stops in ~May 2026, so "12 months before today (Oct)" kept only ~7 months of data (bug 28/10)
+    anc = data_anchor(hist, ty * 12 + tm)
+    for ks_, own, sk, nk, zk, xk in cand:
+        for yr_, mo_, pr_, vi_, mp_ in ks_:
+            if yr_ and anc - 12 < yr_ * 12 + mo_ <= anc and pr_ >= 1000 and vi_ == 'V':
+                if not mp_:          # absorption: every single-parcel vacant-lot sale (any qualification code)
+                    for kk in (sk, nk, zk, xk):
+                        if kk: lsale[kk] = lsale.get(kk, 0) + 1
+                lotbuys.append((own, sk, zk, xk)); break
     out_area = {}
     for k, a in area.items():
         out_area[k] = [a[0], a[1], a[2], round(statistics.median(a[3])) if a[3] else None]
@@ -132,7 +156,7 @@ def scan(county, zpath, targets, today):
     out_bld = {k: [v[0], newc.get(k, 0), sorted(v[1].items(), key=lambda t: -t[1])[:5]] for k, v in bld.items()}
     for k, v in newc.items():
         if k not in out_bld and v >= 5: out_bld[k] = [0, v, []]
-    return dict(subj=subj, sales=sales, area=out_area, bld=out_bld, btop=sorted(tops.items(), key=lambda t: -t[1])[:25], ls=lsale, ver=CACHE_VER)
+    return dict(subj=subj, sales=sales, area=out_area, bld=out_bld, btop=sorted(tops.items(), key=lambda t: -t[1])[:25], ls=lsale, anc=[(anc - 1) // 12, (anc - 1) % 12 + 1], ver=CACHE_VER)
 
 def load(county, targets, today):
     zp = nal.zips().get(county)
@@ -184,7 +208,7 @@ def estimate(d, pid, zh_of, today, ty_hint=None):
                           pctBuilt=round(100 * ax[2] / ax[0]) if ax[0] else None)
     big = bool(a and a[0] > 3000)
     # absorption: qualified sales in the last 12 months inside the same subdivision (or appraiser neighbourhood)
-    ty_, tm_ = int(today[:4]), int(today[5:7]); nowm = ty_ * 12 + tm_
+    ty_, tm_ = int(today[:4]), int(today[5:7]); nowm = ty_ * 12 + tm_   # (28/10: a âncora do rol vale só para a liquidez; mudar a absorção daqui é mudança de regra — proposta no DIARIO)
     keyf = (lambda r: r[0] == s['sub']) if s['sub'] else ((lambda r: r[1] == s['nb']) if s['nb'] else None)
     if keyf and a:
         sl = sb = 0

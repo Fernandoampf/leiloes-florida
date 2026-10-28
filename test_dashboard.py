@@ -52,13 +52,17 @@ with sync_playwright() as p:
         got = set(pg.evaluate(D + '.CUR.map(r=>r.ty)')); check(got == {t}, f'chip {t} filtra ({len(pg.evaluate(D + ".CUR"))} itens)')
     pg.click('#types [data-cat=""]'); pg.wait_for_timeout(200)
     check(pg.evaluate(D + '.ITEMS.filter(r=>r.ty==="Lote"||r.ty==="Terreno").length') > 200, 'lotes/terrenos incluídos (>200)')
+    # preço provável pela sala (28/10): índice vendido÷valor × valor; em lote com ≥ 3 comps o maior decide DISPUTADO
+    sl = pg.evaluate(D + '''.ITEMS.filter(r=>r.sala).map(r=>({ok:Math.abs(r.sala.v-Math.round(r.sala.idx*(r._o&&r._o.arv||r.val)))<=1, bad:r.sala.comps3&&(r.vd==='FLIP'||r.vd==='CONSIDERAR')&&r.sala.v>r.mb+1}))''')
+    check(len(sl) > 100 and all(x['ok'] for x in sl), f'preço pela sala = índice × valor ({len(sl)} itens)')
+    check(not any(x['bad'] for x in sl), 'lote com ≥ 3 comps e preço pela sala acima do máx. nunca é FLIP/CONSIDERAR')
     # vereditos e categorias
     vds = set(pg.evaluate(D + '.ITEMS.map(r=>r.vd)')); check(vds <= {'FLIP', 'CONSIDERAR', 'DISPUTADO', 'PASSAR'} and {'FLIP','DISPUTADO','PASSAR'} <= vds, f'vereditos {vds}')
     bad = pg.evaluate(D + '''.ITEMS.filter(r=>r.roi!=null&&r.mb!=null&&!(r.geo&&r.geo.poly!==false&&((r.geo.wetPct||0)>=10||(r.geo.sfhaPct||0)>=10))).filter(r=>{
         const room = r.mb>0, over = r.ref!=null && r.ref>r.mb+1;
         if(r.vd==='FLIP'||r.vd==='CONSIDERAR') return !(room && !over && !(r.xbid>r.mb+1) && (r.vd==='FLIP'?r.roi>=0.25:r.roi<0.25));
         if(r.vd==='PASSAR') return !( !room || (r.t!=='FC' && over) || /^lote barato/.test(r.vdWhy||'') );
-        if(r.vd==='DISPUTADO') return !( room && ((r.t==='FC' && over) || r.xbid>r.mb+1) );
+        if(r.vd==='DISPUTADO') return !( room && ((r.t==='FC' && over) || r.xbid>r.mb+1 || (r.sala&&r.sala.comps3&&r.sala.v>r.mb+1)) );
         return true; }).map(r=>r.addr+' '+r.vd).slice(0,5)''')
     check(not bad, f'veredito por espaço de lance: SEM ESPAÇO / DISPUTADO / FLIP ≥ 25% / CONSIDERAR {bad}')
     check(pg.evaluate(D + '.ITEMS.filter(r=>r.t==="FC"&&r.vd==="PASSAR"&&r.mb>0&&r.ref>r.mb+1&&!(r.geo&&r.geo.poly!==false&&((r.geo.wetPct||0)>=10||(r.geo.sfhaPct||0)>=10))).length') == 0, 'foreclosure com julgamento acima do lance máx. é DISPUTADO, não SEM ESPAÇO')

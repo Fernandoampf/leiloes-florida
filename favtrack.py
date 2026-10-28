@@ -107,7 +107,18 @@ def fav_ids():
 
 LBL = dict(sold_3p='vendido para terceiro', sold_plaintiff='ficou com o autor (banco)', sold_cert='ficou com o detentor do certificado',
            sold='vendido', redeemed='resgatado pelo dono', redeemed_after_sale='resgatado depois da venda', postponed='adiado/remarcado',
-           canceled='cancelado', closed='leilão encerrado, resultado não publicado', canceled_bankruptcy='cancelado por falência', withdrawn='retirado antes do leilão (resgatado ou cancelado)')
+           canceled='cancelado', closed='leilão encerrado, resultado não publicado', canceled_bankruptcy='cancelado por falência', redemption='em resgate pelo dono (RealTDM: Active - Redemption)', canceled_reschedule='cancelado para remarcar (RealTDM: Canceled - Reschedule)', withdrawn='retirado antes do leilão (resgatado ou cancelado)')
+
+MAN_ST = dict(REDEEMED='redeemed', CANCELED='canceled', REDEMPTION='redemption', CANCELED_RESCHEDULE='canceled_reschedule')
+def _manual(co, case, parcel):
+    """data/status_manual.json (status conferido à mão no clerk) para um favorito que saiu: casa por condado + processo ou parcela."""
+    try: L = json.load(open(os.path.join(HERE, 'data', 'status_manual.json'))).get('items', [])
+    except Exception: return None
+    nc = lambda v: re.sub(r'[^0-9A-Z]', '', str(v or '').upper())
+    for x in L:
+        if co and x.get('county') and nc(x['county']) != nc(co): continue
+        if (case and x.get('case') and nc(x['case']) == nc(case)) or (parcel and x.get('parcel') and nc(x['parcel']) == nc(parcel)): return x
+    return None
 
 def archive(current_ids, today, hist=None):
     """Favoritos que não estão mais no site -> lista para 'Já passaram' (embutida no build)."""
@@ -119,6 +130,10 @@ def archive(current_ids, today, hist=None):
         last = rb[i][-1][1] if rb[i] else {}
         r = hist.get(i)
         sale = (r or {}).get('date') or last.get('date')
+        m = _manual(last.get('county') or (r or {}).get('co'), (r or {}).get('case') or last.get('case'), (r or {}).get('parcel') or last.get('parcel'))
+        if m and not (r and str(r.get('status', '')).startswith('sold')):
+            st = MAN_ST.get(m.get('status'), (m.get('status') or '').lower())
+            r = dict(r or {}, status=st, why=m.get('note'), src=m.get('source'), at=m.get('date'))
         if r: reason, st = LBL.get(r['status'], r['status']), r['status']
         elif sale and sale < today: reason, st = 'leilão passou (' + sale + '); resultado ainda não coletado', 'past_unknown'
         else: reason, st = 'saiu das listas; motivo não confirmado', 'unknown'

@@ -19,7 +19,8 @@ def load():
     try: return json.load(open(PATH))
     except Exception: return {}
 
-def analyze(pid, s, today):
+def analyze(pid, s, today, anc=None):
+    """anc: (year, month) where the 12-month window ends = the roll's sales cutoff (local_comps.anchor_ym), default today."""
     import local_comps as lc
     r = s.get(FDOR, params=dict(where=f"PARCEL_ID='{pid}'", outFields='PARCEL_ID', returnGeometry='true', f='json'), timeout=90).json()
     F = r.get('features') or []
@@ -35,13 +36,14 @@ def analyze(pid, s, today):
     uc = {f['attributes']['DOR_UC']: f['attributes']['n'] for f in d.get('features', [])}
     res = {k: v for k, v in uc.items() if k in ('000', '001', '002', '004', '005', '008')}
     ntot = sum(res.values()); nvac = res.get('000', 0)
-    ty, tm = int(today[:4]), int(today[5:7]); lim = ty * 12 + tm - 12
+    ty, tm = anc or (int(today[:4]), int(today[5:7])); lim = ty * 12 + tm - 12; top = ty * 12 + tm
     time.sleep(0.5)
     d = s.post(FDOR, data=dict(base, where=f"DOR_UC='000' AND VI_CD1='V' AND SALE_YR1>='{ty - 1}' AND SALE_PRC1>=1000",
                outFields='OWN_NAME,SALE_YR1,SALE_MO1,SALE_PRC1,M_PAR_SAL1', returnGeometry='false', resultRecordCount=2000), timeout=120).json()
     if d.get('error'): raise RuntimeError(str(d['error'])[:120])
     iv = lambda v, dflt: int(float(v)) if str(v or '').strip() not in ('', 'None') else dflt
-    sales = [f['attributes'] for f in d.get('features', []) if iv(f['attributes'].get('SALE_YR1'), 0) * 12 + iv(f['attributes'].get('SALE_MO1'), 6) >= lim]
+    sales = [f['attributes'] for f in d.get('features', []) if iv(f['attributes'].get('SALE_YR1'), 0) * 12 + iv(f['attributes'].get('SALE_MO1'), 6) > lim
+             and iv(f['attributes'].get('SALE_YR1'), 0) * 12 + iv(f['attributes'].get('SALE_MO1'), 6) <= top]
     single = [a for a in sales if not (a.get('M_PAR_SAL1') or '').strip()]
     cnt = {}
     for a in sales: cnt[(a.get('OWN_NAME') or '').strip()] = cnt.get((a.get('OWN_NAME') or '').strip(), 0) + 1
@@ -54,22 +56,25 @@ def analyze(pid, s, today):
     d = s.post(FDOR, data=dict(base, where=f"ACT_YR_BLT>={ty - 4} AND DOR_UC IN ('001','002','004','007')", returnCountOnly='true'), timeout=120).json()
     newh = d.get('count')
     return dict(at=today, found=True, nTot=ntot, nVac=nvac, nBuilt=ntot - nvac, pctBuilt=round(100 * (ntot - nvac) / ntot) if ntot else None,
-                s12=len(single), bld=bld, who=sorted(who.items(), key=lambda t: -t[1])[:4], newH=newh, newSince=ty - 4)
+                s12=len(single), bld=bld, win='%04d-%02d' % (ty, tm), who=sorted(who.items(), key=lambda t: -t[1])[:4], newH=newh, newSince=ty - 4)
 
-def refresh(keys, offline=False, limit=700, today=None):
-    """keys: iterable of (county, PARCEL_ID). Fetch missing / older than TTL days (at most `limit`)."""
+def refresh(keys, offline=False, limit=700, today=None, anchors=None):
+    """keys: iterable of (county, PARCEL_ID). Fetch missing / older than TTL days / other sales window (at most `limit`).
+    anchors: county -> (year, month) end of the 12-month sales window (roll cutoff)."""
+    anchors = anchors or {}
     import requests
     today = today or dt.date.today().isoformat()
     c = load(); keys = list(dict.fromkeys(keys))
     stale = [k for k in keys if f'{k[0]}|{k[1]}' not in c or
-             (dt.date.fromisoformat(today) - dt.date.fromisoformat(c[f'{k[0]}|{k[1]}'].get('at', '2000-01-01'))).days > TTL]
+             (dt.date.fromisoformat(today) - dt.date.fromisoformat(c[f'{k[0]}|{k[1]}'].get('at', '2000-01-01'))).days > TTL or
+             (k[0] in anchors and c[f'{k[0]}|{k[1]}'].get('found') and c[f'{k[0]}|{k[1]}'].get('win') != '%04d-%02d' % tuple(anchors[k[0]]))]
     st = dict(keys=len(keys), stale=len(stale), done=0, err=0, stopped=None)
     if offline or not stale: return st
     os.makedirs(DIR, exist_ok=True); tl = threading.local(); stop = threading.Event()
     def job(k):
         if stop.is_set(): return
         if not hasattr(tl, 's'): tl.s = requests.Session(); tl.s.headers.update(UA)
-        try: e = analyze(k[1], tl.s, today)
+        try: e = analyze(k[1], tl.s, today, tuple(anchors[k[0]]) if k[0] in anchors else None)
         except requests.HTTPError as ex: stop.set(); st['stopped'] = str(ex)[:120]; return
         except Exception as ex:
             with _lock: st['err'] += 1
