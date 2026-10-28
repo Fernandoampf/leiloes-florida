@@ -183,3 +183,48 @@ Formato: `dd/mm hh:mm ET · QUEM · commit · o quê · por quê · teste/estado
 - 26/10 · Grok · — · CSV "dar lance" (FLIP/CONSIDERAR, leilões 03–17/11, 206 itens) em `lances_2026-11-03_a_11-17.csv` — **fora do git** (repo público; `lances_*.csv` no .gitignore).
 - 27/10 06:30 · Grok · (este commit) · refresh diário RealAuction + rebuild · rotina · 2.767 itens (45 novos, 160 saíram; RealAuction sem bloqueio, 0 eventos novos), results.py ok; nenhum novo ≥ 80 nem ≥ 80 com leilão em 3 dias (TD1517711 Bristo St saiu: leilão hoje 27/10); favoritos: nenhuma saída nova, nenhuma mudança > 10%; testes: mesmas 2 falhas antigas de dados de exemplo (Chantilly TD1519760, Wakulla); test_po_export ok, test_po_bids ok
 - 28/10 06:20 · Grok · (este commit) · refresh diário RealAuction + rebuild · rotina · 2.588 itens (50 novos, 229 saíram; RealAuction sem bloqueio, 7 eventos novos; Gulf TD com timeout, usado cache), results.py ok; nenhum novo ≥ 80 nem ≥ 80 com leilão em 3 dias; favoritos que saíram: TD1522097, TD1522098 (Heaton Ter), TD1522100 (Hagoplan Ln) e TD1522108 (Bristol Ave), North Port/Sarasota, leilão 04/11 — retirados da lista do RealAuction antes do leilão (resgatados ou cancelados); nenhuma mudança > 10%; testes: mesmas 2 falhas antigas de dados de exemplo (Chantilly TD1519760, Wakulla); test_po_export ok, test_po_bids ok
+- 28/10 · Grok · (este commit) · **CSV de lances: 40 melhores por nota** (de 206 itens, leilões 03–17/11; o CSV continua fora do git — repo público; nota/veredito/lance máx. = snapshot do CSV de 26/10; valor = site de 28/10). Só dados públicos do leilão.
+
+| # | processo | endereço | condado | data | lance inicial | lance máx. 17% | preço esperado | valor | nota | veredito |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 2026 TD 000399 | 4323 LA FRANCE AVE NORTH PORT, FL 34286 | Sarasota | 05/11 | 3.663 | 192.295 | 105.762 | 318.692 | 91 | FLIP |
+| 2 | 2962024 | 5131 Crown Haven Dr Kissimmee, FL 34746 | Osceola | 10/11 | 19.074 | 214.722 | 118.097 | 360.860 | 87 | FLIP |
+| 3 | 2026CC001484A000BA | 167 COUNTRY WALK CIR DAVENPORT, FL 33837 | Polk | 06/11 | 13.051 | 176.904 | 123.833 | 295.059 | 79 | FLIP |
+| 4 | 422026CA000586CAAXMX | 29 LOCUST TRCE OCALA, FL 34472 | Marion | 05/11 | 6.861 | 171.144 | 119.801 | 279.589 | 78 | FLIP |
+| 5 | 53122024 | 8849 Cruden Bay Ct Davenport, FL 33896 | Osceola | 10/11 | 43.103 | 362.804 | 199.542 | 616.570 | 78 | FLIP |
+| 6 | 26-174 | 102 SE SANTA LUCIA, Port Saint Lucie, FL 34984 | St. Lucie | 09/11 | 11.193 | 222.389 | 135.769 | 317.288 | 73 | FLIP |
+| 7 | 08200-24 | 443 N Myrtle Ave New Smyrna Beach, FL 32168 | Volusia | 17/11 | 10.206 | 104.211 | 62.052 | 221.615 | 73 | FLIP |
+| 8 | 2026-4168TD | 16150 NE 5 ST, Williston, FL | Levy | 09/11 | 10.503 | 148.552 | 81.704 | 256.597 | 70 | FLIP |
+| 9 | 26-076 TDC | 1 PRINCESS LUISE LN, Palm Coast, FL 32164 | Flagler | 17/11 | 2.831 | 50.165 | 30.626 | 76.887 | 69 | FLIP |
+| 10 | 2026 TD 000385 | 309 COLLINS RD NOKOMIS, FL 34275 | Sarasota | 05/11 | 9.555 | 103.340 | 62.723 | 224.009 | 68 | FLIP |
+| 11 | 2026 TD 000364 | 4703 LAS ALMANOS AVE NORTH PORT, FL 34288 | Sarasota | 04/11 | 4.632 | 7.295 | 5.142 | 15.819 | 67 | FLIP |
+| 12 | 2026-CA-006107-O | 3106 STONEWYCK ST ORLANDO, 32824 | Orange | 10/11 | 370.903 | 446.646 | 417.020 | 706.814 | 66 | CONSIDERAR |
+| 13 | 25000948 | 4013 GERONA AVE SEBRING, FL 33872 | Highlands | 04/11 | 2.422 | 10.501 | 5.799 | 20.709 | 65 | FLIP |
+| 14 | 2025-019249-CA-01 | 1600 SW 1 AVE 614 MIAMI, FL 33129 | Miami-Dade | 09/11 | 331.456 | 404.521 | 347.941 | 610.423 | 65 | FLIP |
+| 15 | 10472024 | 9051 Treasure Trove Ln Unit 208 Kissimmee, FL 34747 | Osceola | 10/11 | 13.472 | 81.811 | 58.143 | 207.654 | 65 | FLIP |
+| 16 | 07380-24 | 702 Sheldon Cir Port Orange, FL 32127 | Volusia | 17/11 | 8.124 | 55.887 | 42.891 | 153.181 | 65 | FLIP |
+| 17 | 2022-017590-CA-01 | 300 SUNNY ISLES BLVD 4-TS-03 SUNNY ISLES BEACH, FL 33160 | Miami-Dade | 10/11 | 2.324.191 | 2.762.748 | 2.331.806 | 3.976.210 | 64 | FLIP |
+| 18 | 2026-0261TD | 2325 W ANDROMEDAE DR DUNNELLON, 34434 | Citrus | 04/11 | 1.461 | 9.920 | 8.165 | 19.845 | 63 | FLIP |
+| 19 | 2026-0260TD | 11031 N ELKCAM BLVD DUNNELLON, 34433 | Citrus | 04/11 | 1.629 | 8.925 | 7.195 | 18.164 | 63 | FLIP |
+| 20 | 05036-24 | 623 Unabelle Ave Daytona Beach, FL 32117 | Volusia | 17/11 | 11.152 | 119.550 | 74.714 | 266.836 | 63 | FLIP |
+| 21 | 2026-112TD | CANYON SWALLOW RD WEEKI WACHEE, FL 34614 | Hernando | 04/11 | 1.789 | 18.553 | 11.326 | — | 62 | FLIP |
+| 22 | 26-184 | 1822 S 32ND ST, Fort Pierce, FL 34947 | St. Lucie | 09/11 | 14.620 | 42.836 | 33.939 | 121.212 | 61 | FLIP |
+| 23 | CA26-0446 | 213 B ST SAINT AUGUSTINE, FL 32080 | St. Johns | 12/11 | 53.248 | 405.342 | 283.828 | 709.571 | 61 | FLIP |
+| 24 | 04988-24 | 1160 San Jose Blvd Daytona Beach, FL 32117 | Volusia | 17/11 | 10.977 | 91.199 | 60.853 | 217.333 | 61 | FLIP |
+| 25 | 2024ca001079 | 909 Tidal Pond Dr Groveland, FL 34736 | Lake | 03/11 | 0 | 325.837 | 286.659 | 518.703 | 60 | FLIP |
+| 26 | 2026 Ca 000367 Mf | 5200 Myrtleleaf Ct Saint Cloud, FL 34772 | Osceola | 03/11 | 0 | 345.361 | 343.024 | 529.198 | 60 | CONSIDERAR |
+| 27 | 2026 TD 000358 | JACOBY CIR NORTH PORT, FL 34288 | Sarasota | 04/11 | 4.745 | 12.309 | 7.515 | 22.220 | 60 | FLIP |
+| 28 | 2026 TD 000363 | HAGOPLAN LN NORTH PORT, FL 34288 | Sarasota | 04/11 | 4.440 | 12.518 | 7.642 | — | 60 | FLIP |
+| 29 | 26-34-TD | 85 TILLIS ST, Arcadia, FL 34266 | DeSoto | 04/11 | 0 | 121.076 | 73.506 | 262.522 | 60 | FLIP |
+| 30 | 2026 TD 000377 | MANGO LN NOKOMIS, FL 34275 | Sarasota | 05/11 | 4.414 | 59.541 | 36.349 | 85.000 | 60 | FLIP |
+| 31 | 2026 TD 000378 | 5359 LEVI LN SARASOTA, FL 34233 | Sarasota | 05/11 | 100.399 | 239.797 | 131.888 | 460.038 | 60 | FLIP |
+| 32 | 2026 TD 000381 | 115 WAYFOREST DR VENICE, FL 34292 | Sarasota | 05/11 | 18.989 | 236.604 | 130.132 | 452.993 | 60 | FLIP |
+| 33 | 2026 TD 000391 | ADINA CIR NORTH PORT, FL 34291 | Sarasota | 05/11 | 3.630 | 7.453 | 4.911 | 15.800 | 60 | FLIP |
+| 34 | 2026 TD 000404 | MADAGASCAR AVE NORTH PORT, FL 34286 | Sarasota | 05/11 | 3.691 | 8.119 | 5.253 | 16.900 | 60 | FLIP |
+| 35 | 26-183 | 108 SE SANTA LUCIA, Port Saint Lucie, FL 34984 | St. Lucie | 09/11 | 109.683 | 1.047.707 | 576.239 | 1.810.027 | 60 | FLIP |
+| 36 | 26-182 | 1508 SE MARIANA RD, Port Saint Lucie, FL 34952 | St. Lucie | 09/11 | 119.460 | 164.634 | 119.460 | 329.392 | 60 | FLIP |
+| 37 | 26-172 | 276 E COKER RD, Saint Lucie County, FL 34945 | St. Lucie | 09/11 | 12.711 | 124.424 | 83.562 | 298.435 | 60 | FLIP |
+| 38 | 26-170 | 1542 SE LADNER ST, Port Saint Lucie, FL 34983 | St. Lucie | 09/11 | 8.874 | 102.976 | 62.867 | 143.980 | 60 | FLIP |
+| 39 | 2025ca002262 | 2648 Grand Central Ave Tavares, FL 32778 | Lake | 10/11 | 0 | 218.356 | 203.807 | 347.231 | 60 | CONSIDERAR |
+| 40 | 2025cc005953a000ba | 608 Eisenhower St Bartow, FL 33830 | Polk | 10/11 | 0 | 201.990 | 151.741 | 323.783 | 60 | FLIP |
+
