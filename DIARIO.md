@@ -249,3 +249,10 @@ Formato: `dd/mm hh:mm ET · QUEM · commit · o quê · por quê · teste/estado
 - Observações: (1) **não existe selo "gleba grande"** nem um selo explícito de "sem comps" — o tamanho só aparece no geo (ac); proposta (não aplicada, é regra): selo "gleba ≥ 5 ac" para terreno. (2) Por ser `junk`, o lote fica **oculto na visão padrão** ("Ocultar faixas/áreas comuns" vem marcado) — estava nos dados, mas só aparecia desmarcando o filtro.
 - Cobertura: Pasco está coberto (pasco.realtaxdeed.com + realforeclose); 36 lotes TD de 29/10 no bruto (`td/pasco_10-29-2026.json`). Não há lacuna de fonte → nada alterado no código.
 - results.py: **ainda não capturou** — a janela vai até ontem (REND = hoje−1); `results/pasco.realtaxdeed.com_10-29-2026.json` deve aparecer na rodada de 30/10. Últimos TD de Pasco capturados: 24/09 e 15/10.
+
+## 2026-10-29 · Grok: selo gleba + junk visível
+
+Aprovado pelo Fernando após a checagem Pasco/Trinity (TD1519549, 27,9 ac, junk+wet+sfha, antes oculto por padrão). Só exibição — nenhuma regra de conta (lance máx., ARV, nota, tetos) mudou.
+- **Selo "gleba ≥ 5 ac"** (template.html, `FL.gleba`, âmbar): Terreno com área do polígono da parcela (`geo.ac`; sem polígono, `ac`) ≥ 5 acres. Calculado junto do `r.clean`, depois de nota/veredito; só selo na lista e no detalhe. Neste build: **19 itens**.
+- **Filtro "Ocultar faixas/áreas comuns"**: agora oculta só `junk` **sem** `wet`/`sfha`. Checkbox e rótulo mantidos; tooltip explica a exceção; descrição do selo junk atualizada. Neste build: **1 item** passa a aparecer por padrão (Pasco 34-26-16-0000-00500-0120 / TD1519549).
+- build --site; testes: test_dashboard 238 OK + 4 falhas antigas de dado (Chantilly, Wakulla, Mantua, Collier 26136); test_po_export e test_po_bids ok.

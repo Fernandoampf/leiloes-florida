@@ -482,7 +482,7 @@ select option{background:#2a303b;color:#eef1f5}
    <label>Situação (tracker)<select id="fst"><option value="">Todas</option></select></label>
    <label class="ck"><input type="checkbox" id="hhoa"> Ocultar risco HOA</label>
    <label class="ck"><input type="checkbox" id="hhfc" checked> Ocultar Foreclosure de HOA</label>
-   <label class="ck"><input type="checkbox" id="hjunk" checked> Ocultar faixas/áreas comuns</label>   <label class="ck"><input type="checkbox" id="hcxl"> Ocultar cancelados?</label>
+   <label class="ck" title="Oculta faixas/áreas comuns, exceto as que têm área úmida ou zona de inundação FEMA (essas ficam visíveis)"><input type="checkbox" id="hjunk" checked> Ocultar faixas/áreas comuns</label>   <label class="ck"><input type="checkbox" id="hcxl"> Ocultar cancelados?</label>
    <label class="ck"><input type="checkbox" id="hsev"> Ocultar riscos graves</label>
    <label class="ck"><input type="checkbox" id="hocc"> Ocultar ocupados</label>
    <label class="ck"><input type="checkbox" id="hnov"> Só com valor</label>
@@ -590,7 +590,8 @@ const FL = {
  unv:{l:'Não verificado',c:'',d:'Sem registro PropertyOnion nem no cadastro do DOR – dados incompletos.'},
  cxl:{l:'Cancelado?',c:'',d:'PropertyOnion marca o leilão desta data como cancelado – confirmar no site do leilão.'},
  vac:{l:'Vago (USPS)',c:'grn',d:'USPS indica imóvel vago (positivo: sem despejo).'},
- junk:{l:'Faixa/área comum',c:'',d:'Faixa estreita, retenção/drenagem, área comum, via ou brejo (código de uso DOR 009/094/095/096 ou descrição legal) – normalmente sem valor de revenda. Oculto por padrão.'},
+ gleba:{l:'gleba ≥ 5 ac',c:'amb',d:'Terreno cuja parcela tem 5 acres ou mais (área do polígono da parcela). Só selo informativo: não muda nota nem veredito.'},
+ junk:{l:'Faixa/área comum',c:'',d:'Faixa estreita, retenção/drenagem, área comum, via ou brejo (código de uso DOR 009/094/095/096 ou descrição legal) – normalmente sem valor de revenda. Oculto por padrão, exceto se também tiver área úmida ou zona de inundação.'},
  hmtd:{l:'Homestead',c:'vio',d:'Imóvel com isenção homestead indo a tax deed: pela lei da Flórida (F.S. 197.502) o lance inicial inclui metade do valor avaliado; o dono costuma lutar para resgatar.'},
  wet:{l:'Área úmida',c:'red',d:'Parte do lote é área úmida no mapa nacional de wetlands (USFWS NWI), medida sobre o POLÍGONO da parcela. Construir em wetland exige licença (ACOE/estado) e mitigação; acima do limite das premissas (10%) o lote sai de FLIP/CONSIDER; abaixo disso é só aviso para revisar.'},
  sfha:{l:'Zona de inundação',c:'amb',d:'Parte do lote está em zona especial de inundação da FEMA (A/AE/AH/AO/VE): seguro obrigatório com financiamento, aterro/elevação para construir. Acima do limite das premissas o lote sai de FLIP/CONSIDER.'},
@@ -1112,6 +1113,8 @@ function evaluate(r){
  r.kat = r.roi==null ? 'SEM DADOS' : r.vd==='PASSAR' ? 'NO ROOM' : r.vd==='DISPUTADO' ? 'CONTESTED' : r.jmax ? 'J>MAX' : r.net<PR.lownet ? 'LUCRO BAIXO' : 'VIÁVEL';
  r.katk = r.roi==null ? 'semdados' : r.vd==='PASSAR' ? 'abaixo' : r.vd==='DISPUTADO' ? 'disp' : r.jmax ? 'jmax' : r.net<PR.lownet ? 'lucro' : 'viavel';
  r.clean = !r.fl.some(f=>HI.includes(f)||MD.includes(f)||f==='junk') && !r.suspect;
+ // selo gleba ≥ 5 ac (29/10, só exibição): área do polígono da parcela (geo.ac), senão r.ac
+ r.fl=r.fl.filter(f=>f!=='gleba'); { const gac=(r.geo&&r.geo.ac!=null)?r.geo.ac:r.ac; if(r.ty==='Terreno'&&gac!=null&&gac>=5) r.fl.push('gleba'); }
  const lot=lotLimits(r);
  r.lotBadges=lot?lot.badges:[];
  if(r.sc!=null){
@@ -1383,7 +1386,7 @@ function filt(F,ignoreCat){
   if(F.hhoa && r.fl.includes('hoa')) return false;
   if(F.hhfc && r.hoaPl) return false;
   if(F.hjr && r.fl.includes('jr')) return false;
-  if(F.hjunk && r.fl.includes('junk')) return false;  if(F.hcxl && r.fl.includes('cxl')) return false;
+  if(F.hjunk && r.fl.includes('junk') && !r.fl.includes('wet') && !r.fl.includes('sfha')) return false;  if(F.hcxl && r.fl.includes('cxl')) return false;
   if(F.hsev && r.fl.some(f=>SEVERE.includes(f))) return false;
   if(F.hocc && (r.fl.includes('occ')||r.fl.includes('ten'))) return false;
   if(F.hnov && r.val==null) return false;
