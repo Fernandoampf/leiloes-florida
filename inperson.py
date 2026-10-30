@@ -225,7 +225,7 @@ def fetch_taxsmart(co, offline=False, today=None):
     base = TAXSMART[co]
     try:
         s = requests.Session(); s.headers['User-Agent'] = UA
-        h = s.get(base, timeout=40).text
+        r0 = s.get(base, timeout=40); r0.raise_for_status(); h = r0.text   # 403/5xx = falha (usa cache), não 'sem datas'
         opts = re.findall(r"<OPTION value='([^']+)'", h[h.find('SearchSaleDateTo'):h.find('buttonSubmitSaleDate')])
         fut = []
         for o in opts:
