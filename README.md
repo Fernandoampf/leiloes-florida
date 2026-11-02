@@ -69,7 +69,7 @@ No painel: alerta **Hipoteca pode sobreviver** (HOA/JR-lien, com valor estimado 
    `/workspace/auc/statewide/po_exports/po_<condado>_<YYYY-MM-DD>.csv`
    (ex.: `po_orange_2026-10-08.csv`, `po_seminole_2026-10-08.csv`). O condado no nome é um fallback;
    a coluna **County** do CSV manda quando presente.
-2. O build (`python3 build.py --site`) usa automaticamente o **arquivo mais recente por condado**.
+2. O build (`python3 build.py --site`) lê **todos** os exports de cada condado, do mais antigo ao mais novo, e junta por chave (processo(+parcela) → parcela → rua+ZIP): a linha do arquivo mais novo substitui a do antigo; linhas que só existem em arquivos antigos são mantidas (um export de 21 dias não apaga leilões posteriores de um export anterior). Linhas com data já passada são descartadas.
    Limite típico Premium ≈ 2.500 linhas/mês – 1 export/condado-alvo por semana basta.
 3. Join: número do processo → parcela → endereço normalizado. Linhas sem match no RealAuction entram
    como imóveis “PropertyOnion” (sem AID inventado; sem julgamento/lance → selo **Sem lance inicial**, preenchido depois por `po_bids.py` quando o RealAuction público já lista o caso).
