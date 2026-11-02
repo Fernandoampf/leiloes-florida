@@ -7,7 +7,8 @@
   manuais em páginas públicas, com fonte).
 - archive(): favoritos/candidatos que saíram do site (motivo, data, resultado), para a seção "Já passaram".
 - mbhist(): histórico de lance máx. (17%) e ARV por rodada (runs/run_<data>.json) dos favoritos.
-- write_changes(today): runs/favoritos_changes_<data>.json — saídas novas e mudanças > 10% em lance máx./ARV.
+- write_changes(today): runs/favoritos_changes_<data>.json — saídas novas, mudanças > 10% em lance máx./ARV e
+  house_suggestions (casas boas ainda não favoritas, regra house_qualifies; só sugere, não favorita).
   Chamado no fim de snapshot_run.py (rotina diária), depois do snapshot do dia.
 """
 import glob, json, os, re, datetime as dt
@@ -151,6 +152,36 @@ def mbhist(ids):
 def _pct(a, b):
     return (b - a) / abs(a) if a not in (None, 0) and b is not None else None
 
+HOUSE_TY = ('Casa', 'Townhouse', 'Condo')
+DEBT_FL = {'mtg', 'jr', 'surv', 'avoid', 'code', 'mlot'}      # dívida que sobrevive / vários lotes no processo
+SUG_MAX = 250000
+
+def house_qualifies(it):
+    """Regra de sugestão de casa para favoritos (DIARIO 02/11, pedido Fernando). Só leitura do snapshot; não muda conta.
+    Precisa de lcN/wetPct/sfhaPct/multi no snapshot (snapshot_run.py desde 02/11); sem lcN a casa não qualifica."""
+    fl = set(it.get('fl') or [])
+    mb = it.get('maxBid17') or it.get('mb')
+    return (it.get('ty') in HOUSE_TY and it.get('vd') == 'FLIP' and it.get('t') in ('TD', 'FC')
+            and (it.get('lcN') or 0) >= 3 and not (fl & DEBT_FL) and 'flood' not in fl
+            and (it.get('wetPct') or 0) < 10 and (it.get('sfhaPct') or 0) < 10
+            and mb is not None and mb <= SUG_MAX and not it.get('multi'))
+
+def house_suggestions(cur, favs, today):
+    """Casas que passam na regra e ainda não são favoritas. new = não estava na sugestão do arquivo anterior. NÃO adiciona sozinho:
+    o Fernando decide; para favoritar, acrescentar em data/favoritos.json (cand) e rebuild (o site semeia o ★ uma vez por aparelho)."""
+    prev = set()
+    pc = sorted(f for f in glob.glob(os.path.join(RUNS, 'favoritos_changes_*.json')) if os.path.basename(f)[18:28] < today)
+    if pc:
+        try: prev = {e['id'] for e in json.load(open(pc[-1])).get('house_suggestions', [])}
+        except Exception: pass
+    out = []
+    for i, it in cur.items():
+        if i in favs or not house_qualifies(it) or (it.get('date') or '') < today: continue
+        out.append(dict(id=i, addr=it.get('addr'), county=it.get('county'), ty=it.get('ty'), t=it.get('t'), sale_date=it.get('date'),
+                        score=it.get('score'), maxBid17=round(it.get('maxBid17') or it.get('mb')), val=it.get('val'), lcN=it.get('lcN'),
+                        fl=it.get('fl'), new=i not in prev))
+    return sorted(out, key=lambda e: (e['sale_date'] or '', -(e['score'] or 0)))
+
 def write_changes(today=None):
     today = today or dt.date.today().isoformat()
     hist = update_history()
@@ -179,12 +210,14 @@ def write_changes(today=None):
             if p is not None and abs(p) > THR:
                 mbc.append(dict(id=i, addr=b.get('addr'), county=b.get('county'), sale_date=b.get('date'), field=fld,
                                 before=round(a.get(key)), after=round(b.get(key)), pct=round(p, 3), prev_run=os.path.basename(prev_f)[4:14]))
+    sug = house_suggestions(cur, favs, today)
     out = dict(schema=SCHEMA, date=today, generated=dt.datetime.now().strftime('%Y-%m-%d %H:%M'), favorites=len(favs),
                in_site=sum(1 for i in favs if i in cur), threshold=THR, prev_run=os.path.basename(prev_f)[4:14] if prev_f else None,
-               exited=arch, exited_new=sum(1 for e in arch if e['new']), maxbid_changes=mbc)
+               exited=arch, exited_new=sum(1 for e in arch if e['new']), maxbid_changes=mbc,
+               house_suggestions=sug, house_suggestions_new=sum(1 for e in sug if e['new']))
     p = os.path.join(RUNS, f'favoritos_changes_{today}.json')
     json.dump(out, open(p, 'w'), ensure_ascii=False, indent=1)
-    print('favoritos:', p, 'saídas', len(arch), 'novas', out['exited_new'], 'mudanças', len(mbc))
+    print('favoritos:', p, 'saídas', len(arch), 'novas', out['exited_new'], 'mudanças', len(mbc), 'casas sugeridas', len(sug), 'novas', out['house_suggestions_new'])
     return p
 
 if __name__ == '__main__':
