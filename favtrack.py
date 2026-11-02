@@ -125,6 +125,9 @@ def archive(current_ids, today, hist=None):
     """Favoritos que não estão mais no site -> lista para 'Já passaram' (embutida no build)."""
     hist = hist if hist is not None else update_history()
     favs = fav_ids(); gone = [i for i in favs if i not in current_ids]
+    # 02/11: ex-favoritos tirados de favoritos.json mas registrados em status_manual.json com `id` seguem em 'Já passaram'
+    try: gone += [x['id'] for x in json.load(open(os.path.join(HERE, 'data', 'status_manual.json'))).get('items', []) if x.get('id') and x['id'] not in current_ids and x['id'] not in gone]
+    except Exception: pass
     rb = _runs_by_id(gone)
     out = []
     for i in gone:

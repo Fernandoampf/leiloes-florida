@@ -590,6 +590,7 @@ const FL = {
  unv:{l:'Não verificado',c:'',d:'Sem registro PropertyOnion nem no cadastro do DOR – dados incompletos.'},
  cxl:{l:'Cancelado?',c:'',d:'PropertyOnion marca o leilão desta data como cancelado – confirmar no site do leilão.'},
  vac:{l:'Vago (USPS)',c:'grn',d:'USPS indica imóvel vago (positivo: sem despejo).'},
+ stale:{l:'lista antiga',c:'amb',d:'A lista do RealAuction usada para este item foi lida há mais de 7 dias: status (resgatado/cancelado), data e opening bid podem ter mudado. Só exibição: não muda nota nem veredito.'},
  gleba:{l:'gleba ≥ 5 ac',c:'amb',d:'Terreno cuja parcela tem 5 acres ou mais (área do polígono da parcela). Só selo informativo: não muda nota nem veredito.'},
  junk:{l:'Faixa/área comum',c:'',d:'Faixa estreita, retenção/drenagem, área comum, via ou brejo (código de uso DOR 009/094/095/096 ou descrição legal) – normalmente sem valor de revenda. Oculto por padrão, exceto se também tiver área úmida ou zona de inundação.'},
  hmtd:{l:'Homestead',c:'vio',d:'Imóvel com isenção homestead indo a tax deed: pela lei da Flórida (F.S. 197.502) o lance inicial inclui metade do valor avaliado; o dono costuma lutar para resgatar.'},
@@ -1114,6 +1115,8 @@ function evaluate(r){
  r.katk = r.roi==null ? 'semdados' : r.vd==='PASSAR' ? 'abaixo' : r.vd==='DISPUTADO' ? 'disp' : r.jmax ? 'jmax' : r.net<PR.lownet ? 'lucro' : 'viavel';
  r.clean = !r.fl.some(f=>HI.includes(f)||MD.includes(f)||f==='junk') && !r.suspect;
  // selo gleba ≥ 5 ac (29/10, só exibição): área do polígono da parcela (geo.ac), senão r.ac
+ // selo lista com N dias (02/11, só exibição): lista RealAuction lida há > 7 dias
+ r.fl=r.fl.filter(f=>f!=='stale'); r.scanAge=null; if(r.scan&&!r.ip){ const ag=Math.round((Date.parse(TODAY_ET)-Date.parse(r.scan))/864e5); if(ag>7){ r.scanAge=ag; r.fl.push('stale'); } }
  r.fl=r.fl.filter(f=>f!=='gleba'); { const gac=(r.geo&&r.geo.ac!=null)?r.geo.ac:r.ac; if(r.ty==='Terreno'&&gac!=null&&gac>=5) r.fl.push('gleba'); }
  const lot=lotLimits(r);
  r.lotBadges=lot?lot.badges:[];
@@ -1484,7 +1487,7 @@ function badges(r){
  (r.lotBadges||[]).forEach(k=>{ const d=LB[k]; if(d) b.push('<span class="bdg amb" title="'+esc(d[1])+'">'+d[0]+'</span>'); });
  if(r.vd==='FLIP') b.push('<span class="bdg blu">FLIP</span>');
  r.fl.forEach(f=>{ if(f==='flood') return; if(f==='mtg'&&r.fl.includes('surv')) return; const d=FL[f]; if(!d) return;
-  let lab=d.l; if(f==='surv'&&r.survAmt) lab+=' ~'+money(r.survAmt); if(f==='bldA'&&r.bld) lab='🏗 Construtoras ativas: '+r.bld.n+' compras 12m'; if(f==='ipres'&&r.ip) lab='Leilão presencial — Fórum de '+(r.ip.city||(r.ip.co==='lake'?'Tavares':'Kissimmee'))+', 11h';
+  let lab=d.l; if(f==='surv'&&r.survAmt) lab+=' ~'+money(r.survAmt); if(f==='stale'&&r.scanAge) lab='lista com '+r.scanAge+' dias'; if(f==='bldA'&&r.bld) lab='🏗 Construtoras ativas: '+r.bld.n+' compras 12m'; if(f==='ipres'&&r.ip) lab='Leilão presencial — Fórum de '+(r.ip.city||(r.ip.co==='lake'?'Tavares':'Kissimmee'))+', 11h';
   if(f==='ipres'&&r.ip){ b.push('<span class="bdg '+d.c+'" title="'+esc(r.ip.where+'. '+r.ip.pay+' Conferir o Final Judgment em '+r.ip.dname+'.')+'">'+lab+'</span>'); return; }
   b.push('<span class="bdg '+d.c+'" title="'+esc(r.survWhy||d.d)+'">'+lab+'</span>'); });
  if((r.olA>0||r.m1) && !r.fl.includes('surv')) b.push('<span class="bdg red" title="Hipotecas/liens em aberto segundo PropertyOnion: '+esc(money(r.olA||r.m1))+(r.olN?' ('+r.olN+')':'')+'. Em tax deed normalmente são extintas; em foreclosure, confirmar se sobrevivem.">LIEN</span>');
@@ -1908,7 +1911,7 @@ function intelHtml(r){
   a.push('Conferir Final Judgment / cancelamento: <a href="'+esc(r.ip.docket)+'" target="_blank" rel="noopener">'+esc(r.ip.dname)+'</a> (processo '+esc(r.case||'')+')'+' · <a href="'+esc(r.ip.detail||r.ip.list)+'" target="_blank" rel="noopener">lista oficial do clerk</a>'+(r.addrSrc&&/não publicado|sem endereço/.test(r.addrSrc)?' · <a href="https://www.noticeregistry.com/" target="_blank" rel="noopener">edital (NoticeRegistry)</a>':''));
  }
  if(r.cver) a.push('<b>Conferido no clerk</b> ('+esc(fdate(r.cver.at)||r.cver.at||'')+'): opening bid '+money(r.cver.ob)+(r.cver.ob0!=null&&Math.abs(r.cver.ob0-(r.cver.ob||0))>1?' <span class="c-amber">(a lista do RealAuction dizia '+money(r.cver.ob0)+')</span>':'')+(r.cver.status?' · status '+esc(r.cver.status):'')+(r.cver.src&&/^http/.test(r.cver.src)?' · <a href="'+esc(r.cver.src)+'" target="_blank" rel="noopener">ver no clerk</a>':''));
- else if(r.scan&&!r.ip) a.push('<span class="c-amber">Lista do RealAuction lida em '+esc(fdate(r.scan))+'</span> — opening bid, status (resgatado/cancelado) e data podem ter mudado desde então: conferir no site do clerk/RealAuction antes de dar lance.');
+ else if(r.scan&&!r.ip) a.push('<span class="c-amber">Lista do RealAuction lida em '+esc(fdate(r.scan))+(r.scanAge?' (lista com '+r.scanAge+' dias)':'')+'</span> — opening bid, status (resgatado/cancelado) e data podem ter mudado desde então: conferir no site do clerk/RealAuction antes de dar lance.');
  if(r.geo) a.push(r.geo.poly===false?'<span class="mini">Áreas úmidas/inundação: polígono da parcela não encontrado no cadastro estadual (DOR) – conferir no mapa do condado.</span>':
    '<b>Áreas úmidas e inundação (polígono da parcela, '+nf(r.geo.ac)+' ac):</b> '+((r.geo.wetPct||0)>0?'<span class="'+((r.geo.wetPct>=(PR.wetMax??10))?'c-red':'c-amber')+'">'+nf(r.geo.wetPct)+'% área úmida</span> ('+Object.entries(r.geo.wet||{}).map(([k,v])=>esc(k)+' '+nf(v)+'%').join(', ')+', USFWS NWI)':'sem área úmida no NWI')+
    ' · FEMA: '+(r.geo.fzErr?'<span class="c-amber">consulta FEMA falhou ('+esc(r.geo.fzErr.split(':')[0])+') — zona de inundação não verificada, conferir no FEMA Map Service Center</span>':'')+(r.geo.fzErr?'':(Object.entries(r.geo.fz||{}).map(([k,v])=>'<b>'+esc(k)+'</b> '+nf(v)+'%').join(', ')||'sem zona mapeada'))+' <span class="mini">(consultado em '+esc(fdate(r.geo.at)||r.geo.at||'')+'; limites ajustáveis nas premissas: área úmida '+(PR.wetMax??10)+'%, inundação '+(PR.floodMat??10)+'%)</span>');
