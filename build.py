@@ -321,7 +321,7 @@ def load_results():
             st = 'sold' if res.get('A') == 'Auction Sold' else ('cxl' if re.search(r'cancel|bankrupt|redeem|postpon|reset|stay', str(res.get('B') or ''), re.I) else 'other')
             sold = rawdata.money(res.get('D')) if st == 'sold' else None
             to = res.get('ST') or ''
-            rows.append(dict(co=co, t=t, d=date.replace('-', '/'), addr=((r.get('Property Address') or '') + ' ' + (r.get('addr2') or '')).strip(),
+            rows.append(dict(co=co, t=t, aid=r.get('AID'), d=date.replace('-', '/'), addr=((r.get('Property Address') or '') + ' ' + (r.get('addr2') or '')).strip(),
                              ref=ref, av=av, sold=sold, to=('3P' if '3rd' in to else 'PL' if 'Plaintiff' in to else ''), st=st, why=str(res.get('B') or '')[:60] if st != 'sold' else ''))
     stats = {}
     def add(key, r):
@@ -335,14 +335,28 @@ def load_results():
                 if r['av'] and r['sold']: s['rav'].append(r['sold'] / r['av'])
                 if r['ref'] and r['sold']: s['rref'].append(r['sold'] / r['ref'])
             elif r['to'] == 'PL': s['pl'] += 1
+    # 02/11 (aprovado Fernando): índice vendido÷avaliação também por lote(L)/construído(B); tipo = último snapshot runs/run_*.json
+    tymap = {}
+    for f in sorted(glob.glob(os.path.join(SW, 'runs', 'run_2026-*.json'))):
+        if not re.search(r'run_\d{4}-\d{2}-\d{2}\.json$', f): continue
+        try:
+            for it in json.load(open(f))['items']:
+                if it.get('ty'): tymap[it['id']] = it['ty']
+        except Exception: continue
     for r in rows:
         add(r['co'] + '|' + r['t'], r); add('*|' + r['t'], r)
+        ty = tymap.get(r['t'] + str(r.get('aid') or ''))
+        if ty: kk = 'L' if ty in ('Lote', 'Terreno') else 'B'; add(r['co'] + '|' + r['t'] + '|' + kk, r); add('*|' + r['t'] + '|' + kk, r)
     def q(v, p):
         v = sorted(v); return v[min(len(v) - 1, int(p * (len(v) - 1) + 0.5))] if v else None
+    def trim(v):   # 02/11: corta extremos (abaixo do P10 e acima do P90) antes das medianas/faixas
+        if len(v) < 10: return v
+        lo, hi = q(v, .10), q(v, .90); return [x for x in v if lo <= x <= hi]
     for k, s in stats.items():
+        s['nrav_all'] = len(s['rav']); s['rav'] = trim(s['rav'])
         s['rav_med'], s['rav_p25'], s['rav_p75'] = q(s['rav'], .5), q(s['rav'], .25), q(s['rav'], .75)
         s['rref_med'] = q(s['rref'], .5)
-        s['nrav'] = len(s['rav']); s['nrref'] = len(s['rref']); del s['rav']; del s['rref']
+        s['nrav'] = s['nrav_all']; s['nrref'] = len(s['rref']); del s['rav']; del s['rref']
         for kk in ('rav_med', 'rav_p25', 'rav_p75', 'rref_med'):
             if s[kk] is not None: s[kk] = round(s[kk], 3)
     dates = sorted({r['d'] for r in rows}, key=lambda d: (d[6:], d[:5]))
@@ -927,18 +941,23 @@ def build_items(args):
         front = num(P0.get('lotSizeFrontageFeet')); front = front if front and front > 5 else None
         sewer = dictval(P0.get('sewerCode'))
         # ---- expected auction price from county history (3rd-party sales, sold / assessed value)
-        st_c = ares.get(cs + '|' + src) if src in ('TD', 'FC') else None
-        st_s = ares.get('*|' + src) if src in ('TD', 'FC') else None
-        rs = st_c if (st_c and st_c.get('nrav', 0) >= 5) else st_s
+        # 02/11 (aprovado Fernando): índice por condado × lote/construído com ≥ 10 vendas; senão Flórida × lote/construído com ≥ 10; senão sem preço histórico
+        kk = 'L' if land else 'B'
+        st_c = ares.get(cs + '|' + src + '|' + kk) if src in ('TD', 'FC') else None
+        st_s = ares.get('*|' + src + '|' + kk) if src in ('TD', 'FC') else None
+        rs = st_c if (st_c and st_c.get('nrav', 0) >= 10) else (st_s if (st_s and st_s.get('nrav', 0) >= 10) else None)
+        st_cc = ares.get(cs + '|' + src) if src in ('TD', 'FC') else None
+        xpweak = not (st_cc and st_cc.get('nrav', 0) >= 5)
         xp = None
         if rs and rs.get('rav_med') and av:
-            xp = dict(v=round(max(ref or 0, rs['rav_med'] * av)), va=round(rs['rav_med'] * av), r=rs['rav_med'], n=rs['nrav'], lvl='condado' if rs is st_c else 'estado',
+            xp = dict(v=round(max(ref or 0, rs['rav_med'] * av)), va=round(rs['rav_med'] * av), r=rs['rav_med'], n=rs['nrav'], lvl='condado' if rs is st_c else 'estado', weak=xpweak, kk=kk,
                       lo=round(max(ref or 0, (rs.get('rav_p25') or rs['rav_med']) * av)), hi=round(max(ref or 0, (rs.get('rav_p75') or rs['rav_med']) * av)))
         # foreclosures: 3rd parties often win BELOW the judgment (the bank accepts less) -> sold/judgment ratio
         rj = None
         if src == 'FC':
-            rj_c = st_c if (st_c and st_c.get('nrref', 0) >= 5 and st_c.get('rref_med')) else None
-            rj_s = rj_c or (st_s if (st_s and st_s.get('rref_med')) else None)
+            rj_c = st_cc if (st_cc and st_cc.get('nrref', 0) >= 5 and st_cc.get('rref_med')) else None
+            st_ss = ares.get('*|' + src)
+            rj_s = rj_c or (st_ss if (st_ss and st_ss.get('rref_med')) else None)
             if rj_s: rj = dict(r=rj_s['rref_med'], n=rj_s.get('nrref'), lvl='condado' if rj_s is rj_c else 'estado')
         zm = mk.get(zip5) if zip5 else None
         dom = None

@@ -13,6 +13,8 @@ Arquivo compartilhado entre os dois agentes que mexem neste site. **Público**: 
 ## Registro
 Formato: `dd/mm hh:mm ET · QUEM · commit · o quê · por quê · teste/estado`
 
+02/11 15:00 ET · Grok · (este commit) · Preço histórico (aprovado pelo Fernando): índice vendido÷avaliação por lote/construído (corte P10–P90, ≥ 10 vendas; senão Flórida; senão sem índice); construído com teto vendido÷ARV (calib, FL ≈ 0,38×) × ARV, 0,9×ARV só trava; selo “amostra fraca” (< 5 vendas no condado). · Por quê: as listas novas trazem "Assessed Value" e Polk/Osceola (2–3 vendas) caíam no índice estadual misto 1,17× → lance realista no teto 0,9×ARV. · Antes→depois (mesmos dados): FLIP 302→373, CONSIDERAR 72→82, DISPUTADO 1584→1503; 90 voltaram a FLIP/CONSIDERAR, 9 saíram (5 lotes TD em Bay: índice estadual de lotes 1,12× > anterior; 3 FC Orange/Duval, 1 FC Flagler); lance realista caiu > 20% em 418, subiu > 20% em 53. Fórmula do lance máx. e da nota intocadas. · Testes: 8 falhas, as mesmas de antes da mudança (6 conhecidas + 2 por dados: Pinellas Lincoln Ave saiu da lista na releitura; ordem dos lotes conhecidos mudou com a releitura). no ar desde 14:02 ET.
+
 ### 09/10/2026
 - 06:26 · Grok · 8b2af8f · refresh diário das listas RealAuction · rotina · no ar
 - 13:05 · Grok · 5650a57 · veredito por espaço de lance (SEM ESPAÇO/DISPUTADO/FLIP/CONSIDERAR), título promulgado FL, fechamento US$ 1 mil, posse 5/3 · pedido do Fernando · no ar

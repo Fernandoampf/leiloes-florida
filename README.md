@@ -48,6 +48,7 @@ Início de sessão: `git pull` + ler o **[DIARIO.md](DIARIO.md)** e os commits d
 - **NET** = ARV − custos de venda − custo all-in; **ROI** = NET ÷ custo all-in. **Retorno mínimo 17%** (lance máximo = maior lance com ROI de 17%); **FLIP** ≥ 25%, **CONSIDERAR** 17–25%, **PASSAR** < 17%.
 - Cada linha do P&L é editável no painel do imóvel; “Salvar custos como meu padrão” grava no aparelho (com botão para voltar aos padrões).
 - **Capa (v7):** NET/ROI/nota no **lance realista** = maior entre lance inicial/julgamento, preço histórico do condado, 55% (TD) / 70% (FC) do lance máx. de 17% e 28%/40% do ARV. “ROI no lance inicial” é só nota. Valor suspeito (ARV vs comps ou condado > 2×) usa o menor número e corta a nota.
+- **Preço histórico (02/11, aprovado):** índice vendido÷avaliação separado em lote/construído, com corte P10–P90 e mínimo de 10 vendas (condado; senão Flórida; senão sem preço histórico). Construído: teto = vendido÷ARV observado × ARV (FL ≈ 0,38); 90% do ARV só como trava. Selo “amostra fraca” (só exibição) quando o condado tem < 5 vendas.
 - O prazo de saída pelo ZIP (dias no mercado Redfin) aparece no P&L como sensibilidade; pode substituir os meses fixos em ⚙ Premissas.
 
 ## Regerar

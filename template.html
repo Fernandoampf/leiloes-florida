@@ -966,7 +966,9 @@ function realisticBid(r,o){
    // that is < 1), county historical price (sold ÷ assessed × assessed), and the investor 70% rule (70% ARV − rehab).
    // That only happens when the debt is above what the property is worth to the bank (REO net ≈ 85% ARV − rehab);
    // below that, the bank credit-bids up to the judgment and it stays the floor (old rule).
-   const hist = (r.xp && r.xp.va) ? Math.min(+r.xp.va, o.arv*(isLand(r)?XP_CAP_LAND:XP_CAP)) : null;
+   let hcap=o.arv*(isLand(r)?XP_CAP_LAND:XP_CAP);
+   if(!isLand(r)){ const G=compGrp(r), g=G.c||G.s; if(g && g.rval!=null) hcap=Math.min(hcap, g.rval*o.arv); }   // 02/11: idem TD
+   const hist = (r.xp && r.xp.va) ? Math.min(+r.xp.va, hcap) : null;
    const r70 = isLand(r) ? XP_CAP_LAND*o.arv : 0.70*o.arv-(o.rehab||0);   // lots: same 65% ceiling as the historical price
    const bankNet = 0.85*o.arv-(o.rehab||0);
    const alts = [hist, r70>0?r70:null].filter(v=>v!=null);
@@ -980,7 +982,10 @@ function realisticBid(r,o){
    // handful of sales of every type, so on lots (assessed ≪ just value) it can exceed the property's own value
    // (e.g. Hernando 1.28× state ratio → bid above ARV). No rational third party pays that: cap it at a share of ARV
    // (Marion Ocala lots, JV US$ 14.5k, actually sold to third parties for US$ 6.1–10k ≈ 0.42–0.69 of JV).
-   const cap=o.arv ? o.arv*(isLand(r)?XP_CAP_LAND:XP_CAP) : Infinity; x=Math.max(x, Math.min(+r.xp.v, cap));
+   // 02/11 (aprovado Fernando): construído → teto = vendido÷ARV observado (calib, FL ~0.38×) × ARV; 0.9×ARV fica só como trava.
+   let cap=o.arv ? o.arv*(isLand(r)?XP_CAP_LAND:XP_CAP) : Infinity;
+   if(o.arv && !isLand(r)){ const G=compGrp(r), g=G.c||G.s; if(g && g.rval!=null) cap=Math.min(cap, g.rval*o.arv); }
+   x=Math.max(x, Math.min(+r.xp.v, cap));
   }
   if(r.mb!=null && r.mb>0) x=Math.max(x, fmb*r.mb);
   if(o.arv) x=Math.max(x, far*o.arv);
@@ -2075,7 +2080,7 @@ function compsHtml(r){
 function histHtml(r){
  const s=(r.t==='TD'||r.t==='FC')?aresOf(r.cs,r.t):null, sS=ARES['*|'+r.t];
  let h='<div class="sec" id="dhist"><h3>📈 Histórico de leilões e Expected Price</h3>';
- if(r.xp) h+='<div class="lv"><div><span>Expected Price no leilão</span><b class="c-gold">'+money(r.xp.v)+'</b> '+stc('est')+'</div><div><span>Faixa (P25–P75)</span><b>'+money(r.xp.lo)+' – '+money(r.xp.hi)+'</b></div><div><span>Base</span><b>'+pct(r.xp.r,0)+' da avaliação · n='+r.xp.n+' ('+r.xp.lvl+')</b></div><div><span>ROI no preço histórico</span><b class="'+(r.roiXp>=PR.ret/100?'c-green':'c-red')+'">'+pct(r.roiXp)+'</b></div><div><span>ROI no lance realista</span><b>'+pct(r.roi)+'</b></div></div>';
+ if(r.xp) h+='<div class="lv"><div><span>Expected Price no leilão</span><b class="c-gold">'+money(r.xp.v)+'</b> '+stc('est')+'</div><div><span>Faixa (P25–P75)</span><b>'+money(r.xp.lo)+' – '+money(r.xp.hi)+'</b></div><div><span>Base</span><b>'+pct(r.xp.r,0)+' da avaliação · n='+r.xp.n+' ('+r.xp.lvl+(r.xp.kk?', '+(r.xp.kk==='L'?'lotes':'construídos'):'')+')'+(r.xp.weak?' <span class="pill" title="condado com menos de 5 vendas a terceiros com avaliação — índice veio da Flórida">amostra fraca</span>':'')+'</b></div><div><span>ROI no preço histórico</span><b class="'+(r.roiXp>=PR.ret/100?'c-green':'c-red')+'">'+pct(r.roiXp)+'</b></div><div><span>ROI no lance realista</span><b>'+pct(r.roi)+'</b></div></div>';
  else h+='<p class="mini">Sem preço esperado (sem avaliação do condado no leilão ou sem histórico suficiente).</p>';
  const row=(lbl,x)=> x?'<tr><td>'+lbl+'</td><td class="n">'+x.n+'</td><td class="n">'+x.sold+'</td><td class="n">'+x.p3+'</td><td class="n">'+x.pl+'</td><td class="n">'+(x.n?pct(x.cxl/x.n,0):'—')+'</td><td class="n">'+(x.rav_med!=null?pct(x.rav_med,0):'—')+'</td></tr>':'';
  if(s||sS) h+='<div class="tblwrap" style="margin-top:6px"><table class="itbl"><thead><tr><th></th><th class="n">Listados</th><th class="n">Vendidos</th><th class="n">Terceiros</th><th class="n">Autor</th><th class="n">% cancel.</th><th class="n">Preço/aval.</th></tr></thead><tbody>'+row(esc(r.co)+' · '+TYPES[r.t],s)+row('Flórida · '+TYPES[r.t],sS)+'</tbody></table></div>';
