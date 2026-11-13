@@ -316,3 +316,6 @@ Aprovado pelo Fernando após a checagem Pasco/Trinity (TD1519549, 27,9 ac, junk+
 
 ### 12/11/2026
 - 12/11 06:30 ET · Grok · (este commit) · refresh diário RealAuction + rebuild · rotina · 2.362 itens (2 novos vs. 11/11); RealAuction ok (144 calendários, 130 listas, sem bloqueio, 3 eventos novos; dezembro segue fora do HORIZON); results.py ok. Nenhum novo ≥ 80 (só TD1523150 Waterfern 19/11 nota 86). Favoritos: 1 saída nova (TD1523114 3827 Featherwood Trl Lakeland, Polk 19/11, retirado antes do leilão: resgatado ou cancelado); nenhuma mudança > 10%. Casas sugeridas: 49 (1 nova: FC1528998 1305 Roosevelt Ave Lehigh Acres, Lee 19/11, nota 67, lance máx. 210.843). Testes: test_dashboard 9 falhas de dados (as mesmas); test_po_export ok, test_po_bids ok.
+
+### 13/11/2026
+- 13/11 06:30 ET · Grok · (este commit) · refresh diário RealAuction + rebuild · rotina · 2.257 itens (vs. 2.362 em 12/11); RealAuction ok (144 calendários, 119 listas, sem bloqueio, 7 eventos novos); results.py ok; build com --fetch --fetch-bids ok; Osceola presencial segue no cache (URLError). Novo ≥ 80: TDpox0e3f3dd972d1 32727 Wolfs Trl Sorrento (Lake, 01/12, nota 90, lance máx. 151.606). Favoritos: nenhuma saída nova, nenhuma mudança > 10%. Casas sugeridas: 50 (1 nova = a mesma Wolfs Trl). Testes: test_dashboard 9 falhas de dados (as mesmas); test_po_export ok, test_po_bids ok.
