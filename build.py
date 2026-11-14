@@ -427,6 +427,9 @@ def prefetch_all(items, args):
     print(f'PropertyOnion: {len(items)} itens (somente os que faltam no cache são baixados)…', flush=True)
     po_fetch.prefetch([dict(street=street_of(it['raw']), zips=zips_of(it['raw']), known=it['known']) for it in items], threads=args.threads)
 
+# DOR county numbers (11 Alachua … 77 Washington) – fallback when the NAL file name has no number (Broward_Preliminary_NAL…)
+DOR_CO_NO = {c: str(11 + i) for i, c in enumerate(['alachua', 'baker', 'bay', 'bradford', 'brevard', 'broward', 'calhoun', 'charlotte', 'citrus', 'clay', 'collier', 'columbia', 'miamidade', 'desoto', 'dixie', 'duval', 'escambia', 'flagler', 'franklin', 'gadsden', 'gilchrist', 'glades', 'gulf', 'hamilton', 'hardee', 'hendry', 'hernando', 'highlands', 'hillsborough', 'holmes', 'indianriver', 'jackson', 'jefferson', 'lafayette', 'lake', 'lee', 'leon', 'levy', 'liberty', 'madison', 'manatee', 'marion', 'martin', 'monroe', 'nassau', 'okaloosa', 'okeechobee', 'orange', 'osceola', 'palmbeach', 'pasco', 'pinellas', 'polk', 'putnam', 'stjohns', 'stlucie', 'santarosa', 'sarasota', 'seminole', 'sumter', 'suwannee', 'taylor', 'union', 'volusia', 'wakulla', 'walton', 'washington'])}
+
 def county_slug(c): return c.replace('myorangeclerk', 'orange').replace('-', '')
 
 def pid_variants(parcel):
@@ -795,14 +798,33 @@ def build_items(args):
         try: lon = float(lon) if lon is not None else None
         except Exception: lon = None
         util = None; gsrc = 'PropertyOnion'
-        co_no = cono.get(cs)
+        co_no = cono.get(cs) or DOR_CO_NO.get(cs)
         if nf and co_no:
             util = flwmi.get_by_parcel(co_no, nf.get('pid'))
             if util is not None and not util.get('_n'): util = None
             if args.fetch and util is None: fw_jobs.append(('p', co_no, nf.get('pid')))
         if not (lat and lon and 24 < lat < 31.2 and -88 < lon < -79.8):
             lat = lon = None
-            if util and util.get('_lat'): lat, lon = round(util['_lat'], 6), round(util['_lon'], 6); gsrc = 'FDOH/DOR (centro da parcela)'
+        # DOR parcel polygon (by parcel id) beats the PropertyOnion situs point: PO points sometimes sit on the neighbouring
+        # lot (32727 Wolfs Trl -> 32739, 1305 Roosevelt -> 1313), which sent Maps/Street View/satellite to the wrong house.
+        # Condos keep the PO point (the parcel polygon is the whole complex). Also fills items that had no coordinates.
+        pc = util if (util and util.get('_lat')) else None
+        if pc is None and co_no and x.get('parcel'):
+            pvs = pid_variants(x.get('parcel'))
+            q0 = nal.npid(x.get('parcel'))
+            if re.fullmatch(r'\d{18}', q0 or '') and q0[4:6] + q0[2:4] + q0[0:2] + q0[6:] not in pvs:
+                pvs.append(q0[4:6] + q0[2:4] + q0[0:2] + q0[6:])    # PO/appraiser order RRTTSS vs DOR SSTTRR (Lake 27-19-23 -> 23-19-27)
+            for v in pvs:
+                g = flwmi.get_by_parcel(co_no, v)
+                if g and g.get('_lat'): pc = g; break
+                if args.fetch and g is None: fw_jobs.append(('p', co_no, v))
+        if pc is None and (lat is None or ty != 'Condo') and co_no and re.match(r'\s*[1-9]', st0 or ''):
+            g = flwmi.get_by_addr(co_no, st0)
+            if g and g.get('_lat'): pc = g
+            if args.fetch and g is None: fw_jobs.append(('a', co_no, st0))
+        if pc and (lat is None or ty != 'Condo'):
+            lat, lon = round(pc['_lat'], 6), round(pc['_lon'], 6); gsrc = 'FDOH/DOR (centro da parcela)'
+        if util is None and pc is not None and pc.get('_n'): util = pc      # same FLWMI record, matched by parcel id
         if util is None and lat and lon:
             util = flwmi.get(lat, lon)
             if util is not None and not util.get('_n'): util = None
@@ -1120,6 +1142,7 @@ def build_items(args):
         def job(j):
             s = requests.Session(); s.headers['User-Agent'] = 'Mozilla/5.0 (X11; Linux x86_64) leiloes-florida dashboard (personal research)'
             if j[0] == 'p': flwmi.get_by_parcel(j[1], j[2], fetch=True, sess=s)
+            elif j[0] == 'a': flwmi.get_by_addr(j[1], j[2], fetch=True, sess=s)
             else: flwmi.get(j[1], j[2], fetch=True, sess=s)
         with ThreadPoolExecutor(3) as ex: list(ex.map(job, fw_jobs))
         print('  (utilidades baixadas – rode o build de novo sem --fetch para incorporá-las, ou elas entram na próxima execução)', flush=True)

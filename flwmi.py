@@ -74,3 +74,35 @@ def get_by_parcel(co_no, parcel, fetch=False, sess=None):
         return None
     finally:
         time.sleep(0.5)
+
+def get_by_addr(co_no, street, fetch=False, sess=None):
+    """Last resort when the parcel id is not in the FDOH layer: exact DOR situs address (PHY_ADD1) within the county.
+    Only accepted when exactly one parcel carries that address (no guessing between units/lots)."""
+    st = re.sub(r"[^0-9A-Z ]", ' ', str(street or '').upper()); st = ' '.join(st.split())
+    if not co_no or not re.match(r'[1-9]\d* [A-Z0-9]', st): return None
+    p = os.path.join(C, f'a_{co_no}_{st.replace(" ", "_")[:80]}.json')
+    if os.path.exists(p):
+        try: return json.load(open(p))
+        except Exception: pass
+    if not fetch: return None
+    import requests
+    s = sess or requests
+    try:
+        r = s.get(URL, params=dict(where=f"CO_NO='{co_no}' AND PHY_ADD1='{st}'", outFields=FIELDS, returnGeometry='true',
+                  outSR=4326, geometryPrecision=6, f='json'), timeout=30)
+        j = r.json()
+        if 'features' not in j: return None
+        d = {}
+        if len(j['features']) == 1:
+            f = j['features'][0]; d = f['attributes']
+            pts = [pt for ring in (f.get('geometry') or {}).get('rings', []) for pt in ring]
+            if pts:
+                xs, ys = [q[0] for q in pts], [q[1] for q in pts]
+                d['_lon'], d['_lat'] = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
+        d['_n'] = len(j['features']) if len(j['features']) == 1 else 0; d['_cand'] = len(j['features']); d['_date'] = time.strftime('%Y-%m-%d')
+        json.dump(d, open(p, 'w'))
+        return d
+    except Exception:
+        return None
+    finally:
+        time.sleep(0.5)

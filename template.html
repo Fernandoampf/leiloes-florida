@@ -93,6 +93,7 @@ table.tbl{border-collapse:collapse;width:100%;font-size:12px}
 .tbl .num{text-align:right;font-variant-numeric:tabular-nums}
 .pr{display:flex;gap:9px;align-items:flex-start}
 .th{width:74px;height:56px;border-radius:6px;object-fit:cover;flex:none;background:#2d333e}
+.thw{position:relative;flex:none;display:inline-block;line-height:0}.thw .satb{display:none;position:absolute;left:2px;bottom:2px;background:rgba(0,0,0,.7);color:#ffd700;font-size:9px;line-height:1.2;padding:1px 3px;border-radius:3px}.thw .satb.on{display:block}
 .thx{width:74px;height:56px;border-radius:6px;flex:none;background:repeating-linear-gradient(45deg,#3c4453,#3c4453 8px,#38404e 8px,#38404e 16px);display:flex;align-items:center;justify-content:center;color:#c3cbd7;font-size:10px}
 .pa{font-weight:700;font-size:12.5px;color:var(--ink)}
 .pf{color:var(--mut);font-size:11px;margin:2px 0}
@@ -1283,21 +1284,36 @@ const saveFav=()=>LS.set('leilao_fav_v1',[...FAV]);
 const saveTrk=()=>LS.set('leilao_tracker_v1',TRK);
 const saveFlg=()=>LS.set('leilao_flags_v1',FLG);
 // ---------------------------------------------------------------- external links
-const fullAddr = r=> r.addr.replace(/\s+/g,' ').trim();
+// endereço completo "rua, Cidade, FL ZIP": várias listas trazem "2315 NW 20 ST FORT LAUDERDALE, 33311" (sem FL) ou sem ZIP,
+// e o Zillow/Google caíam em outro lugar. A cidade e o ZIP vêm dos campos do item, não do texto.
+function streetOnly(r){
+ let a=String(r.addr||'').replace(/\s+/g,' ').trim();
+ a=a.replace(/[,\s]+(FL|Florida)?[,\s]*(\d{5})?(-\d{4})?[,\s]*$/i,'').replace(/,\s*FL$/i,'').trim();
+ const c=String(r.city||'').trim();
+ if(c){ const re=new RegExp('[,\\s]+'+c.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/\s+/g,'\\s+')+'$','i'); a=a.replace(re,''); }
+ return a.replace(/[,\s]+$/,'').trim();
+}
+const hasStreet = r=> /^\s*\d/.test(String(r.addr||'')) && !/^(Parcela|Processo) /.test(String(r.addr||''));
+function fullAddr(r){
+ if(!hasStreet(r)) return String(r.addr||'').replace(/\s+/g,' ').trim();
+ const z=String(r.zip||'').match(/\d{5}/);
+ return [streetOnly(r), r.city||'', 'FL'+(z?' '+z[0]:'')].filter(Boolean).join(', ');
+}
 function zillowUrl(r){ return 'https://www.zillow.com/homes/'+encodeURIComponent(fullAddr(r).replace(/#/g,'').replace(/,/g,'').replace(/\s+/g,'-'))+'_rb/'; }
 // Redfin: sem API pública permitida (robots.txt bloqueia /stingray) nem URL por endereço → página do ZIP no próprio Redfin (abre sempre);
 // a ficha exata fica no link secundário de busca no Google (sem btnI, que parava numa tela "Redirect Notice")
 function zip5(r){ const z=String(r.zip||'').match(/\d{5}/)||String(fullAddr(r)).match(/\b(3[234]\d{3})\b/); return z?z[0]:null; }
-function redfinUrl(r){ const z=zip5(r); return z?'https://www.redfin.com/zipcode/'+z:redfinFind(r); }
-function redfinFind(r){ return 'https://www.google.com/search?q='+encodeURIComponent('redfin '+fullAddr(r)); }
+// Redfin: o botão abria só a página do ZIP (lugar errado). Agora busca o endereço completo dentro do redfin.com (1º resultado = ficha do imóvel).
+function redfinFind(r){ return 'https://www.google.com/search?q='+encodeURIComponent('site:redfin.com '+fullAddr(r)); }
+function redfinUrl(r){ return hasStreet(r) ? redfinFind(r) : (zip5(r)?'https://www.redfin.com/zipcode/'+zip5(r):redfinFind(r)); }
+function redfinZip(r){ const z=zip5(r); return z?'https://www.redfin.com/zipcode/'+z:null; }
 function realtorUrl(r){
- const a=fullAddr(r).replace(/#/g,' '); const m=a.match(/^(.*?),\s*FL\s*(\d{5})?/i);
- let street=m?m[1]:a, zip=(m&&m[2])||r.zip||'', city=r.city||'';
- if(city && street.toUpperCase().endsWith(' '+city.toUpperCase())) street=street.slice(0,-(city.length+1));
+ const street=streetOnly(r).replace(/#/g,' '), zip=(String(r.zip||'').match(/\d{5}/)||[''])[0], city=r.city||'';
  const slug=[street.trim().replace(/\s+/g,'-'), city.replace(/\s+/g,'-'), 'FL', zip].filter(Boolean).join('_');
  return 'https://www.realtor.com/realestateandhomes-search/'+encodeURIComponent(slug);
 }
-const gmapsUrl = r=> r.lat!=null ? 'https://www.google.com/maps/search/?api=1&query='+r.lat+','+r.lon : 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(fullAddr(r));
+// Mapa: pelo endereço completo (o Google acha o imóvel); só usa lat/lon quando não há rua com número
+const gmapsUrl = r=> (hasStreet(r)||r.lat==null) ? 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(fullAddr(r)) : 'https://www.google.com/maps/search/?api=1&query='+r.lat+','+r.lon;
 const svUrl = r=> r.lat!=null ? 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint='+r.lat+','+r.lon : 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(fullAddr(r));
 const femaUrl = r=> 'https://msc.fema.gov/portal/search?AddressQuery='+encodeURIComponent(fullAddr(r));
 const nwiUrl = 'https://fwsprimary.wim.usgs.gov/wetlands/apps/wetlands-mapper/';
@@ -1511,7 +1527,11 @@ function esriBox(lat,lon,halfM,W,H){ const dl=halfM/111320, dn=dl/Math.cos(lat*M
 function esriImg(b,W,H){ return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox='+b.map(v=>v.toFixed(6)).join(',')+'&bboxSR=4326&imageSR=4326&size='+W+','+H+'&format=jpg&f=image'; }
 const satThumb = r=> r.lat!=null ? esriImg(esriBox(r.lat,r.lon,isLand(r)?70:55,300,200),300,200) : null;
 const firstImg = r=> isLand(r) ? (satThumb(r)||(r.imgs&&r.imgs[0])||null) : (r.imgs&&r.imgs.length ? r.imgs[0] : satThumb(r));
-const thumb = r=> firstImg(r) ? '<img class="th" loading="lazy" referrerpolicy="no-referrer" src="'+esc(firstImg(r))+'" alt="" onerror="this.outerHTML=\'<div class=thx>sem foto</div>\'">' : '<div class="thx">'+(isLand(r)?'terreno':'sem foto')+'</div>';
+const isSatThumb = r=> isLand(r) ? r.lat!=null : !(r.imgs&&r.imgs.length) && r.lat!=null;
+// casa sem foto própria → satélite Esri pelo centro da parcela, com selo "satélite" (não é foto do imóvel); foto quebrada → satélite
+const thumb = r=>{ const u=firstImg(r); if(!u) return '<div class="thx">'+(isLand(r)?'terreno':'sem foto')+'</div>';
+ const sat=isSatThumb(r), fb=!sat&&r.lat!=null?satThumb(r):null;
+ return '<span class="thw"><img class="th" loading="lazy" referrerpolicy="no-referrer" src="'+esc(u)+'" alt="" onerror="'+(fb?'this.onerror=function(){this.outerHTML=\'<div class=thx>sem foto</div>\'};this.src=\''+esc(fb)+'\';this.nextSibling&&this.nextSibling.classList.add(\'on\')':'this.outerHTML=\'<div class=thx>sem foto</div>\'')+'"><span class="satb'+(sat?' on':'')+'" title="Imagem de satélite (Esri) – não é foto do imóvel">🛰 satélite</span></span>'; };
 const facts = r=> isLand(r) ? '<span class="ty">'+r.ty+'</span> '+(r.ac?nf(r.ac,2)+' acre':'área —')+(r.zon?' · '+esc(r.zon):'')+(r.ucd?' · '+esc(r.ucd):'') : '<span class="ty">'+r.ty+'</span> '+(r.beds?nf(r.beds)+'qt/':'')+(r.baths?nf(r.baths,1)+'bh · ':'')+(r.sqft?nf(r.sqft)+' sqft':'— sqft')+' · '+(r.yr?'Constr. '+r.yr:'ano —')+(r.ty==='Comercial'&&r.ucd?' · '+esc(r.ucd):'');
 const linksH = r=> '<span class="lk"><a href="'+esc(zillowUrl(r))+'" target="_blank" rel="noopener">Zillow</a><a href="'+esc(redfinUrl(r))+'" target="_blank" rel="noopener">Redfin</a><a href="'+esc(gmapsUrl(r))+'" target="_blank" rel="noopener">Mapa</a></span>';
 const OPT = r=>{
@@ -1865,7 +1885,7 @@ function galHtml(r){
  const im=r.imgs||[], has=r.lat!=null;
  const tabs=[['ph','📷 Fotos ('+im.length+')',im.length>0],['sat','🛰 Satélite + lote',has],['map','🗺 Mapa',true]];
  return '<div class="gal" id="gal"><div class="galtabs">'+tabs.map(t=>'<button data-gt="'+t[0]+'"'+(t[2]?'':' disabled style="opacity:.4"')+'>'+t[1]+'</button>').join('')+'</div><div class="galmain" id="galmain"></div><div class="galthumbs" id="galthumbs"></div>'+
-  '<div class="mini" style="padding:4px 8px 8px">'+[lnk(zillowUrl(r),'Zillow (fotos do anúncio)'),lnk(redfinUrl(r),'Redfin (ZIP)')+' · '+lnk(redfinFind(r),'Redfin: ficha (Google)'),lnk(gmapsUrl(r),'Google Maps'),lnk(svUrl(r),'🚶 Street View (abre no Google)')].join(' · ')+(im.length?' · fotos: PropertyOnion / Property Appraiser (podem ser antigas)':'')+'</div></div>';
+  '<div class="mini" style="padding:4px 8px 8px">'+[lnk(zillowUrl(r),'Zillow (fotos do anúncio)'),lnk(redfinUrl(r),'Redfin (busca do endereço)')+(redfinZip(r)?' · '+lnk(redfinZip(r),'Redfin: ZIP'):''),lnk(gmapsUrl(r),'Google Maps'),lnk(svUrl(r),'🚶 Street View (abre no Google)')].join(' · ')+(im.length?' · fotos: PropertyOnion / Property Appraiser (podem ser antigas)':'')+'</div></div>';
 }
 const PARC={};
 function satDraw(r,m,ring){
@@ -1875,7 +1895,7 @@ function satDraw(r,m,ring){
  else b=esriBox(r.lat,r.lon,isLand(r)?80:60,W,H);
  const px=([x,y])=>((x-b[0])/(b[2]-b[0])*W).toFixed(1)+','+((b[3]-y)/(b[3]-b[1])*H).toFixed(1);
  const ov=ring&&ring.length>2?'<polygon points="'+ring.map(px).join(' ')+'" fill="rgba(255,215,0,.12)" stroke="#ffd700" stroke-width="3"/>':'<circle cx="'+px([r.lon,r.lat]).split(',')[0]+'" cy="'+px([r.lon,r.lat]).split(',')[1]+'" r="9" fill="none" stroke="#ffd700" stroke-width="3"/>';
- m.innerHTML='<div style="position:relative;width:100%;aspect-ratio:'+W+'/'+H+'"><img id="satimg" referrerpolicy="no-referrer" alt="satélite" src="'+esriImg(b,W,H)+'" style="width:100%;height:100%;object-fit:cover;display:block"><svg viewBox="0 0 '+W+' '+H+'" style="position:absolute;inset:0;width:100%;height:100%">'+ov+'</svg><span class="mini" style="position:absolute;left:4px;bottom:2px;background:rgba(0,0,0,.6);padding:1px 4px">'+ESRI_ATTR+(ring?' · contorno: cadastro estadual FDOR':' · contorno indisponível (ponto aproximado)')+'</span></div>';
+ m.innerHTML=(!(r.imgs&&r.imgs.length)&&!isLand(r)?'<div class="mini" style="padding:3px 6px;color:#ffd700">🛰 Imagem de satélite – <b>não é foto do imóvel</b> (sem foto própria nas fontes). Contorno amarelo = lote.</div>':'')+'<div style="position:relative;width:100%;aspect-ratio:'+W+'/'+H+'"><img id="satimg" referrerpolicy="no-referrer" alt="satélite" src="'+esriImg(b,W,H)+'" style="width:100%;height:100%;object-fit:cover;display:block"><svg viewBox="0 0 '+W+' '+H+'" style="position:absolute;inset:0;width:100%;height:100%">'+ov+'</svg><span class="mini" style="position:absolute;left:4px;bottom:2px;background:rgba(0,0,0,.6);padding:1px 4px">'+ESRI_ATTR+(ring?' · contorno: cadastro estadual FDOR':' · contorno indisponível (ponto aproximado)')+'</span></div>';
 }
 function satShow(r,m){
  if(PARC[r.id]!==undefined){ satDraw(r,m,PARC[r.id]); return; }
@@ -1888,7 +1908,7 @@ function galShow(){
  $$('#gal [data-gt]').forEach(b=>b.classList.toggle('on',b.dataset.gt===GAL.tab));
  th.innerHTML='';
  if(GAL.tab==='ph'){
-  if(!im.length){ m.innerHTML='<div class="galnone">Sem fotos para este imóvel. Use Street View, satélite ou os links abaixo.</div>'; return; }
+  if(!im.length){ if(r.lat!=null){ GAL.tab='sat'; galShow(); return; } m.innerHTML='<div class="galnone">Sem fotos para este imóvel. Use Street View, satélite ou os links abaixo.</div>'; return; }
   m.innerHTML='<img id="galimg" referrerpolicy="no-referrer" src="'+esc(im[GAL.i])+'" alt="foto '+(GAL.i+1)+'" onerror="this.replaceWith(Object.assign(document.createElement(\'div\'),{className:\'galnone\',textContent:\'Foto indisponível (link externo expirou).\'}))">'+(im.length>1?'<button class="galnav l" data-gn="-1">‹</button><button class="galnav r" data-gn="1">›</button>':'')+'<span class="galcnt">'+(GAL.i+1)+' / '+im.length+'</span>';
   th.innerHTML=im.map((u,i)=>'<img loading="lazy" referrerpolicy="no-referrer" src="'+esc(u)+'" data-gi="'+i+'"'+(i===GAL.i?' class="on"':'')+' onerror="this.remove()">').join('');
  } else if(GAL.tab==='sat'){ satShow(r,m); } else {
