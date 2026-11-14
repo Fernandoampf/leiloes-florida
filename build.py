@@ -35,6 +35,7 @@ import local_comps
 import inperson
 import clerk_verify
 import geo_risk, radius
+import census_geo
 
 AUC = '/workspace/auc'
 SW = os.path.join(AUC, 'statewide')
@@ -830,6 +831,10 @@ def build_items(args):
             if util is not None and not util.get('_n'): util = None
             if util is not None: util['_pt'] = 1
             if args.fetch and util is None: fw_jobs.append(('g', lat, lon))
+        if lat is None and re.match(r'\s*[1-9]', st0 or ''):
+            # no parcel polygon: validated Census address point (approximate; map/satellite only, not used for utilities)
+            cg = census_geo.get(st0, (nf or {}).get('city') or x.get('city') or '', zip5, fetch=args.fetch)
+            if cg and cg.get('lat') and 24 < cg['lat'] < 31.2: lat, lon = cg['lat'], cg['lon']; gsrc = 'Censo EUA (endereço, aproximado)'
         if lat and lon:
             dist = hav(ORLANDO, (lat, lon)); dapprox = False
         else:
