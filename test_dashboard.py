@@ -516,6 +516,12 @@ with sync_playwright() as p:
       const t=v[0]||z[0]; let box=''; if(t){ d.openDrawer(t.id); box=(document.querySelector('#val3')||{}).textContent||''; d.closeDrawer(); }
       return {nH:H.length, z:z.length, v:v.length, w:w.length, zOk, vOk, wFlip, box:/Zillow/.test(box)&&/Vendas vizinhas/.test(box)&&/Condado/.test(box), san:I.find(r=>r.id==='FC1525837')?.arvSrc};})()""")
     check(p7['z'] >= 1 and p7['v'] > 100 and p7['zOk'] and p7['vOk'] and p7['wFlip'] == 0 and p7['box'], f'valor de venda: Zillow > vendas vizinhas > estimativa fraca (nunca FLIP), 3 números na ficha {p7}')
+    # PROPOSTA 10 (16/11): backtest em ⚙ Premissas + calibração do preço esperado com todos os resultados
+    pg.click('#bprem'); pg.wait_for_timeout(300)
+    bt = pg.evaluate("""(()=>{const d=window.__dash, M=d.M||{}; const rows=[...document.querySelectorAll('#btab tbody tr')]; const C=M.calib||{};
+      const r={rows:rows.length, fl:rows.filter(t=>/Flórida/.test(t.cells[0].textContent)).length, n:(M.bt||{}).n||0, cal:Object.values(C).filter(v=>v.src==='backtest').length,
+        hdr:[...document.querySelectorAll('#btab thead th')].map(t=>t.textContent).join('|')}; document.querySelector('#prem').close(); return r;})()""")
+    check(bt['rows'] > 10 and bt['fl'] >= 4 and bt['n'] > 500 and bt['cal'] >= 3 and '÷ ARV' in bt['hdr'] and '÷ Zillow' in bt['hdr'] and '÷ condado' in bt['hdr'], f'backtest em Premissas (÷ARV, ÷Zillow, ÷condado por condado/faixa) e preço esperado recalibrado {bt}')
     cf = pg.evaluate("(()=>{const I=window.__dash.ITEMS; const W=I.find(r=>r.id==='TDpox0e3f3dd972d1'), R=I.find(r=>r.id==='FC1528998'); const H=I.filter(r=>['Casa','Townhouse','Mobile','Multifamily'].includes(r.ty)); return {semImg:H.filter(r=>!(r.imgs&&r.imgs.length)&&r.lat==null).length, nH:H.length, W:W?[W.lat,W.lon]:null, R:R?[R.lat,R.lon]:null};})()")
     near = lambda p, q: p and abs(p[0]-q[0]) < 0.0004 and abs(p[1]-q[1]) < 0.0004
     check(cf['semImg'] <= 0.01 * cf['nH'] and (cf['W'] is None or near(cf['W'], (28.825107, -81.580303))) and (cf['R'] is None or near(cf['R'], (26.648677, -81.593795))),

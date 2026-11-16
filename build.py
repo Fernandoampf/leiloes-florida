@@ -33,6 +33,7 @@ sys.path.insert(0, HERE)
 import rawdata, po_fetch, nal, flwmi, po_export, po_bids
 import local_comps
 import plaintiff_hist
+import backtest
 import inperson
 import clerk_verify
 import geo_risk, radius
@@ -1401,7 +1402,22 @@ def render(items, stats, dropped, args):
         print('histórico por autor:', len(pho), 'resultados com autor,', len(plh), 'autores com casa na lista', flush=True)
     except Exception as ex:
         print('histórico por autor falhou:', ex, flush=True); plh = {}
-    meta = dict(plh=plh, jint=JINT, dataDate=args.data_date, built=time.strftime('%Y-%m-%d %H:%M'), params=P, zips=zips, mktSrc=mk.get('_src', {}),
+    # 16/11 PROPOSTA 10: backtest (resultados × snapshot do painel) -> tabela em ⚙ Premissas + recalibra o preço esperado
+    bt = None
+    try:
+        bto = backtest.outcomes(); bt = backtest.summarize(bto)
+        for t in bt['tab']:
+            if t[0] != '*': t[0] = county_name(t[0])
+        bcal = backtest.calib(bto, county_name); nrep = 0
+        for k, v in bcal.items():
+            o = fcal.get(k) or {}
+            if v['nxp'] > (o.get('nxp') or 0):
+                fcal[k] = {**o, 'nxp': v['nxp'], 'rxp': v['rxp'], 'nval': v['nval'], 'rval': v['rval'], 'src': 'backtest', 'n': max(o.get('n') or 0, v['n'])}; nrep += 1
+        bt.pop('ratio', None)
+        print('backtest:', bt['n'], 'resultados ligados ao painel |', nrep, 'grupos de calibração substituídos', flush=True)
+    except Exception as ex:
+        print('backtest falhou:', ex, flush=True)
+    meta = dict(plh=plh, jint=JINT, bt=bt, dataDate=args.data_date, built=time.strftime('%Y-%m-%d %H:%M'), params=P, zips=zips, mktSrc=mk.get('_src', {}),
                 rehabTiers=REHAB_TIERS, rehabUnknown=REHAB_UNKNOWN, rehabPool=REHAB_POOL, stats=stats, dropped=dropped, orlando=ORLANDO,
                 events=load_events(args.data_date), ares=ares, recent=recent, rmeta=rmeta, types=TYPES, version='v4',
                 builders=getattr(build_items, '_bld', None), favs=favs, valerr=getattr(build_items, '_valerr', None), arch=farch, mbh=fmbh, calib=fcal)

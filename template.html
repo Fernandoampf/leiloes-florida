@@ -1816,7 +1816,14 @@ $('#bcsv').onclick=()=>{
 $('#bcols').onclick=()=>{ $('#colb').innerHTML=COLS.map(c=>'<label style="flex-direction:row;gap:6px;align-items:center;color:var(--ink)"><input type="checkbox" data-col="'+c[0]+'"'+(COLON[c[0]]?' checked':'')+'> '+(typeof c[1]==='function'?c[1]():c[1])+'</label>').join(''); $('#cols').showModal(); };
 $('#colb').addEventListener('change',e=>{const i=e.target.closest('[data-col]'); if(i){ COLON[i.dataset.col]=i.checked; LS.set('leilao_cols_v4',COLON); if(view==='table') renderTable(true);} });
 $('#colreset').onclick=()=>{ COLON={...COLDEF}; LS.del('leilao_cols_v4'); $$('#colb [data-col]').forEach(i=>i.checked=COLON[i.dataset.col]); if(view==='table') renderTable(true); };
-function fillPrem(src){ $('#pmb').innerHTML=PF.map(([g,fs])=>'<h4>'+g+'</h4><div class="pmg">'+fs.map(([k,l,st])=>'<label>'+l+'<input class="inp" type="number" min="0" step="'+st+'" id="pm-'+k+'" value="'+src[k]+'" inputmode="decimal"></label>').join('')+'</div>').join('')+'<p class="mini">Valem para todos os imóveis e ficam salvas neste aparelho. Padrões da Flórida: doc stamps 0,70% (compra e venda); taxas do clerk/título 1,5%; despejo, seguro e manutenção são estimativas. Sem teto de orçamento.</p>'; }
+// PROPOSTA 10 (aprovada 16/11) – backtest: preço final ÷ ARV / ÷ Zillow / ÷ valor do condado, por condado e faixa de ARV (resultados RealAuction × snapshot do painel)
+function btHtml(){ const B=M.bt; if(!B||!B.tab) return '';
+ const WHO={'3P':'terceiro comprou','PL':'banco ficou'}, TY={FC:'Foreclosure',TD:'Tax deed'}, K={B:'construído',L:'lote'};
+ const p=v=>v==null?'—':Math.round(v*100)+'%';
+ const fl=B.tab.filter(t=>t[0]==='*'&&t[5]>=5), co=B.tab.filter(t=>t[0]!=='*'&&t[1]==='*'&&t[5]>=8).slice(0,40);
+ const row=t=>'<tr><td>'+(t[0]==='*'?'Flórida':esc(t[0]))+'</td><td>'+(t[1]==='*'?'todas':esc(t[1]))+'</td><td>'+TY[t[2]]+' · '+K[t[3]]+'</td><td>'+WHO[t[4]]+'</td><td class="n">'+t[5]+'</td><td class="n"><b>'+p(t[6])+'</b></td><td class="n">'+(t[9]?p(t[7])+' (n='+t[9]+')':'—')+'</td><td class="n">'+p(t[8])+'</td></tr>';
+ return '<h4 id="bth">Backtest dos leilões passados ('+B.n+' resultados, '+fdate(B.first)+' a '+fdate(B.last)+')</h4><p class="mini">Preço final ÷ ARV que o painel mostrava antes do leilão, ÷ Zillow (só onde havia Zillow manual) e ÷ valor do condado (Assessed Value da lista). Medianas. "Terceiro comprou" = o máximo oculto do banco era menor; "banco ficou" = o máximo dele era ≥ esse preço. O preço esperado é recalibrado com estas medianas (vendido ÷ preço esperado e vendido ÷ ARV por condado, só sobe; teto = vendido÷ARV × ARV).</p><div class="tblwrap"><table class="itbl" id="btab"><thead><tr><th>Condado</th><th>Faixa ARV</th><th>Tipo</th><th>Resultado</th><th class="n">n</th><th class="n">÷ ARV</th><th class="n">÷ Zillow</th><th class="n">÷ condado</th></tr></thead><tbody>'+fl.map(row).join('')+co.map(row).join('')+'</tbody></table></div>'; }
+function fillPrem(src){ $('#pmb').innerHTML=PF.map(([g,fs])=>'<h4>'+g+'</h4><div class="pmg">'+fs.map(([k,l,st])=>'<label>'+l+'<input class="inp" type="number" min="0" step="'+st+'" id="pm-'+k+'" value="'+src[k]+'" inputmode="decimal"></label>').join('')+'</div>').join('')+'<p class="mini">Valem para todos os imóveis e ficam salvas neste aparelho. Padrões da Flórida: doc stamps 0,70% (compra e venda); taxas do clerk/título 1,5%; despejo, seguro e manutenção são estimativas. Sem teto de orçamento.</p>'+btHtml(); }
 function applyPrem(np){ PR={...np}; if(custom()) LS.set(PKEY,PR); else LS.del(PKEY); recalc(); hdr(); renderHow(); apply(); if(OPEN) openDrawer(OPEN); }
 $('#bprem').onclick=()=>{ fillPrem(PR); $('#prem').showModal(); };
 $('#pmcancel').onclick=()=>$('#prem').close();
@@ -2460,7 +2467,7 @@ if(DL && DL.explicit){ S.cat=''; S.kat=''; }
 if(DL && DL.r){ if(DL.explicit) apply(true); openDrawer(DL.r.id); }
 else if(DL && DL.explicit) setTimeout(()=>toast('Imóvel “'+DL.asked+'” não encontrado (leilão já passou ou foi removido)'),300);
 termify(document.body);
-window.__dash={apply, ITEMS, bankCell, fjCap, plLine, jInt, titleCell, renderDec, salaPrice, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, redfinUrl, redfinFind, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
+window.__dash={apply, ITEMS, M, bankCell, fjCap, plLine, jInt, titleCell, renderDec, salaPrice, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, redfinUrl, redfinFind, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
 })();
 </script>
 </body>

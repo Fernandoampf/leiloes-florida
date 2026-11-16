@@ -75,6 +75,7 @@ def outcomes(sw=SW, idx=None):
     for f in glob.glob(os.path.join(sw, 'results', '*.json')):
         host, date = os.path.basename(f)[:-5].rsplit('_', 1)
         co = host.split('.')[0].replace('-', '').replace('myorangeclerk', 'orange')
+        co = {'saintjohns': 'stjohns'}.get(co, co)
         try: data = json.load(open(f))
         except Exception: continue
         for r in data:
