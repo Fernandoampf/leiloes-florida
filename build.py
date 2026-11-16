@@ -1095,7 +1095,9 @@ def build_items(args):
                             rec['vsrc'] += f" · +5% e posse de 2 meses: construtoras ativas ({n_} compras de lote em 12 meses na {where})"
                         else: rec['vsrc'] = (rec.get('vsrc') or '') + f" · posse de 2 meses: construtoras ativas ({n_} compras de lote em 12 meses na {where})"
         man = manual.get((cs, nal.npid(x.get('parcel') or '')))
-        if man:
+        if man and man.get('titleOk') is True:
+            rec['tok'] = dict(date=man.get('titleDate') or man.get('date'), by=man.get('titleBy'), notes=man.get('titleNotes'))   # PROPOSTA 8: título conferido à mão
+        if man and man.get('mid') is not None:
             m = {k: man.get(k) for k in ('low', 'mid', 'high', 'ceiling', 'pass', 'date', 'sources', 'notes', 'holdYr', 'qt', 'legal')}
             m['prev'] = rec.get('val'); rec['man'] = m
             rec['addr0'] = rec['addr']; rec['addr'] = man.get('addr') or rec['addr']

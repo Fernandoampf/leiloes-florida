@@ -57,10 +57,11 @@ with sync_playwright() as p:
     check(len(sl) > 100 and all(x['ok'] for x in sl), f'preço pela sala = índice × valor ({len(sl)} itens)')
     check(not any(x['bad'] for x in sl), 'lote com ≥ 3 comps e preço pela sala acima do máx. nunca é FLIP/CONSIDERAR')
     # vereditos e categorias
-    vds = set(pg.evaluate(D + '.ITEMS.map(r=>r.vd)')); check(vds <= {'FLIP', 'CONSIDERAR', 'DISPUTADO', 'PASSAR'} and {'FLIP','DISPUTADO','PASSAR'} <= vds, f'vereditos {vds}')
+    vds = set(pg.evaluate(D + '.ITEMS.map(r=>r.vd)')); check(vds <= {'FLIP', 'CONSIDERAR', 'DISPUTADO', 'PASSAR', 'TITULO'} and {'FLIP','DISPUTADO','PASSAR'} <= vds, f'vereditos {vds}')
     bad = pg.evaluate(D + '''.ITEMS.filter(r=>r.roi!=null&&r.mb!=null&&!(r.geo&&r.geo.poly!==false&&((r.geo.wetPct||0)>=10||(r.geo.sfhaPct||0)>=10))).filter(r=>{
         const room = r.mb>0, over = r.ref!=null && r.ref>r.mb+1;
         if(r.vd==='FLIP'||r.vd==='CONSIDERAR') return !(room && !over && !(r.xbid>r.mb+1) && (r.vd==='FLIP'?r.roi>=0.25:r.roi<0.25));
+        if(r.vd==='TITULO') return !(room && !over && !(r.xbid>r.mb+1) && (r.vdWas==='FLIP'?r.roi>=0.25:r.roi<0.25));   // PROPOSTA 8: mesma regra, travado por título
         if(r.vd==='PASSAR') return !( !room || (r.t!=='FC' && over) || /^lote barato/.test(r.vdWhy||'') );
         if(r.vd==='DISPUTADO') return !( room && ((r.t==='FC' && over) || r.xbid>r.mb+1 || (r.sala&&r.sala.comps3&&r.sala.v>r.mb+1)) );
         return true; }).map(r=>r.addr+' '+r.vd).slice(0,5)''')
@@ -490,6 +491,9 @@ with sync_playwright() as p:
     # Fernando 14/11: links abriam o lugar errado -> Redfin busca o endereço completo (não a página do ZIP), Zillow/Maps com cidade, FL e ZIP
     rf = pg.evaluate("(()=>{const d=window.__dash; const I=d.ITEMS.filter(r=>r.zip&&/^\\s*\\d/.test(r.addr)).slice(0,80); const ok=r=>{const z=decodeURIComponent(d.zillowUrl(r)), g=decodeURIComponent(d.gmapsUrl(r)), f=decodeURIComponent(d.redfinUrl(r)); return z.includes('-FL-'+r.zip) && g.includes(', FL '+r.zip) && /redfin\\.com/.test(f) && f.includes(r.zip) && !/zipcode/.test(f);}; return {n:I.length, bad:I.filter(r=>!ok(r)).map(r=>r.id).slice(0,5), btnI:I.some(r=>/btnI/.test(d.redfinFind(r)))};})()")
     check(rf['n'] > 50 and not rf['bad'] and not rf['btnI'], f'links Redfin/Zillow/Maps pelo endereço completo (cidade, FL, ZIP) {rf}')
+    # PROPOSTA 8 (16/11): trava de título
+    tl = pg.evaluate("(()=>{const I=window.__dash.ITEMS; const lk=r=>!/Lote|Terreno/.test(r.ty)&&!r.tok&&(['jr','mtg','surv','code'].some(f=>r.fl.includes(f))||r.hoaPl); const bad=I.filter(r=>lk(r)&&(r.vd==='FLIP'||r.vd==='CONSIDERAR')).map(r=>r.id); const T=I.filter(r=>r.vd==='TITULO'); return {bad:bad.slice(0,5), n:T.length, was:T.every(r=>r.vdWas==='FLIP'||r.vdWas==='CONSIDERAR'), lockOk:T.every(lk), opt:!!document.querySelector('#fvd option[value=TITULO]')};})()")
+    check(not tl['bad'] and tl['n'] > 0 and tl['was'] and tl['lockOk'] and tl['opt'], f'trava de título: jr/mtg/surv/code/HOA nunca FLIP/CONSIDER → CONFERIR TÍTULO {tl}')
     cf = pg.evaluate("(()=>{const I=window.__dash.ITEMS; const W=I.find(r=>r.id==='TDpox0e3f3dd972d1'), R=I.find(r=>r.id==='FC1528998'); const H=I.filter(r=>['Casa','Townhouse','Mobile','Multifamily'].includes(r.ty)); return {semImg:H.filter(r=>!(r.imgs&&r.imgs.length)&&r.lat==null).length, nH:H.length, W:W?[W.lat,W.lon]:null, R:R?[R.lat,R.lon]:null};})()")
     near = lambda p, q: p and abs(p[0]-q[0]) < 0.0004 and abs(p[1]-q[1]) < 0.0004
     check(cf['semImg'] <= 0.01 * cf['nH'] and (cf['W'] is None or near(cf['W'], (28.825107, -81.580303))) and (cf['R'] is None or near(cf['R'], (26.648677, -81.593795))),
