@@ -1,5 +1,5 @@
 {
- "_doc": "Avaliações pesquisadas à mão. Chave = condado + parcela. Ganham do cálculo automático (valor de venda). addr = rua + descrição legal + processo/parcela — NUNCA um número de casa adivinhado. Campos: low/mid/high (faixa de revenda US$), ceiling (teto de lance pesquisado; null = usar o lance máx. de 17% da conta), pass, holdYr (HOA/CDD/clube por ano, entra na posse), qt (quiet title US$), date, sources, notes. subdivisions: anúncios/DOM por subdivisão (county + sub = nome da planta na descrição legal, como no painel): asking_low (menor anúncio US$), dom_days, date, source, notes.",
+ "_doc": "Avaliações pesquisadas à mão. Chave = condado + parcela. Ganham do cálculo automático (valor de venda). addr = rua + descrição legal + processo/parcela — NUNCA um número de casa adivinhado. Campos: low/mid/high (faixa de revenda US$), ceiling (teto de lance pesquisado; null = usar o lance máx. de 17% da conta), pass, holdYr (HOA/CDD/clube por ano, entra na posse), qt (quiet title US$), date, sources, notes. subdivisions: anúncios/DOM por subdivisão (county + sub = nome da planta na descrição legal, como no painel): asking_low (menor anúncio US$), dom_days, date, source, notes. PROPOSTA 7/8 (16/11): campos opcionais zillow (Zestimate US$), zillowDate, zillowBy; titleOk (true = título conferido), titleDate, titleBy, titleNotes. Item só com zillow/titleOk (sem low/mid/high) NÃO substitui o cálculo: só dá o Zillow / destrava o título.",
  "items": [
   {
    "county": "hernando",
@@ -96,6 +96,30 @@
    "notes": "O nº 9729 SW 206th Cir é uma CASA de 2003, não o lote do leilão. Título vem de espólio/trust. Villages of Rainbow Springs (POA).",
    "date": "2026-10-09",
    "ceiling": null
+  },
+  {
+   "county": "hillsborough",
+   "parcel": "2129139EZJ00000000150P",
+   "addr": "3515 SAN MOISE PL PLANT CITY, FL 33567",
+   "zillow": 313900,
+   "zillowDate": "2026-11-16",
+   "zillowBy": "Claude (DIARIO.md 16/11, conferido no Zillow)"
+  },
+  {
+   "county": "manatee",
+   "parcel": "716906859",
+   "addr": "5120 GRANITE DUST PL PALMETTO, FL 34221",
+   "zillow": 327400,
+   "zillowDate": "2026-11-16",
+   "zillowBy": "Claude (DIARIO.md 16/11, conferido no Zillow)"
+  },
+  {
+   "county": "stlucie",
+   "parcel": "177349",
+   "addr": "10650 SW CAPRAIA WAY PORT SAINT LUCIE, FL 34986",
+   "zillow": 466200,
+   "zillowDate": "2026-11-16",
+   "zillowBy": "Claude (DIARIO.md 16/11, conferido no Zillow)"
   }
  ],
  "subdivisions": [

@@ -315,3 +315,43 @@ def backtest(d, zh_of, today, months=6, cap=400):
                           bias=round(statistics.median(e1), 3), maeP25=round(statistics.median(abs(v) for v in e0), 3),
                           biasP25=round(statistics.median(e0), 3))
     return out
+
+
+def nearby_sales(d, pid, today, months=12, band=0.20):
+    """PROPOSTA 7 (Fernando 16/11): closed sales near the subject in the last `months` months of the roll (window ends at the
+    roll's sales cutoff, see anchor_ym), same group (house/condo), living area within ±band. Same subdivision/condo first,
+    then ≈0.5 mi (same PLSS section), then ≈1 mi. Raw sale prices (no time adjustment). -> dict or None (houses only)."""
+    s = d['subj'].get(pid) if d else None
+    if not s: return None
+    g = _group(s['uc'])
+    if not g or g == 'land': return None
+    size = s['lvg']
+    ay, am = anchor_ym(d, today); endm = ay * 12 + am
+    ty, tm = int(today[:4]), int(today[5:7]); nowm = ty * 12 + tm
+    a = d['area'].get('s:' + s['sub']) if s['sub'] else None
+    big = bool(a and a[0] > 3000)
+    cand = []
+    for r in d['sales']:
+        sub, nb, x, y, uc, prc, yr, mo, lvg, ayb, lsq, addr, zp, vi, rpid = r
+        if rpid == nal.npid(s['pid']) or _group(uc) != g or vi == 'V' or not prc or not lvg: continue
+        m = yr * 12 + mo
+        if m > nowm or endm - m >= months: continue
+        if size and not ((1 - band) * size <= lvg <= (1 + band) * size): continue
+        dist = math.hypot(x - s['xy'][0], y - s['xy'][1]) if (x is not None and s['xy']) else None
+        same = bool(s['sub'] and sub == s['sub']) or bool(not s['sub'] and s['nb'] and nb == s['nb'])
+        cand.append(dict(addr=addr or '(sem endereço)', d=f'{yr}-{mo:02d}', p=prc, sz=lvg, mi=round(dist, 1) if dist is not None else None, same=same, m=m))
+    pick = None
+    for lv, txt, f in (('sub', 'mesmo condomínio/subdivisão' if g != 'sfr' else 'mesma subdivisão', lambda c: c['same'] and (not big or (c['mi'] is not None and c['mi'] <= 1.01))),
+                       ('r05', '≈0,5 mi (mesma seção)', lambda c: c['mi'] is not None and c['mi'] <= 0.01),
+                       ('r1', '≈1 mi', lambda c: c['mi'] is not None and c['mi'] <= 1.01)):
+        L = [c for c in cand if f(c)]
+        if len(L) >= 3: pick = (lv, txt, L); break
+        if L and (not pick or len(L) > len(pick[2])): pick = (lv, txt, L)
+    if not pick: return dict(n=0, win=f'{(endm - months + 1) // 12}-{((endm - months) % 12) + 1:02d}', size=size)
+    lv, txt, L = pick
+    L.sort(key=lambda c: (-c['m'], c['mi'] if c['mi'] is not None else 9))
+    L = L[:12]
+    ps = sorted(c['p'] for c in L)
+    q = lambda p: ps[min(len(ps) - 1, int(p * (len(ps) - 1) + 0.5))]
+    return dict(lvl=lv, txt=txt, n=len(L), med=round(statistics.median(ps)), lo=q(0.25), hi=q(0.75), size=size,
+                win=f'{(endm - months + 1) // 12}-{((endm - months) % 12) + 1:02d}', l=[[c['addr'], c['d'], c['p'], c['sz'], c['mi']] for c in L])

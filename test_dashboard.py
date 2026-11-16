@@ -60,8 +60,8 @@ with sync_playwright() as p:
     vds = set(pg.evaluate(D + '.ITEMS.map(r=>r.vd)')); check(vds <= {'FLIP', 'CONSIDERAR', 'DISPUTADO', 'PASSAR', 'TITULO'} and {'FLIP','DISPUTADO','PASSAR'} <= vds, f'vereditos {vds}')
     bad = pg.evaluate(D + '''.ITEMS.filter(r=>r.roi!=null&&r.mb!=null&&!(r.geo&&r.geo.poly!==false&&((r.geo.wetPct||0)>=10||(r.geo.sfhaPct||0)>=10))).filter(r=>{
         const room = r.mb>0, over = r.ref!=null && r.ref>r.mb+1;
-        if(r.vd==='FLIP'||r.vd==='CONSIDERAR') return !(room && !over && !(r.xbid>r.mb+1) && (r.vd==='FLIP'?r.roi>=0.25:r.roi<0.25));
-        if(r.vd==='TITULO') return !(room && !over && !(r.xbid>r.mb+1) && (r.vdWas==='FLIP'?r.roi>=0.25:r.roi<0.25));   // PROPOSTA 8: mesma regra, travado por título
+        if(r.vd==='FLIP'||r.vd==='CONSIDERAR') return !(room && !over && !(r.xbid>r.mb+1) && (r.vd==='FLIP'?r.roi>=0.25&&r.arvSrc!=='fraca':(r.roi<0.25||r.arvSrc==='fraca')));
+        if(r.vd==='TITULO') return !(room && !over && !(r.xbid>r.mb+1) && (r.vdWas==='FLIP'?r.roi>=0.25:(r.roi<0.25||r.arvSrc==='fraca')));   // PROPOSTA 8: mesma regra, travado por título
         if(r.vd==='PASSAR') return !( !room || (r.t!=='FC' && over) || /^lote barato/.test(r.vdWhy||'') );
         if(r.vd==='DISPUTADO') return !( room && ((r.t==='FC' && over) || r.xbid>r.mb+1 || (r.sala&&r.sala.comps3&&r.sala.v>r.mb+1)) );
         return true; }).map(r=>r.addr+' '+r.vd).slice(0,5)''')
@@ -70,7 +70,7 @@ with sync_playwright() as p:
     kats = pg.evaluate(D + '.ITEMS.map(r=>r.kat).join()'); check('NO ROOM' in kats and 'CONTESTED' in kats, 'categorias “NO ROOM” e “CONTESTED”')
     check(pg.evaluate(D + '.ITEMS.filter(r=>r.fl.includes("mtg")&&r.roi!=null&&r.mb>0&&!(r.ref>r.mb)&&!(r.xbid>r.mb+1)).every(r=>r.vd!=="PASSAR")'), 'hipoteca que sobrevive não é PASSAR automático')
     check(pg.evaluate(D + '.ITEMS.filter(r=>r.survOrig).every(r=>r.survAmt<=r.survOrig)'), 'dívida que sobrevive = saldo estimado (≤ valor original)')
-    jvb = pg.evaluate(D + '.ITEMS.filter(r=>r.jv85&&!r.suspect&&!r.povAsArv&&!(r.sup&&r.sup.disc)&&!r.bld).filter(r=>Math.abs((r.val0!=null?r.val0:r.val)-r.jv85/0.85)>1).map(r=>[r.addr,r.val0,r.val,r.jv85]).slice(0,3)')
+    jvb = pg.evaluate(D + '.ITEMS.filter(r=>r.jv85&&r.arvSrc!=="zillow"&&r.arvSrc!=="vendas"&&!r.suspect&&!r.povAsArv&&!(r.sup&&r.sup.disc)&&!r.bld).filter(r=>Math.abs((r.val0!=null?r.val0:r.val)-r.jv85/0.85)>1).map(r=>[r.addr,r.val0,r.val,r.jv85]).slice(0,3)')
     check(not jvb and pg.evaluate(D + '.ITEMS.filter(r=>r.jv85).length') > 100, f'ARV só com just value = just value ÷ 0,85 {jvb}')
     check(pg.locator('#fvd option[value="DISPUTADO"]').count()==1 and 'contested' in pg.inner_text('#kpis').lower(), 'filtro e KPI CONTESTED')
     kats = set(pg.evaluate(D + '.ITEMS.map(r=>r.katk)')); check({'viavel', 'abaixo', 'lucro', 'disp', 'semdados'} <= kats and 'jmax' not in kats, f'categorias (regras 30e37bc, sem jmax) {kats}')
@@ -276,7 +276,7 @@ with sync_playwright() as p:
     check(all(t in gl for t in ('Opening Bid', 'Final Judgment', 'Surviving Lien', 'Certificate Holder', 'Lis Pendens', 'CDD', 'Subdivision', 'Cash to Close', 'NO ROOM', 'CONTESTED')), 'Glossário lista os termos em inglês')
     pg.keyboard.press('Escape'); pg.wait_for_timeout(150)
     # ---- local resale value + manual valuations
-    lc = pg.evaluate("(()=>{const I=window.__dash.ITEMS; return {n:I.filter(r=>r.lc&&r.lc.lvl).length, used:I.filter(r=>r.lc&&r.lc.used).length, sub:I.filter(r=>r.lc&&r.lc.lvl==='sub').length, bad:I.filter(r=>r.lc&&r.lc.used&&!r.man&&!(r.sup&&r.sup.disc)&&!r.bld&&!(r.subst&&r.subst.arv0)&&Math.abs(r.val0-r.lc.est)>1).length, lowc:I.filter(r=>r.lc&&r.lc.used&&r.lc.conf<60&&!(r.fl||[]).includes('estv')).length};})()")
+    lc = pg.evaluate("(()=>{const I=window.__dash.ITEMS; return {n:I.filter(r=>r.lc&&r.lc.lvl).length, used:I.filter(r=>r.lc&&r.lc.used).length, sub:I.filter(r=>r.lc&&r.lc.lvl==='sub').length, bad:I.filter(r=>r.lc&&r.lc.used&&!r.man&&!(r.sup&&r.sup.disc)&&!r.bld&&!(r.subst&&r.subst.arv0)&&!['zillow','vendas'].includes(r.arvSrc)&&Math.abs(r.val0-r.lc.est)>1).length, lowc:I.filter(r=>r.lc&&r.lc.used&&r.lc.conf<60&&!(r.fl||[]).includes('estv')).length};})()")
     check(lc['n'] > 1000 and lc['used'] > 500 and lc['sub'] > 100 and lc['bad'] == 0 and lc['lowc'] == 0, f'comps locais {lc}')
     # Avaliações manuais: só checa os que ainda estão na lista (leilão futuro)
     ho = pg.evaluate('window.__dash.ITEMS.find(r=>r.parcel==="01596160")')
@@ -494,6 +494,14 @@ with sync_playwright() as p:
     # PROPOSTA 8 (16/11): trava de título
     tl = pg.evaluate("(()=>{const I=window.__dash.ITEMS; const lk=r=>!/Lote|Terreno/.test(r.ty)&&!r.tok&&(['jr','mtg','surv','code'].some(f=>r.fl.includes(f))||r.hoaPl); const bad=I.filter(r=>lk(r)&&(r.vd==='FLIP'||r.vd==='CONSIDERAR')).map(r=>r.id); const T=I.filter(r=>r.vd==='TITULO'); return {bad:bad.slice(0,5), n:T.length, was:T.every(r=>r.vdWas==='FLIP'||r.vdWas==='CONSIDERAR'), lockOk:T.every(lk), opt:!!document.querySelector('#fvd option[value=TITULO]')};})()")
     check(not tl['bad'] and tl['n'] > 0 and tl['was'] and tl['lockOk'] and tl['opt'], f'trava de título: jr/mtg/surv/code/HOA nunca FLIP/CONSIDER → CONFERIR TÍTULO {tl}')
+    # PROPOSTA 7 (16/11): ARV de casa = Zillow manual > mediana de vendas vizinhas (≥3, 12 meses, ±20% pé²) > estimativa fraca (nunca FLIP)
+    p7 = pg.evaluate("""(()=>{const d=window.__dash, I=d.ITEMS, H=I.filter(r=>['Casa','Townhouse','Condo','Mobile','Multifamily'].includes(r.ty)&&r.val0);
+      const z=H.filter(r=>r.arvSrc==='zillow'), v=H.filter(r=>r.arvSrc==='vendas'), w=H.filter(r=>r.arvSrc==='fraca');
+      const zOk=z.every(r=>r.val0===r.zw.v), vOk=v.every(r=>r.ns&&r.ns.n>=3&&r.val0===r.ns.med&&r.ns.l.every(c=>c[3]>=0.8*r.ns.size-1&&c[3]<=1.2*r.ns.size+1));
+      const wFlip=I.filter(r=>r.arvSrc==='fraca'&&r.vd==='FLIP').length;
+      const t=v[0]||z[0]; let box=''; if(t){ d.openDrawer(t.id); box=(document.querySelector('#val3')||{}).textContent||''; d.closeDrawer(); }
+      return {nH:H.length, z:z.length, v:v.length, w:w.length, zOk, vOk, wFlip, box:/Zillow/.test(box)&&/Vendas vizinhas/.test(box)&&/Condado/.test(box), san:I.find(r=>r.id==='FC1525837')?.arvSrc};})()""")
+    check(p7['z'] >= 1 and p7['v'] > 100 and p7['zOk'] and p7['vOk'] and p7['wFlip'] == 0 and p7['box'], f'valor de venda: Zillow > vendas vizinhas > estimativa fraca (nunca FLIP), 3 números na ficha {p7}')
     cf = pg.evaluate("(()=>{const I=window.__dash.ITEMS; const W=I.find(r=>r.id==='TDpox0e3f3dd972d1'), R=I.find(r=>r.id==='FC1528998'); const H=I.filter(r=>['Casa','Townhouse','Mobile','Multifamily'].includes(r.ty)); return {semImg:H.filter(r=>!(r.imgs&&r.imgs.length)&&r.lat==null).length, nH:H.length, W:W?[W.lat,W.lon]:null, R:R?[R.lat,R.lon]:null};})()")
     near = lambda p, q: p and abs(p[0]-q[0]) < 0.0004 and abs(p[1]-q[1]) < 0.0004
     check(cf['semImg'] <= 0.01 * cf['nH'] and (cf['W'] is None or near(cf['W'], (28.825107, -81.580303))) and (cf['R'] is None or near(cf['R'], (26.648677, -81.593795))),

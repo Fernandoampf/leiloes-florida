@@ -588,6 +588,7 @@ def build_items(args):
     today = args.data_date
     facts, sales_by_zip, cono, lcd = nal_index(items, today)
     manual = load_manual(); msubs = load_manual_subs()
+    manual_v = {k: v for k, v in manual.items() if v.get('mid') is not None}   # só avaliações com valor (zillow/titleOk sozinhos não bloqueiam comps)
     ares, _, _ = load_results()
     seen = jload(os.path.join(CACHE, 'seen_v4.json'), {})
     baseline = not seen                      # first v4 run: nothing is 'new'
@@ -746,7 +747,7 @@ def build_items(args):
             if lce['lvl'] != 'sub' and lce.get('gapJv') is not None and abs(lce['gapJv']) > 0.4:
                 lce['conf'] = max(0, lce['conf'] - 15); lce['pen'] = 'diverge mais de 40% do just value ÷ 0,85 (−15 na confiança)'
                 lce['confTxt'] = 'alta' if lce['conf'] >= 70 else 'média' if lce['conf'] >= 50 else 'baixa'
-            if lce['conf'] >= 60 and (cs, nal.npid(x.get('parcel') or '')) not in manual:
+            if lce['conf'] >= 60 and (cs, nal.npid(x.get('parcel') or '')) not in manual_v:
                 lce['cp0'] = cp; lce['vsrc0'] = vsrc
                 lce['prev'] = round(val) if val else None; lce['prevSrc'] = vsrc; lce['used'] = True
                 val = lce['est']; pov_as_arv = False
@@ -757,7 +758,7 @@ def build_items(args):
                           ppsf=statistics.median([c[6] / c[3] for c in lce['comps'] if c[3]]) if sz else None,
                           l=[[c[0], c[2], c[1], None if land else c[3], c[4], c[3] if land else None] for c in lce['comps'][:8]])
                 cest = lce['est']
-            elif not land and lce['lvl'] in ('r1', 'r2') and lce['conf'] >= 35 and not pov and not avm and (cs, nal.npid(x.get('parcel') or '')) not in manual:
+            elif not land and lce['lvl'] in ('r1', 'r2') and lce['conf'] >= 35 and not pov and not avm and (cs, nal.npid(x.get('parcel') or '')) not in manual_v:
                 lce['prev'] = round(val) if val else None; lce['prevSrc'] = vsrc; lce['used'] = True; est_v = True
                 val = lce['est']; cest = lce['est']
                 vsrc = f"comps ampliados — {lce['lvlTxt']}: mediana de {lce['n']} vendas por US$/pé² = {_usd(val)}; confiança {lce['conf']}/100 — estimativa"
@@ -787,6 +788,26 @@ def build_items(args):
             jv85 = val; val = base / 0.85
             vsrc = f"{vsrc} ÷ 0,85 = {_usd(val)} (só valor do condado: o just value fica ~15% abaixo do mercado, F.S. 193.011(8))"
         if val and val < 1000: val = None
+        # ---- PROPOSTA 7 (aprovada 16/11): ARV de casa = Zillow manual; sem Zillow = mediana de ≥ 3 vendas fechadas vizinhas
+        # (12 meses, ±20% pé²); senão o valor de antes, marcado ESTIMATIVA FRACA (nunca FLIP). Avaliação manual (mid) continua por cima.
+        arv_src = nsal = zw = None
+        if ty in ('Casa', 'Townhouse', 'Condo', 'Mobile', 'Multifamily'):
+            mz = manual.get((cs, nal.npid(x.get('parcel') or ''))) or {}
+            if num(mz.get('zillow')): zw = dict(v=round(num(mz['zillow'])), d=mz.get('zillowDate'), by=mz.get('zillowBy'))
+            if nf and nf.get('pid') and lcd.get(cs):
+                try: nsal = local_comps.nearby_sales(lcd[cs], nal.npid(nf['pid']), today)
+                except Exception: nsal = None
+            if mz.get('mid') is not None: arv_src = 'manual'
+            elif zw:
+                val, arv_src = zw['v'], 'zillow'
+                vsrc = f"Zillow (Zestimate) {_usd(zw['v'])} em {zw['d'] or 'data não informada'} — campo manual; ARV = Zillow (regra do Fernando, 16/11)"
+            elif nsal and nsal.get('n', 0) >= 3 and nsal.get('size'):  # sem pé² do imóvel não dá para comparar ±20% -> fraca
+                val, arv_src = nsal['med'], 'vendas'
+                vsrc = (f"vendas fechadas vizinhas — {nsal['txt']}: mediana de {nsal['n']} vendas de 12 meses (desde {nsal['win']}), "
+                        f"pé² ±20% = {_usd(val)} (faixa {_usd(nsal['lo'])}–{_usd(nsal['hi'])})")
+            elif val:
+                arv_src = 'fraca'
+                vsrc = f"{vsrc} · ESTIMATIVA FRACA: sem Zillow e sem 3 vendas vizinhas de 12 meses (±20% pé²) – nunca FLIP"
         ref = num(x.get('ob')) if src == 'TD' else num(x.get('fj')) if src == 'FC' else num(x.get('ref'))
         nobid = bool((it.get('po_only') or x.get('inperson')) and not ref)
         if it.get('bid_fill') and ref:
@@ -1021,7 +1042,7 @@ def build_items(args):
             pool=pool, eyb=int(num(P0.get('effectiveYearBuilt'))) if num(P0.get('effectiveYearBuilt')) and num(P0.get('effectiveYearBuilt')) > 1800 else None,
             hasPO=has_po, nalm=(nf or {}).get('how'), tax=taxamt, front=front, sewer=sewer, units=units,
             util=({k: util.get(k) for k in ('WW', 'WW_UPD', 'WW_SRC_TYP', 'DW', 'DW_UPD', 'DW_SRC_TYP', 'PARCELNO', 'LANDUSE', 'BLT_STATUS', 'GIS_ACRE')} | {'pt': util.get('_pt', 0)}) if util else None,
-            comps=cp, xp=xp, lc=lce or None, dom=dom, desc=x.get('desc'),
+            comps=cp, xp=xp, lc=lce or None, zw=zw, ns=nsal, arvSrc=arv_src, dom=dom, desc=x.get('desc'),
             plat=('Presencial' if x.get('inperson') else 'PropertyOnion' if it.get('po_only') else x.get('platform')),
             ip=x.get('inperson'), addrSrc=x.get('addr_src'), addr0=x.get('addr0'), scan=x.get('scan'), cver=x.get('cver'),
             pmax=x.get('pmax') if x.get('pmax') not in (None, 'Hidden') else None,
@@ -1044,7 +1065,7 @@ def build_items(args):
                     lce['used'] = False; lce['why'] = 'conflito de tipo: comps de lote não usados'
         if lce: lce.pop('cp0', None); lce.pop('vsrc0', None)
         # ---- land supply (oversupplied subdivisions sell slowly and under closed-sale medians)
-        if land and lce and not rec.get('tconf') and rec.get('val') and (cs, nal.npid(x.get('parcel') or '')) not in manual:
+        if land and lce and not rec.get('tconf') and rec.get('val') and (cs, nal.npid(x.get('parcel') or '')) not in manual_v:
             sub_nm = ((lce.get('ctx') or {}).get('sub') or '').upper()
             msub = msubs.get((cs, sub_nm))
             rpid = (nf or {}).get('pid')
@@ -1081,7 +1102,7 @@ def build_items(args):
                 rec['bld'] = dict(n=n_, where=where, sub=bsub, zip=bzip, zk=bx.get('zk'))
                 rec['fl'] = list(rec.get('fl') or []) + ['bldA']
                 sup = rec.get('sup')
-                if (cs, nal.npid(x.get('parcel') or '')) not in manual:
+                if (cs, nal.npid(x.get('parcel') or '')) not in manual_v:
                     if sup and sup.get('disc'):        # builders absorb lots: soften the oversupply discount and holding
                         sup['discB'] = min(1.0, sup['disc'] + 0.10); sup['monthsB'] = max(3, sup['months'] - 3, sup.get('domFloor') or 0)
                         nv = round(sup['base'] * sup['discB'])

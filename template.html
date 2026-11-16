@@ -1006,7 +1006,9 @@ function scTip(r){ if(r.sc==null) return r.scKind||''; const sp=r.sp||{}; const 
 // nunca fica FLIP/CONSIDERAR; vira CONFERIR TÍTULO até titleOk: true em data/valuations_manual.json (Fernando/Claude)
 const TLOCK_FL=['jr','mtg','surv','code'];
 function titleLock(r){ if(isLand(r)||r.tok) return null; const f=TLOCK_FL.filter(k=>r.fl.includes(k)).map(k=>FL[k]?FL[k].l:k); if(r.hoaPl) f.push('autor é associação (HOA)'); return f.length?f:null; }
-function verdict(r){ const V=verdict0(r); if(V.vd==='FLIP'||V.vd==='CONSIDERAR'){ const tl=titleLock(r); if(tl) return {vd:'TITULO', why:'trava de título ('+tl.join(', ')+'): o veredito seria '+VDL[V.vd]+' – '+V.why+'. Conferir título/registro e marcar titleOk no valuations_manual.json', sub:'seria '+VDL[V.vd], was:V.vd}; } return V; }
+function verdict(r){ let V=verdict0(r);
+ if(V.vd==='FLIP' && r.arvSrc==='fraca') V={vd:'CONSIDERAR', why:'estimativa fraca (sem Zillow e sem 3 vendas vizinhas de 12 meses): o ROI daria FLIP – '+V.why, sub:'estimativa fraca – nunca FLIP', weak:'FLIP'};   // PROPOSTA 7
+ if(V.vd==='FLIP'||V.vd==='CONSIDERAR'){ const tl=titleLock(r); if(tl) return {vd:'TITULO', why:'trava de título ('+tl.join(', ')+'): o veredito seria '+VDL[V.vd]+' – '+V.why+'. Conferir título/registro e marcar titleOk no valuations_manual.json', sub:'seria '+VDL[V.vd], was:V.vd}; } return V; }
 function verdict0(r){
  if(r.man && r.man.pass) return {vd:'PASSAR', why:'avaliação manual: passar ('+(r.man.notes||'')+')', man:1};
  if(r.geo&&r.geo.poly!==false){ const wm=PR.wetMax??10, fm=PR.floodMat??10;
@@ -1505,8 +1507,24 @@ function depBadge(r){ const u=(r.links&&(r.links.auc||r.links.list))||''; if(!r.
  const txt = da>=0 ? '💵 Depósito: ACH até '+fdm(ach)+(da===0?' (hoje)':' ('+da+'d)') : '💵 ACH passou · wire até '+fdm(wire);
  return '<span class="bdg '+(da<=2?'red':'amb')+'" title="Estimativa: na RealAuction o depósito por ACH precisa chegar alguns dias úteis antes do leilão (Indian River 4, Hillsborough 7; demais condados calculados com 7, cauteloso); depois disso só wire ou cheque administrativo (em geral até o dia útil anterior). Cada condado tem a sua regra — confirmar no site do leilão/clerk.">'+txt+'</span>'; }
 function utilBadge(r){ const U=r.util; if(!U) return ''; const w=/Sewer/.test(U.WW)?'esgoto':/Septic/.test(U.WW)?'Septic':''; const d=/Public/.test(U.DW)?'água pública':/Well/.test(U.DW)?'Well':''; const t=[d,w].filter(Boolean).join(' + '); return t?'<span class="bdg '+(/Sewer/.test(U.WW)&&/Public/.test(U.DW)?'grn':'amb')+'" title="FDOH FLWMI: água '+esc(U.DW)+', esgoto '+esc(U.WW)+(U.pt?' (pela coordenada)':' (pela parcela)')+'">💧 '+t+'</span>':''; }
+// PROPOSTA 7 (16/11): valor de venda com 3 números – Zillow (manual) · vendas fechadas vizinhas (12 meses, ±20% pé²) · condado (só conferir)
+const cty85 = r=> r.jv ? r.jv/0.85 : null;          // just value ≈ 15% abaixo do mercado (F.S. 193.011(8)) – comparação, não ARV
+function valMis(r){ if(isLand(r)) return null; const z=r.zw&&r.zw.v, s=r.ns&&r.ns.n>=3?r.ns.med:null, c=cty85(r); const P=[];
+ if(z&&s) P.push(['Zillow',z,'vendas',s]); if(z&&c) P.push(['Zillow',z,'condado÷0,85',c]); if(!z&&s&&c) P.push(['vendas',s,'condado÷0,85',c]);
+ const bad=P.filter(p=>Math.max(p[1],p[3])/Math.min(p[1],p[3])-1>0.15); return bad.length?bad.map(p=>p[0]+' '+money(p[1])+' × '+p[2]+' '+money(p[3])+' ('+nf((Math.max(p[1],p[3])/Math.min(p[1],p[3])-1)*100)+'%)').join(' · '):null; }
+const ARVL={zillow:'ARV = Zillow',vendas:'ARV = mediana das vendas vizinhas',fraca:'estimativa fraca',manual:'avaliação manual'};
+function val3Html(r){ if(isLand(r)) return ''; const z=r.zw, n=r.ns, mis=valMis(r);
+ const cell=(t,v,sub)=>'<div><span>'+t+'</span><b>'+v+'</b><span class="mini">'+sub+'</span></div>';
+ let h='<div class="survbox" id="val3" style="border-color:#3b82f6"><b>Valor de venda – 3 números</b> <span class="mini">('+esc(ARVL[r.arvSrc]||'ARV automático')+(r.val?': '+money(r.val):'')+')</span>'+(mis?' <span class="bdg amb" title="'+esc(mis)+'">⚠ valores não batem</span>':'')+(r.arvSrc==='fraca'?' <span class="bdg amb" title="Sem Zillow e sem 3 vendas vizinhas de 12 meses: valor por estimativa (AVM/POV PropertyOnion, comps ampliados ou condado). Nunca FLIP.">estimativa fraca</span>':'')+
+  '<div class="decbar" style="margin-top:6px;grid-template-columns:repeat(3,1fr)">'+cell('Zillow (Zestimate)', z?money(z.v):'—', z?('em '+esc(z.d||'?')+' · manual'):'preencher "zillow" no valuations_manual.json')+
+  cell('Vendas vizinhas', n&&n.n?money(n.med):'—', n&&n.n?(n.n+' vendas · '+esc(n.txt)+' · desde '+esc(n.win)+(n.n<3?' · poucas (<3)':'')):'nenhuma venda de 12 meses (±20% pé²)')+
+  cell('Condado (só conferir)', r.jv?money(r.jv):'—', r.jv?('just value · ÷0,85 = '+money(cty85(r))):'')+'</div>';
+ if(n&&n.l&&n.l.length) h+='<table class="mini" style="width:100%;margin-top:6px"><tr><th style="text-align:left">Endereço</th><th>Data</th><th>Preço</th><th>pé²</th><th>dist.</th></tr>'+n.l.map(c=>'<tr><td>'+esc(c[0])+'</td><td>'+esc(c[1])+'</td><td>'+money(c[2])+'</td><td>'+nf(c[3])+'</td><td>'+(c[4]==null?'—':nf(c[4],1)+' mi')+'</td></tr>').join('')+'</table><span class="mini">Vendas qualificadas do cadastro estadual (DOR NAL) – janela de 12 meses até o fim do rol de vendas; pé² do imóvel '+(n.size?nf(n.size):'—')+' ±20%.</span>';
+ return h+'</div>'; }
 function badges(r){
  const b=[lcBadge(r)];
+ if(valMis(r)) b.push('<span class="bdg amb" title="'+esc(valMis(r))+'">⚠ valores não batem</span>');
+ if(r.arvSrc==='fraca') b.push('<span class="bdg amb" title="Sem Zillow e sem 3 vendas vizinhas de 12 meses – nunca FLIP">estimativa fraca</span>');
  if(!/^\s*\d/.test(r.addr0||r.addr||'')) b.push('<span class="bdg red" title="O anúncio não tem número de casa: o endereço exibido é a rua (e a descrição legal quando houver). Confira pelo nº do processo e pela parcela, nunca por um número de casa vizinho.">Endereço aproximado — dar lance pelo nº do processo</span>');
  if(r.suspect) b.push('<span class="bdg amb" title="'+esc(r.sanityWhy||'')+'">Valor suspeito</span>');
  const LB={nocomps:['Sem comps','Menos de 3 vendas comparáveis de terreno. Nota limitada a 55.'],big:['Gleba grande','Mais de 5 acres — não é lote residencial de flip. Nota limitada a 55.'],use:['Uso comercial/agrícola','Código de uso não é terreno vago residencial (000). Nota limitada a 55.']};
@@ -2129,7 +2147,7 @@ function openDrawer(id){
   '<div><span title="'+CASH_TIP+'">Cash to Close (Realistic Bid)</span><b>'+money(r.cash)+'</b><span class="mini">lance '+money(r.xbid)+' · depósito '+money(r.xbid!=null?r.xbid*PR.dep/100:null)+'</span></div>'+
   '<div><span>Orlando</span><b>'+distLbl(r)+'</b></div>'+
   '<div><span title="ROI no lance que a gente assume que ganha o leilão">ROI realista</span><b class="'+(r.roi>=PR.flip/100?'c-green':r.roi>=PR.ret/100?'c-amber':'c-red')+'">'+pct(r.roi)+'</b><span class="mini">'+money(r.net)+(r.roi0!=null&&Math.abs((r.xbid||0)-(r.ref||0))>1?' · inicial '+pct(r.roi0):'')+'</span></div></div>'+
-  galHtml(r)+
+  galHtml(r)+val3Html(r)+
   '<div class="dlinks"><a class="btn gold" id="dzil" href="'+esc(zillowUrl(r))+'" target="_blank" rel="noopener">🏠 Zillow</a><a class="btn gold" id="drea" href="'+esc(redfinUrl(r))+'" target="_blank" rel="noopener">🏠 Redfin</a><a class="btn" href="'+esc(gmapsUrl(r))+'" target="_blank" rel="noopener">📍 Google Maps</a><a class="btn" href="'+esc(svUrl(r))+'" target="_blank" rel="noopener">🚶 Street View</a>'+(L.pa?'<a class="btn" href="'+esc(L.pa)+'" target="_blank" rel="noopener">🏛 Property Appraiser</a>':'')+(L.auc||L.list?'<a class="btn" href="'+esc(L.auc||L.list)+'" target="_blank" rel="noopener">⚖ Clerk / Leilão</a>':'')+(L.po?'<a class="btn" href="'+esc(L.po)+'" target="_blank" rel="noopener">PropertyOnion</a>':'')+'<button class="btn gold" id="dshare" title="Link que abre o site direto neste imóvel (depois da senha), ignorando filtros">🔗 Copiar link do imóvel</button><button class="btn '+(CAND[r.id]?'':'gold')+'" id="dcand">'+(CAND[r.id]?'✓ Candidato':'＋ Candidato')+'</button></div>'+
   (r.tconf?'<div class="survbox" id="tconfbox"><b>⚠ Lote? pode ter construção — verificar</b> As fontes não concordam sobre o tipo:<ul class="lcx">'+r.tconf.map(t=>'<li>'+esc(t)+'</li>').join('')+'</ul><span class="mini">O painel mantém o tipo do DOR, mas não usa comps de lote como ARV. Confira fotos, Street View e o Property Appraiser.</span></div>':'')+
   ((r.fl.includes('surv')||r.survAmt)?('<div class="survbox" id="survbox"><b>⚠ Hipoteca pode sobreviver</b>'+(r.survAmt?' – est. <b>'+money(r.survAmt)+'</b>':'')+'. '+esc(r.survWhy||FL.surv.d)+' <span class="mini">ESTIMATIVA – confirmar com title search. Toggle no P&L para deduzir/omitir.</span></div>'):'')+
