@@ -1638,9 +1638,21 @@ function bankCell(r){ const c=bidChk(r);
  if(r.t!=='FC') return r.ref?'<b>'+money(r.ref)+'</b><div class="mini c-mut">valor publicado</div>':'<span class="c-mut">—</span>';
  if(r.pmax&&+r.pmax>0) return '<b>'+money(+r.pmax)+'</b>'+c.ar+'<div class="mini">lance máx. do banco publicado</div>'+c.txt;
  if(r.ref){ const k=fjCap(r);
-  return '<b>oculto · até '+money(k.v)+'</b>'+c.ar+'<div class="mini" title="Julgamento oficial '+money(r.ref)+' + juros de '+(k.from?dmy(k.from)+' (data do julgamento aprox.: 1ª data de leilão − 30 dias)':'?')+' até o leilão, taxa da Flórida s. 55.03 por trimestre">julgamento '+money(r.ref)+' + juros '+money(k.i)+'</div><div class="mini c-amber">'+esc(plLine(r))+'</div>'+c.txt; }
+  return '<span class="bdg amb" title="O lance máximo do banco é oculto: pode ficar sem disputa no lance de abertura (~US$ 100) ou ir até o julgamento + juros">lance oculto — conferir no dia</span><div><b>oculto · até '+money(k.v)+'</b>'+c.ar+'</div><div class="mini">faixa: ~'+money(100)+' (sem disputa) → '+money(k.v)+'</div>'+'<div class="mini" title="Julgamento oficial '+money(r.ref)+' + juros de '+(k.from?dmy(k.from)+' (data do julgamento aprox.: 1ª data de leilão − 30 dias)':'?')+' até o leilão, taxa da Flórida s. 55.03 por trimestre">julgamento '+money(r.ref)+' + juros '+money(k.i)+'</div><div class="mini c-amber">'+esc(plLine(r))+'</div>'+c.txt; }
  if(r.fjPO) return '<span class="c-mut" title="PropertyOnion: POV − Auction Equity. Não é número oficial; só piora a avaliação, nunca melhora">julgamento estimado (PropertyOnion) '+money(r.fjPO)+'</span><div class="mini c-amber">'+esc(plLine(r))+'</div>';
  return '<span class="c-mut">sem julgamento publicado</span><div class="mini c-amber">'+esc(plLine(r))+'</div>'; }
+// PROPOSTA 6 (versão SUBSTITUTA, Fernando t319u – substitui a faixa fixa sobre o valor do condado de 14/11): histórico do autor na ficha
+function plHtml(r){ if(r.t!=='FC') return ''; const h=plHist(r), nm=r.pk||'autor não identificado'; const p=v=>v==null?'—':Math.round(v*100)+'%';
+ let x='<div class="survbox" id="plh" style="border-color:#a78bfa"><b>Lance oculto — conferir no dia</b> <span class="mini">('+esc(nm)+')</span>';
+ const k=fjCap(r);
+ x+='<p class="mini">Pontas: <b>~'+money(100)+'</b> (banco fica sem disputa no lance de abertura) até <b>'+(k?money(k.v)+'</b> (julgamento '+money(r.ref)+' + juros)':(r.fjPO?money(r.fjPO)+'</b> <span class="c-mut">(julgamento estimado PropertyOnion – não oficial)</span>':'?</b> (sem julgamento publicado)'))+'. Lance máximo abaixo do julgamento <b>não</b> descarta a casa: o banco pode soltar por menos.</p>';
+ if(!h||!h.n) return x+'<p class="mini c-amber">Sem histórico deste autor nos resultados do RealAuction.</p></div>';
+ x+='<div class="tblwrap"><table class="itbl"><thead><tr><th>Resultado nos leilões passados</th><th class="n">vezes</th><th class="n">preço ÷ julgamento</th><th class="n">preço ÷ valor do condado</th><th>leitura</th></tr></thead><tbody>'+
+  '<tr><td>banco ficou (acima do lance de abertura)</td><td class="n">'+h.kept+'</td><td class="n">'+p(h.keptJ)+'</td><td class="n">'+p(h.keptA)+'</td><td class="mini">máximo oculto ≥ esse preço</td></tr>'+
+  '<tr><td>soltou para terceiro</td><td class="n">'+h.released+'</td><td class="n">'+p(h.relJ)+'</td><td class="n">'+p(h.relA)+'</td><td class="mini">máximo oculto &lt; esse preço</td></tr>'+
+  '<tr><td>ficou no lance de abertura (sem disputa)</td><td class="n">'+h.nocontest+'</td><td class="n">—</td><td class="n">—</td><td class="mini">ninguém disputou</td></tr></tbody></table></div>'+
+  '<p class="mini">Medianas de '+h.n+' leilões com este autor ('+Object.entries(h.cos||{}).sort((a,b)=>b[1]-a[1]).slice(0,4).map(e=>e[0]+' '+e[1]).join(', ')+'). Autor ligado ao resultado pelo nº do processo (PropertyOnion), conferido pelo valor do julgamento.</p></div>';
+ return x; }
 function titleCell(r){ const tl=titleLock(r); if(tl) return '<b class="c-red" title="'+esc(tl.join(', '))+'">armadilha</b><div class="mini">'+esc(tl.slice(0,2).join(', '))+'</div>';
  if(r.tok) return '<b class="c-green">conferido</b>'+(r.man&&r.man.titleDate?'<div class="mini">'+esc(r.man.titleDate)+'</div>':''); return '<span class="c-amber">conferir</span>'; }
 const DCOLS=[
@@ -2208,7 +2220,7 @@ function openDrawer(id){
   '<div><span title="'+CASH_TIP+'">Cash to Close (Realistic Bid)</span><b>'+money(r.cash)+'</b><span class="mini">lance '+money(r.xbid)+' · depósito '+money(r.xbid!=null?r.xbid*PR.dep/100:null)+'</span></div>'+
   '<div><span>Orlando</span><b>'+distLbl(r)+'</b></div>'+
   '<div><span title="ROI no lance que a gente assume que ganha o leilão">ROI realista</span><b class="'+(r.roi>=PR.flip/100?'c-green':r.roi>=PR.ret/100?'c-amber':'c-red')+'">'+pct(r.roi)+'</b><span class="mini">'+money(r.net)+(r.roi0!=null&&Math.abs((r.xbid||0)-(r.ref||0))>1?' · inicial '+pct(r.roi0):'')+'</span></div></div>'+
-  galHtml(r)+val3Html(r)+
+  galHtml(r)+val3Html(r)+plHtml(r)+
   '<div class="dlinks"><a class="btn gold" id="dzil" href="'+esc(zillowUrl(r))+'" target="_blank" rel="noopener">🏠 Zillow</a><a class="btn gold" id="drea" href="'+esc(redfinUrl(r))+'" target="_blank" rel="noopener">🏠 Redfin</a><a class="btn" href="'+esc(gmapsUrl(r))+'" target="_blank" rel="noopener">📍 Google Maps</a><a class="btn" href="'+esc(svUrl(r))+'" target="_blank" rel="noopener">🚶 Street View</a>'+(L.pa?'<a class="btn" href="'+esc(L.pa)+'" target="_blank" rel="noopener">🏛 Property Appraiser</a>':'')+(L.auc||L.list?'<a class="btn" href="'+esc(L.auc||L.list)+'" target="_blank" rel="noopener">⚖ Clerk / Leilão</a>':'')+(L.po?'<a class="btn" href="'+esc(L.po)+'" target="_blank" rel="noopener">PropertyOnion</a>':'')+'<button class="btn gold" id="dshare" title="Link que abre o site direto neste imóvel (depois da senha), ignorando filtros">🔗 Copiar link do imóvel</button><button class="btn '+(CAND[r.id]?'':'gold')+'" id="dcand">'+(CAND[r.id]?'✓ Candidato':'＋ Candidato')+'</button></div>'+
   (r.tconf?'<div class="survbox" id="tconfbox"><b>⚠ Lote? pode ter construção — verificar</b> As fontes não concordam sobre o tipo:<ul class="lcx">'+r.tconf.map(t=>'<li>'+esc(t)+'</li>').join('')+'</ul><span class="mini">O painel mantém o tipo do DOR, mas não usa comps de lote como ARV. Confira fotos, Street View e o Property Appraiser.</span></div>':'')+
   ((r.fl.includes('surv')||r.survAmt)?('<div class="survbox" id="survbox"><b>⚠ Hipoteca pode sobreviver</b>'+(r.survAmt?' – est. <b>'+money(r.survAmt)+'</b>':'')+'. '+esc(r.survWhy||FL.surv.d)+' <span class="mini">ESTIMATIVA – confirmar com title search. Toggle no P&L para deduzir/omitir.</span></div>'):'')+
@@ -2474,7 +2486,7 @@ if(DL && DL.explicit){ S.cat=''; S.kat=''; }
 if(DL && DL.r){ if(DL.explicit) apply(true); openDrawer(DL.r.id); }
 else if(DL && DL.explicit) setTimeout(()=>toast('Imóvel “'+DL.asked+'” não encontrado (leilão já passou ou foi removido)'),300);
 termify(document.body);
-window.__dash={apply, ITEMS, M, bankCell, fjCap, plLine, jInt, titleCell, renderDec, salaPrice, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, redfinUrl, redfinFind, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
+window.__dash={apply, ITEMS, M, plHtml, bankCell, fjCap, plLine, jInt, titleCell, renderDec, salaPrice, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, redfinUrl, redfinFind, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
 })();
 </script>
 </body>

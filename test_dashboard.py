@@ -531,6 +531,14 @@ with sync_playwright() as p:
       const small=I.filter(r=>!/Lote|Terreno/.test(r.ty)&&r.sqft&&r.sqft<=PR.rhbBig&&r.repHi).length;
       const m=I.find(r=>/7925 Lake Mabel/i.test(r.addr)); return {n:B.length, bad, flipBad, small, mabel:m?[m.rep,m.repHi,m.vd]:null, opt:!!PR.rhbBig};})()""")
     check(ob['n'] > 20 and not ob['bad'] and ob['flipBad'] == 0 and ob['small'] == 0 and ob['opt'] and (ob['mabel'] is None or (ob['mabel'][1] == 307965 and ob['mabel'][0] < 307965)), f'obra em faixa (casa grande, padrão médio/luxo pendente; veredito usa o piso) {ob}')
+    # PROPOSTA 6 – versão SUBSTITUTA (Fernando t319u, substitui a faixa 57–94% de 14/11): lance oculto com as 2 pontas + histórico do autor na ficha
+    p6 = pg.evaluate("""(()=>{const d=window.__dash, I=d.ITEMS; const H=I.filter(r=>r.t==='FC'&&r.ref&&!r.pmax);
+      const both=H.every(r=>{const c=d.bankCell(r); return /lance oculto — conferir no dia/.test(c)&&/faixa: ~US\$ 100 \(sem disputa\)/.test(c);});
+      const w=H.find(r=>r.pk&&d.M.plh&&d.M.plh[r.pk]&&d.M.plh[r.pk].released>0); let t='';
+      if(w){ d.openDrawer(w.id); t=(document.querySelector('#plh')||{}).textContent||''; d.closeDrawer(); }
+      const below=I.filter(r=>r.t==='FC'&&r.ref!=null&&r.mb>0&&r.ref>r.mb+1&&r.vd==='PASSAR'&&!(r.geo&&r.geo.poly!==false&&((r.geo.wetPct||0)>=10||(r.geo.sfhaPct||0)>=10))).length;
+      return {n:H.length, both, drawer:/banco ficou/.test(t)&&/soltou para terceiro/.test(t)&&/preço ÷ julgamento/.test(t)&&/preço ÷ valor do condado/.test(t)&&/não<\/b> descarta|não descarta/.test(t.replace(/\s+/g,' ')), below, band:/57\\s*[–-]\\s*94\\s*%/.test(document.body.innerText+t)};})()""")
+    check(p6['n'] > 50 and p6['both'] and p6['drawer'] and p6['below'] == 0 and not p6['band'], f'lance oculto: 2 pontas + selo "conferir no dia" + histórico do autor (ficou/soltou, % julgamento e % condado); máx. < julgamento não descarta {p6}')
     cf = pg.evaluate("(()=>{const I=window.__dash.ITEMS; const W=I.find(r=>r.id==='TDpox0e3f3dd972d1'), R=I.find(r=>r.id==='FC1528998'); const H=I.filter(r=>['Casa','Townhouse','Mobile','Multifamily'].includes(r.ty)); return {semImg:H.filter(r=>!(r.imgs&&r.imgs.length)&&r.lat==null).length, nH:H.length, W:W?[W.lat,W.lon]:null, R:R?[R.lat,R.lon]:null};})()")
     near = lambda p, q: p and abs(p[0]-q[0]) < 0.0004 and abs(p[1]-q[1]) < 0.0004
     check(cf['semImg'] <= 0.01 * cf['nH'] and (cf['W'] is None or near(cf['W'], (28.825107, -81.580303))) and (cf['R'] is None or near(cf['R'], (26.648677, -81.593795))),
