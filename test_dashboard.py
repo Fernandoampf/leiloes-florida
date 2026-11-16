@@ -33,6 +33,20 @@ with sync_playwright() as p:
     check(sum(1 for x in top if x in ('Casa','Townhouse','Condo')) >= 20, f'topo da lista é residencial ({top[:8]})')
     check(pg.evaluate(D + '.PR.ret') == 17 and pg.evaluate(D + '.PR.flip') == 25, 'retorno mínimo padrão = 17%, FLIP ≥ 25%')
     check('Orçamento' not in pg.inner_text('body') and 'teto orç' not in pg.inner_text('body'), 'sem orçamento de US$ 150 mil na página')
+    # PROPOSTA 9 (16/11): visão padrão = Decisão, 8 colunas; a Lista antiga fica no botão/aba
+    dv = pg.evaluate(r"""(()=>{const d=window.__dash; const th=[...document.querySelectorAll('#dtbl thead th')].map(t=>t.textContent); const I=d.ITEMS;
+      const fc=I.filter(r=>r.t==='FC'&&r.ref&&!r.pmax), td=I.find(r=>r.t==='TD'&&r.ref), np=I.find(r=>r.t==='FC'&&!r.ref&&r.fjPO);
+      const h=fc.map(r=>[r,d.bankCell(r)]); const hid=h.filter(([r,c])=>/oculto · até/.test(c));
+      const capOk=fc.every(r=>{const k=d.fjCap(r); return k.v>=r.ref && (k.v<=r.ref*1.6 || (r.fjd||'')<'2022') && Math.abs(k.v-r.ref-d.jInt(r.ref,r.fjd,r.date))<1;});
+      const plOk=hid.every(([r,c])=>/sem histórico deste autor|costuma (soltar|ficar até) ~\d+% do julgamento — \d+ leil/.test(c));
+      const npc=np?d.bankCell(np):''; const poWorse=I.filter(r=>r.t==='FC'&&r.ref==null&&r.fjPO&&r.mb>0&&r.fjPO>r.mb+1).every(r=>r.vd!=='FLIP'&&r.vd!=='CONSIDERAR');
+      const tdc=td?d.bankCell(td):''; const ar=I.filter(r=>r.bh&&r.bh.length>=2).length;
+      return {view:d.view, th, rows:document.querySelectorAll('#dtbl tbody tr').length, nfc:fc.length, hid:hid.length, capOk, plOk, withHist:hid.filter(([r,c])=>/costuma/.test(c)).length,
+        np:!!np, npGrey:/julgamento estimado \(PropertyOnion\)/.test(npc)&&/c-mut/.test(npc), poWorse, td:/conferido \d\d\/\d\d/.test(tdc), arrows:ar,
+        btn:!!document.querySelector('#bfull'), single:fc.every(r=>!/^<b>US\$/.test(d.bankCell(r)))};})()""")
+    check(dv['view'] == 'dec' and len(dv['th']) == 8 and dv['th'][2] == 'Banco vai até' and dv['rows'] > 0 and dv['btn'] and dv['hid'] > 50 and dv['capOk'] and dv['plOk'] and dv['withHist'] > 10 and dv['poWorse'] and dv['td'] and dv['single'] and (dv['npGrey'] or not dv['np']),
+          f'visão Decisão padrão (8 colunas, banco vai até: público+conferência / oculto até julgamento+juros + histórico do autor / julgamento estimado PO em cinza) {dv}')
+    pg.click('#tabs [data-v="table"]'); pg.wait_for_timeout(300)
     check(pg.locator('#tbl tbody tr').count() > 0, 'tabela renderizada')
     heads = pg.evaluate("document.querySelector('#tbl thead').textContent")
     for h in ('Condado', 'ARV', 'POV', 'Final Judgment', 'Opening Bid', 'Max Bid', 'NET', 'ROI', 'Verdict', 'Nota', 'Cat.', 'Plaintiff'):
@@ -63,7 +77,7 @@ with sync_playwright() as p:
         if(r.vd==='FLIP'||r.vd==='CONSIDERAR') return !(room && !over && !(r.xbid>r.mb+1) && (r.vd==='FLIP'?r.roi>=0.25&&r.arvSrc!=='fraca':(r.roi<0.25||r.arvSrc==='fraca')));
         if(r.vd==='TITULO') return !(room && !over && !(r.xbid>r.mb+1) && (r.vdWas==='FLIP'?r.roi>=0.25:(r.roi<0.25||r.arvSrc==='fraca')));   // PROPOSTA 8: mesma regra, travado por título
         if(r.vd==='PASSAR') return !( !room || (r.t!=='FC' && over) || /^lote barato/.test(r.vdWhy||'') );
-        if(r.vd==='DISPUTADO') return !( room && ((r.t==='FC' && over) || r.xbid>r.mb+1 || (r.sala&&r.sala.comps3&&r.sala.v>r.mb+1)) );
+        if(r.vd==='DISPUTADO') return !( room && ((r.t==='FC' && over) || (r.t==='FC' && r.ref==null && r.fjPO>r.mb+1) || r.xbid>r.mb+1 || (r.sala&&r.sala.comps3&&r.sala.v>r.mb+1)) );
         return true; }).map(r=>r.addr+' '+r.vd).slice(0,5)''')
     check(not bad, f'veredito por espaço de lance: SEM ESPAÇO / DISPUTADO / FLIP ≥ 25% / CONSIDERAR {bad}')
     check(pg.evaluate(D + '.ITEMS.filter(r=>r.t==="FC"&&r.vd==="PASSAR"&&r.mb>0&&r.ref>r.mb+1&&!(r.geo&&r.geo.poly!==false&&((r.geo.wetPct||0)>=10||(r.geo.sfhaPct||0)>=10))).length') == 0, 'foreclosure com julgamento acima do lance máx. é DISPUTADO, não SEM ESPAÇO')

@@ -166,6 +166,7 @@ def normalize_row(row, file_county=None):
         date_ra=f"{iso[5:7]}/{iso[8:10]}/{iso[:4]}",
         pov=money(row.get('POV')),
         pov_conf=money(row.get('Confidence Rating')),
+        equity=money(row.get('Auction Equity')),   # 16/11: POV − equity = julgamento implícito do PO (só para piorar a avaliação)
         pov_rent=rent,
         cmv=money(row.get('County Market Value')),
         clv=money(row.get('County Land Value')),
@@ -287,6 +288,7 @@ def apply_fields(it, row, how):
     it['poe'] = dict(
         how=how,
         pov=row['pov'], pov_conf=row['pov_conf'], pov_rent=row['pov_rent'],
+        equity=row.get('equity'),
         cmv=row['cmv'], clv=row['clv'],
         liens_n=row['liens_n'], liens_amt=row['liens_amt'],
         owner_occ=row['owner_occ'], vacant=row['vacant'],

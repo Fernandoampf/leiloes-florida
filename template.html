@@ -90,6 +90,7 @@ table.tbl{border-collapse:collapse;width:100%;font-size:12px}
 .tbl td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
 .tbl tr:hover td{background:#525c6e!important;cursor:pointer}
 .tbl td.addr{white-space:normal;min-width:330px}
+.dtbl td{vertical-align:top}.dtbl td.wrap{white-space:normal;min-width:190px;max-width:280px}.dcasa{display:flex;gap:8px;align-items:flex-start}.dcasa img{width:74px;height:56px;object-fit:cover;border-radius:6px;flex:none}.dcasa .btn.sm{padding:1px 6px;font-size:11px;margin-top:3px}
 .tbl .num{text-align:right;font-variant-numeric:tabular-nums}
 .pr{display:flex;gap:9px;align-items:flex-start}
 .th{width:74px;height:56px;border-radius:6px;object-fit:cover;flex:none;background:#2d333e}
@@ -432,7 +433,7 @@ select option{background:#2a303b;color:#eef1f5}
  <section class="kpis" id="kpis"></section>
  <section class="sumline" id="sumline"></section>
  <div id="fnotice" class="fnotice" style="display:none"></div>
- <div class="viewbar"><div class="tabs" id="tabs"><button data-v="table" title="Tabela">📋 Lista</button><button data-v="cards" title="Cartões">🗂 Cards</button><button data-v="cand" title="Checklist pré-lance salvo neste aparelho">🎯 Meus candidatos</button><button data-v="fav" title="Estrelas salvas neste aparelho">⭐ Favoritos</button><button data-v="map" title="Mapa">🗺 Mapa</button><button data-v="intel" title="Por condado">📊 Inteligência</button><button data-v="res" title="Leilões passados">📈 Resultados</button><button data-v="bld" title="Onde as construtoras estão comprando lotes">🏗 Builders</button><button data-v="pac" title="Vários lotes da mesma área no mesmo leilão: comprar juntos e vender em pacote para construtora">📦 Pacotes</button><button data-v="cal" title="Calendário">📅 Calendário</button><button data-v="day" title="Lista do dia">🖨 Dia do leilão</button></div><button class="btn sm" id="bgloss" type="button" title="Siglas: POV, ARV, J>MAX, FJ, OB, BRRRR, xroi…">Glossário</button><span class="cnt" id="cnt"></span></div>
+ <div class="viewbar"><div class="tabs" id="tabs"><button data-v="dec" title="Decisão: 8 colunas (padrão)">⚖ Decisão</button><button data-v="table" title="Visão completa (todas as colunas)">📋 Lista</button><button data-v="cards" title="Cartões">🗂 Cards</button><button data-v="cand" title="Checklist pré-lance salvo neste aparelho">🎯 Meus candidatos</button><button data-v="fav" title="Estrelas salvas neste aparelho">⭐ Favoritos</button><button data-v="map" title="Mapa">🗺 Mapa</button><button data-v="intel" title="Por condado">📊 Inteligência</button><button data-v="res" title="Leilões passados">📈 Resultados</button><button data-v="bld" title="Onde as construtoras estão comprando lotes">🏗 Builders</button><button data-v="pac" title="Vários lotes da mesma área no mesmo leilão: comprar juntos e vender em pacote para construtora">📦 Pacotes</button><button data-v="cal" title="Calendário">📅 Calendário</button><button data-v="day" title="Lista do dia">🖨 Dia do leilão</button></div><button class="btn sm" id="bgloss" type="button" title="Siglas: POV, ARV, J>MAX, FJ, OB, BRRRR, xroi…">Glossário</button><span class="cnt" id="cnt"></span></div>
  <section class="panel" id="datesbar">
   <div class="chips" id="dchips">
    <span class="lbl">Quando</span>
@@ -499,6 +500,7 @@ select option{background:#2a303b;color:#eef1f5}
   </div>
  </section>
  <div class="goldbar"></div>
+ <div id="v-dec"><div class="panel mini" style="margin-bottom:6px">Visão <b>Decisão</b>: casa · data/hora · banco vai até · Zillow · vendas vizinhas · teto · título · veredito. Clique na linha ou em <b>ver detalhes</b> para a ficha completa. <button class="btn sm" id="bfull" type="button">Visão completa (Lista)</button></div><div class="tblwrap"><table class="tbl dtbl" id="dtbl"></table></div><div class="more"><button class="btn" id="dmore">Mostrar mais</button></div></div>
  <div id="v-table"><div class="tblwrap"><table class="tbl" id="tbl"></table></div><div class="more"><button class="btn" id="tmore">Mostrar mais</button></div></div>
  <div id="v-cards" style="display:none"><div class="grid" id="grid"></div><div class="more"><button class="btn" id="cmore">Mostrar mais</button></div></div>
  <div id="v-map" style="display:none"><div id="map"><div class="mapmsg">Carregando mapa… (requer internet)</div></div><p class="mini" id="mapnote"></p></div>
@@ -1008,6 +1010,7 @@ const TLOCK_FL=['jr','mtg','surv','code'];
 function titleLock(r){ if(isLand(r)||r.tok) return null; const f=TLOCK_FL.filter(k=>r.fl.includes(k)).map(k=>FL[k]?FL[k].l:k); if(r.hoaPl) f.push('autor é associação (HOA)'); return f.length?f:null; }
 function verdict(r){ let V=verdict0(r);
  if(V.vd==='FLIP' && r.arvSrc==='fraca') V={vd:'CONSIDERAR', why:'estimativa fraca (sem Zillow e sem 3 vendas vizinhas de 12 meses): o ROI daria FLIP – '+V.why, sub:'estimativa fraca – nunca FLIP', weak:'FLIP'};   // PROPOSTA 7
+ if((V.vd==='FLIP'||V.vd==='CONSIDERAR') && r.t==='FC' && r.ref==null && r.fjPO && r.mb>0 && r.fjPO>r.mb+1) V={vd:'DISPUTADO', why:'julgamento estimado (PropertyOnion: POV − equity) '+money(r.fjPO)+' acima do lance máx. '+money(r.mb)+' – estimativa só piora, nunca melhora; conferir o julgamento oficial', sub:'julg. estimado (PO) acima do máx.', poJ:1};   // PROPOSTA 9
  if(V.vd==='FLIP'||V.vd==='CONSIDERAR'){ const tl=titleLock(r); if(tl) return {vd:'TITULO', why:'trava de título ('+tl.join(', ')+'): o veredito seria '+VDL[V.vd]+' – '+V.why+'. Conferir título/registro e marcar titleOk no valuations_manual.json', sub:'seria '+VDL[V.vd], was:V.vd}; } return V; }
 function verdict0(r){
  if(r.man && r.man.pass) return {vd:'PASSAR', why:'avaliação manual: passar ('+(r.man.notes||'')+')', man:1};
@@ -1607,6 +1610,50 @@ function renderTable(reset){
  tShown+=next.length;
  $('#tmore').style.display=tShown<CUR.length?'inline-flex':'none'; $('#tmore').textContent='Mostrar mais ('+(CUR.length-tShown)+' restantes)';
 }
+// PROPOSTA 9 (aprovada pelo Fernando 16/11) – visão padrão "Decisão": 8 colunas; o resto fica em "ver detalhes" (ficha) e a visão antiga no botão Lista
+function jInt(amt, from, to){ // juros simples de julgamento (s. 55.03 F.S.) pela taxa de cada trimestre, de from até to (ISO)
+ if(!amt||!from||!to||to<=from) return 0; const T=M.jint||[[from,8]]; let tot=0, d=new Date(from+'T12:00:00Z'); const e=new Date(to+'T12:00:00Z');
+ for(let i=0;d<e&&i<4000;i++){ const ds=d.toISOString().slice(0,10); let rt=T[0][1]; for(const q of T){ if(q[0]<=ds) rt=q[1]; } tot+=amt*rt/100/365; d.setUTCDate(d.getUTCDate()+1); }
+ return tot; }
+function fjCap(r){ if(r.t!=='FC'||!r.ref) return null; const to=r.date; const i=jInt(r.ref, r.fjd, to); return {v:r.ref+i, i, from:r.fjd}; }
+function plHist(r){ const h=r.pk&&M.plh?M.plh[r.pk]:null; if(!h) return null; return h; }
+function plLine(r){ const h=plHist(r), nm=r.pk?r.pk.replace(/\b([A-Z])([A-Z]+)/g,(m,a,b)=>a+b.toLowerCase()):'autor';
+ if(!h||!(h.kept+h.released)) return 'sem histórico deste autor';
+ const parts=[]; if(h.relJ!=null) parts.push('costuma soltar ~'+Math.round(h.relJ*100)+'% do julgamento'); else if(h.keptJ!=null) parts.push('costuma ficar até ~'+Math.round(h.keptJ*100)+'% do julgamento');
+ return nm+' '+(parts[0]||'')+' — '+h.n+' leilão'+(h.n>1?'es':'')+' ('+h.kept+' ficou · '+h.released+' soltou'+(h.nocontest?' · '+h.nocontest+' sem disputa':'')+')'; }
+const dmy=s=>s?s.slice(8,10)+'/'+s.slice(5,7):'—';
+function bidChk(r){ const last=r.bhl||r.scan; const h=r.bh||[]; let ar='';
+ if(h.length>=2){ const a=h[h.length-2][1], b=h[h.length-1][1]; if(b>a+0.5) ar=' <b class="c-red" title="subiu desde a conferência anterior ('+money(a)+')">↑</b>'; else if(b<a-0.5) ar=' <b class="c-green" title="caiu desde a conferência anterior ('+money(a)+')">↓</b>'; }
+ const tip='Conferências do valor publicado: '+(h.length?h.map(e=>dmy(e[0])+' '+money(e[1])).join(' → '):'—')+(r.bhn?' ('+r.bhn+' leituras)':'');
+ return {ar, txt:'<span class="mini c-mut" title="'+esc(tip)+'">conferido '+dmy(last)+(h.length>=2?' · hist.':'')+'</span>'}; }
+function bankCell(r){ const c=bidChk(r);
+ if(r.t==='TD') return '<b>'+money(r.ref)+'</b>'+c.ar+'<div class="mini">lance inicial público (tax deed)</div>'+c.txt;
+ if(r.t!=='FC') return r.ref?'<b>'+money(r.ref)+'</b><div class="mini c-mut">valor publicado</div>':'<span class="c-mut">—</span>';
+ if(r.pmax&&+r.pmax>0) return '<b>'+money(+r.pmax)+'</b>'+c.ar+'<div class="mini">lance máx. do banco publicado</div>'+c.txt;
+ if(r.ref){ const k=fjCap(r);
+  return '<b>oculto · até '+money(k.v)+'</b>'+c.ar+'<div class="mini" title="Julgamento oficial '+money(r.ref)+' + juros de '+(k.from?dmy(k.from)+' (data do julgamento aprox.: 1ª data de leilão − 30 dias)':'?')+' até o leilão, taxa da Flórida s. 55.03 por trimestre">julgamento '+money(r.ref)+' + juros '+money(k.i)+'</div><div class="mini c-amber">'+esc(plLine(r))+'</div>'+c.txt; }
+ if(r.fjPO) return '<span class="c-mut" title="PropertyOnion: POV − Auction Equity. Não é número oficial; só piora a avaliação, nunca melhora">julgamento estimado (PropertyOnion) '+money(r.fjPO)+'</span><div class="mini c-amber">'+esc(plLine(r))+'</div>';
+ return '<span class="c-mut">sem julgamento publicado</span><div class="mini c-amber">'+esc(plLine(r))+'</div>'; }
+function titleCell(r){ const tl=titleLock(r); if(tl) return '<b class="c-red" title="'+esc(tl.join(', '))+'">armadilha</b><div class="mini">'+esc(tl.slice(0,2).join(', '))+'</div>';
+ if(r.tok) return '<b class="c-green">conferido</b>'+(r.man&&r.man.titleDate?'<div class="mini">'+esc(r.man.titleDate)+'</div>':''); return '<span class="c-amber">conferir</span>'; }
+const DCOLS=[
+ ['Casa',r=>{ const im=firstImg(r); return '<div class="dcasa">'+(im?'<img loading="lazy" referrerpolicy="no-referrer" src="'+esc(im)+'" alt="">':'<div class="thx">'+(isLand(r)?r.ty:'sem foto')+'</div>')+'<div><b>'+esc(r.addr)+'</b><div class="mini">'+esc(r.co)+' · '+esc(r.ty)+' · '+TYPES[r.t]+'</div><button class="btn sm" type="button" data-id="'+r.id+'">ver detalhes</button> <button class="star'+(FAV.has(r.id)?' on':'')+'" data-star="'+r.id+'">'+(FAV.has(r.id)?'★':'☆')+'</button></div></div>'; },'addr'],
+ ['Data / hora',r=>'<b>'+whenLbl(r.date)+'</b><div class="mini">'+esc(r.time||'')+'</div>'],
+ ['Banco vai até',bankCell,'wrap'],
+ ['Zillow',r=>r.zw&&r.zw.v?'<b>'+money(r.zw.v)+'</b><div class="mini">'+esc(r.zw.d||'')+'</div>':'<span class="c-mut">—</span>'],
+ ['Vendas vizinhas',r=>r.ns&&r.ns.n?'<b>'+money(r.ns.med)+'</b><div class="mini">'+r.ns.n+' venda'+(r.ns.n>1?'s':'')+(r.ns.n<3?' (poucas)':'')+'</div>':'<span class="c-mut">—</span>'],
+ ['Teto',r=>'<b>'+money(r.mb)+'</b><div class="mini">lance máx. '+nf(PR.ret)+'%</div>'],
+ ['Título',titleCell],
+ ['Veredito',r=>vdHtml(r,true)+(valMis(r)?'<div><span class="bdg amb">⚠ valores não batem</span></div>':'')+(r.arvSrc==='fraca'?'<div><span class="bdg">estimativa fraca</span></div>':''),'wrap']];
+let dShown=0;
+function renderDec(reset){
+ if(reset){ dShown=0; $('#dtbl').innerHTML='<thead><tr>'+DCOLS.map(c=>'<th>'+c[0]+'</th>').join('')+'</tr></thead><tbody></tbody>'; }
+ const tb=$('#dtbl tbody');
+ if(!CUR.length){ tb.innerHTML='<tr><td colspan="8" style="text-align:center;padding:30px" class="c-mut">Nenhum imóvel com esses filtros.</td></tr>'; $('#dmore').style.display='none'; return; }
+ const next=CUR.slice(dShown,dShown+TPAGE);
+ tb.insertAdjacentHTML('beforeend',next.map(r=>'<tr data-id="'+r.id+'">'+DCOLS.map(c=>'<td'+(c[2]?' class="'+c[2]+'"':'')+'>'+c[1](r)+'</td>').join('')+'</tr>').join(''));
+ dShown+=next.length; $('#dmore').style.display=dShown<CUR.length?'inline-flex':'none'; $('#dmore').textContent='Mostrar mais ('+(CUR.length-dShown)+' restantes)';
+}
 function card(r){
  const ph=firstImg(r)?'<img loading="lazy" referrerpolicy="no-referrer" src="'+esc(firstImg(r))+'" alt="">':'<div class="thx" style="width:100%;height:100%;border-radius:0">'+(isLand(r)?r.ty+' – sem foto':'Sem foto')+'</div>';
  return '<article class="card" data-id="'+r.id+'"><div class="ph">'+ph+'<div class="tl"><span class="cat '+r.katk+'">'+r.kat+'</span>'+vdHtml(r,true)+'<span class="bdg">'+TYPES[r.t]+'</span><span class="ty">'+r.ty+'</span></div><div class="tr"><span class="sc '+scCls(r.sc)+'">'+(r.sc==null?'—':r.sc)+'</span></div><div class="bl">🗓 '+whenLbl(r.date)+'</div></div>'+
@@ -1664,7 +1711,7 @@ function renderMap(){
 }
 
 // ---------------------------------------------------------------- apply / views
-const VIEWS=['table','cards','cand','fav','map','intel','res','bld','pac','cal','day'];
+const VIEWS=['dec','table','cards','cand','fav','map','intel','res','bld','pac','cal','day'];
 function isoAdd(s,n){ const t=new Date(s+'T00:00:00Z'); t.setUTCDate(t.getUTCDate()+n); return t.toISOString().slice(0,10); }
 function activeWin(){
  const d1=$('#d1')?$('#d1').value:'', d2=$('#d2')?$('#d2').value:'';
@@ -1706,16 +1753,16 @@ function apply(noHash){
  $('#cnt').innerHTML=(S.all?'<button class="btn sm" id="bess" type="button" title="Voltar a esconder o que nunca entra no plano">Visão essencial</button> ':'<button class="btn sm gold" id="bess" type="button" title="'+esc(Object.entries(HID).sort((a,b)=>b[1]-a[1]).map(([k,v])=>v+' · '+k).join('\n'))+'">Visão essencial · <b id="nhid">'+nf(nh)+'</b> ocultos · Mostrar tudo</button> ')+'Mostrando <b>'+nf(CUR.length)+'</b> · base <b>'+nf(noCat.length)+'</b> <span title="Depois das exclusões e filtros, antes do recorte de tipo">sem recortar tipo</span> · arquivo <b>'+nf(ITEMS.length)+'</b>';
  { const b=$('#bess'); if(b) b.onclick=()=>{ S.all=!S.all; apply(); }; }
  syncDateChips(); filterNotice(); try{ LS.set('leilao_ui_v9', stateObj()); }catch(e){}
- if(view==='table') renderTable(true); else if(view==='cards'||view==='fav') renderCards(true); else if(view==='cand') renderCand(); else if(view==='map') renderMap();
+ if(view==='dec') renderDec(true); else if(view==='table') renderTable(true); else if(view==='cards'||view==='fav') renderCards(true); else if(view==='cand') renderCand(); else if(view==='map') renderMap();
  else if(view==='intel') renderIntel(); else if(view==='bld') renderBld(); else if(view==='pac') renderPac(); else if(view==='res') renderRes(); else if(view==='cal') renderCal(); else if(view==='day') renderDay();
  if(!noHash) writeHash();
  ftLabel();
 }
 function setView(v){
- if(!VIEWS.includes(v)) v='table';
+ if(!VIEWS.includes(v)) v='dec';
  if(v==='fav'){ S.fav=true; } else if(view==='fav'){ S.fav=false; }
  view=v; S.view=v; $$('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
- const show={'v-table':v==='table','v-cards':v==='cards'||v==='fav'||v==='cand','v-map':v==='map','v-intel':v==='intel','v-res':v==='res','v-bld':v==='bld','v-pac':v==='pac','v-cal':v==='cal','v-day':v==='day'};
+ const show={'v-dec':v==='dec','v-table':v==='table','v-cards':v==='cards'||v==='fav'||v==='cand','v-map':v==='map','v-intel':v==='intel','v-res':v==='res','v-bld':v==='bld','v-pac':v==='pac','v-cal':v==='cal','v-day':v==='day'};
  for(const k in show) $('#'+k).style.display=show[k]?'':'none';
  apply();
 }
@@ -1750,7 +1797,7 @@ function listClick(e){
  const fl=e.target.closest('[data-flag]'); if(fl){ cycleFlag(fl.dataset.flag); return; }
  const tr=e.target.closest('[data-id]'); if(tr) openDrawer(tr.dataset.id);
 }
-$('#tbl').addEventListener('click',listClick); $('#grid').addEventListener('click',listClick);
+$('#tbl').addEventListener('click',listClick); $('#dtbl').addEventListener('click',listClick); $('#dmore').onclick=()=>renderDec(false); $('#bfull').onclick=()=>setView('table'); $('#grid').addEventListener('click',listClick);
 $('#map').addEventListener('click',e=>{const a=e.target.closest('a[data-open]'); if(a){e.preventDefault(); openDrawer(a.dataset.open);}});
 function toggleFav(id){ FAV.has(id)?FAV.delete(id):FAV.add(id); saveFav(); $$('[data-star="'+id+'"]').forEach(b=>{b.classList.toggle('on',FAV.has(id)); b.textContent=FAV.has(id)?'★':'☆';}); renderQS(); if(S.fav) apply(); }
 function copy(t,msg){ const ok=()=>toast(msg||'Copiado'); try{ navigator.clipboard.writeText(t).then(ok,()=>{prompt('Copie o link:',t);}); }catch(e){ prompt('Copie o link:',t); } }
@@ -2404,15 +2451,16 @@ const itemLink = r=> location.origin+location.pathname+'#id='+encodeURIComponent
  for(const k in CHECKS){ if(o[k]!=null){ if(k==='hjr') LAST_HJR=!!o[k]; else if($(CHECKS[k])) $(CHECKS[k]).checked=!!o[k]; } }
  SKEYS.forEach(k=>{ if(o[k]!=null) S[k]=o[k]; });
  if(o.sort) S.sort=o.sort; if(o.v) S.view=o.v;
+ if(!LS.get('leilao_dec_v1',null)){ LS.set('leilao_dec_v1',1); if(S.view==='table') S.view='dec'; }   // PROPOSTA 9: Decisão vira o padrão uma vez
  if($('#bclean')) $('#bclean').checked=!!S.clean;
 })();
 const H0=readHash();
-setView(S.view || (window.innerWidth<760?'cards':'table'));
+setView(S.view || (window.innerWidth<760?'cards':'dec'));
 if(DL && DL.explicit){ S.cat=''; S.kat=''; }
 if(DL && DL.r){ if(DL.explicit) apply(true); openDrawer(DL.r.id); }
 else if(DL && DL.explicit) setTimeout(()=>toast('Imóvel “'+DL.asked+'” não encontrado (leilão já passou ou foi removido)'),300);
 termify(document.body);
-window.__dash={apply, ITEMS, salaPrice, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, redfinUrl, redfinFind, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
+window.__dash={apply, ITEMS, bankCell, fjCap, plLine, jInt, titleCell, renderDec, salaPrice, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, redfinUrl, redfinFind, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
 })();
 </script>
 </body>

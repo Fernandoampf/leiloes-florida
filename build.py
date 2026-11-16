@@ -32,6 +32,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import rawdata, po_fetch, nal, flwmi, po_export, po_bids
 import local_comps
+import plaintiff_hist
 import inperson
 import clerk_verify
 import geo_risk, radius
@@ -300,6 +301,10 @@ def merge_fav_changes(arch, runs=None):
         if a.get('id') and a['id'] not in seen:
             seen.add(a['id']); out.append({k: v for k, v in a.items() if k != 'new'})
     return out
+
+# Juros de julgamento da Flórida (s. 55.03 F.S., CFO; myfloridacfo.com/division/aa/audits-reports/judgment-interest-rates): início do trimestre -> % a.a.
+JINT = [['2024-01-01', 9.09], ['2024-04-01', 9.34], ['2024-07-01', 9.46], ['2024-10-01', 9.50], ['2025-01-01', 9.38], ['2025-04-01', 9.15],
+        ['2025-07-01', 8.90], ['2025-10-01', 8.65], ['2026-01-01', 8.44], ['2026-04-01', 8.25], ['2026-07-01', 8.06], ['2026-10-01', 7.87]]
 
 def load_results():
     """-> (stats dict, recent 3rd-party sales list). Basis: RealAuction 'Assessed Value' shown on the auction listing."""
@@ -591,6 +596,21 @@ def build_items(args):
     manual_v = {k: v for k, v in manual.items() if v.get('mid') is not None}   # só avaliações com valor (zillow/titleOk sozinhos não bloqueiam comps)
     ares, _, _ = load_results()
     seen = jload(os.path.join(CACHE, 'seen_v4.json'), {})
+    # 16/11 PROPOSTA 9: histórico das conferências do lance publicado (fora do git: cache/)
+    bidh = jload(os.path.join(CACHE, 'bid_checks.json'), {})
+    if not bidh:      # 1ª vez: semeia com os snapshots diários runs/run_<data>.json (ref = opening bid / julgamento publicado naquele dia)
+        import glob as _g
+        for f in sorted(_g.glob(os.path.join(SW, 'runs', 'run_2026-*.json'))):
+            m = re.search(r'run_(\d{4}-\d{2}-\d{2})\.json$', f)
+            if not m: continue
+            try: its = json.load(open(f))['items']
+            except Exception: continue
+            for i in its:
+                v = num(i.get('ref'))
+                if not v or not i.get('id'): continue
+                h = bidh.setdefault(i['id'], [])
+                if not h or h[-1][0] < m.group(1): h.append([m.group(1), v])
+        for h in bidh.values(): del h[:-12]
     baseline = not seen                      # first v4 run: nothing is 'new'
     mk = load_market()
     zcounty = zip_county_map()
@@ -980,6 +1000,26 @@ def build_items(args):
                             b=num(a.get('auction_openingbid')) or num(a.get('auction_fj')))
                        for a in (P0.get('auctions') or []) if (a.get('auction_date') or '')[:10] and not (a.get('auction_date') or '').startswith(d_iso)],
                       key=lambda h: h['d'], reverse=True)
+        # 16/11 PROPOSTA 9: data do julgamento ~ 1ª data de leilão deste processo − 30 dias (até abrir o processo); autor normalizado
+        ck = plaintiff_hist.case_key(x.get('case')) if src == 'FC' else None
+        # só datas do MESMO processo com o MESMO julgamento (±1%): julgamento alterado (amended) já traz os juros anteriores
+        dts = [d_iso] + [(a.get('auction_date') or '')[:10] for a in (P0.get('auctions') or []) if ck and plaintiff_hist.case_key(a.get('auction_caseno')) == ck
+                         and ref and num(a.get('auction_fj')) and abs(num(a.get('auction_fj')) - ref) <= 0.01 * ref]
+        fjd = None
+        if src == 'FC' and ref:
+            try: fjd = (dt.date.fromisoformat(min(d for d in dts if d)) - dt.timedelta(days=30)).isoformat()
+            except Exception: fjd = None
+        pk = plaintiff_hist.norm_plaintiff(plaintiff) if src == 'FC' else None
+        # PO Auction Equity: POV − equity = julgamento implícito. Só quando NÃO há julgamento oficial; só piora a avaliação.
+        fj_po = None
+        if src == 'FC' and not ref and poe.get('pov') and poe.get('equity') is not None:
+            fj_po = round(num(poe['pov']) - num(poe['equity']))
+            if not fj_po or fj_po <= 0: fj_po = None
+        # histórico das conferências: valor publicado (opening bid / julgamento / lance máx. do autor) por data da leitura do RealAuction
+        pubv = num(x.get('pmax')) if src == 'FC' and x.get('pmax') not in (None, 'Hidden') else ref
+        bh = bidh.setdefault(key, [])
+        if pubv and x.get('scan') and (not bh or bh[-1][0] < x['scan']):
+            bh.append([x['scan'], pubv]); del bh[:-12]
         city = dictval(P0.get('situsCity')) or (nf or {}).get('city')
         tdy = num(P0.get('taxDeliquentYear')); tdy = int(tdy) if tdy and 1990 < tdy <= int(today[:4]) else None
         lsp = num(P0.get('currentSalesPrice')); lsd = (P0.get('currentSaleRecordingDate') or '')[:10] or None
@@ -1046,6 +1086,7 @@ def build_items(args):
             plat=('Presencial' if x.get('inperson') else 'PropertyOnion' if it.get('po_only') else x.get('platform')),
             ip=x.get('inperson'), addrSrc=x.get('addr_src'), addr0=x.get('addr0'), scan=x.get('scan'), cver=x.get('cver'),
             pmax=x.get('pmax') if x.get('pmax') not in (None, 'Hidden') else None,
+            pmaxH=(src == 'FC' and x.get('pmax') == 'Hidden') or None, fjd=fjd, pk=pk, fjPO=fj_po, bh=([e for i, e in enumerate(bh) if i == 0 or abs(e[1] - bh[i - 1][1]) > 0.5][-6:] if bh else None), bhl=(bh[-1][0] if bh else None), bhn=(len(bh) if bh else None),
             new=first == today, first=first if first != '0000-00-00' else None, muni=dictval(P0.get('municipality')),
         )
         # ---- type conflict: DOR says vacant land, other sources say something is built there
@@ -1175,6 +1216,7 @@ def build_items(args):
         with ThreadPoolExecutor(3) as ex: list(ex.map(job, fw_jobs))
         print('  (utilidades baixadas – rode o build de novo sem --fetch para incorporá-las, ou elas entram na próxima execução)', flush=True)
     json.dump(seen, open(os.path.join(CACHE, 'seen_v4.json'), 'w'))
+    json.dump(bidh, open(os.path.join(CACHE, 'bid_checks.json'), 'w'))
     # ---- builders view: statewide top builders and top areas (subdivision / ZIP) with an approximate distance to Orlando
     btop, areas = {}, []
     zll, sll = {}, {}
@@ -1351,7 +1393,15 @@ def render(items, stats, dropped, args):
         print('favtrack falhou:', ex, flush=True); farch, fmbh, fcal = [], {}, {}
     farch = merge_fav_changes(farch)              # + lista acumulada 'exited' do favoritos_changes_<data>.json mais recente
     ares, recent, rmeta = load_results()
-    meta = dict(dataDate=args.data_date, built=time.strftime('%Y-%m-%d %H:%M'), params=P, zips=zips, mktSrc=mk.get('_src', {}),
+    # 16/11 PROPOSTAS 6/9: histórico por autor (resultados RealAuction × autor do processo no PropertyOnion)
+    try:
+        pho = plaintiff_hist.outcomes(); plh = plaintiff_hist.summarize(pho)
+        used = {r.get('pk') for r in items if r.get('pk')}
+        plh = {k: v for k, v in plh.items() if k in used}
+        print('histórico por autor:', len(pho), 'resultados com autor,', len(plh), 'autores com casa na lista', flush=True)
+    except Exception as ex:
+        print('histórico por autor falhou:', ex, flush=True); plh = {}
+    meta = dict(plh=plh, jint=JINT, dataDate=args.data_date, built=time.strftime('%Y-%m-%d %H:%M'), params=P, zips=zips, mktSrc=mk.get('_src', {}),
                 rehabTiers=REHAB_TIERS, rehabUnknown=REHAB_UNKNOWN, rehabPool=REHAB_POOL, stats=stats, dropped=dropped, orlando=ORLANDO,
                 events=load_events(args.data_date), ares=ares, recent=recent, rmeta=rmeta, types=TYPES, version='v4',
                 builders=getattr(build_items, '_bld', None), favs=favs, valerr=getattr(build_items, '_valerr', None), arch=farch, mbh=fmbh, calib=fcal)
