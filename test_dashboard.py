@@ -74,8 +74,8 @@ with sync_playwright() as p:
     vds = set(pg.evaluate(D + '.ITEMS.map(r=>r.vd)')); check(vds <= {'FLIP', 'CONSIDERAR', 'DISPUTADO', 'PASSAR', 'TITULO'} and {'FLIP','DISPUTADO','PASSAR'} <= vds, f'vereditos {vds}')
     bad = pg.evaluate(D + '''.ITEMS.filter(r=>r.roi!=null&&r.mb!=null&&!(r.geo&&r.geo.poly!==false&&((r.geo.wetPct||0)>=10||(r.geo.sfhaPct||0)>=10))).filter(r=>{
         const room = r.mb>0, over = r.ref!=null && r.ref>r.mb+1;
-        if(r.vd==='FLIP'||r.vd==='CONSIDERAR') return !(room && !over && !(r.xbid>r.mb+1) && (r.vd==='FLIP'?r.roi>=0.25&&r.arvSrc!=='fraca':(r.roi<0.25||r.arvSrc==='fraca')));
-        if(r.vd==='TITULO') return !(room && !over && !(r.xbid>r.mb+1) && (r.vdWas==='FLIP'?r.roi>=0.25:(r.roi<0.25||r.arvSrc==='fraca')));   // PROPOSTA 8: mesma regra, travado por título
+        if(r.vd==='FLIP'||r.vd==='CONSIDERAR') return !(room && !over && !(r.xbid>r.mb+1) && (r.vd==='FLIP'?r.roi>=0.25&&r.arvSrc!=='fraca'&&!(r.repHi&&r.roiHi<0.25):(r.roi<0.25||r.arvSrc==='fraca'||(r.repHi&&r.roiHi<0.25))));
+        if(r.vd==='TITULO') return !(room && !over && !(r.xbid>r.mb+1) && (r.vdWas==='FLIP'?r.roi>=0.25:(r.roi<0.25||r.arvSrc==='fraca'||(r.repHi&&r.roiHi<0.25))));   // PROPOSTA 8 (+ PROPOSTA 11: obra em faixa): mesma regra, travado por título
         if(r.vd==='PASSAR') return !( !room || (r.t!=='FC' && over) || /^lote barato/.test(r.vdWhy||'') );
         if(r.vd==='DISPUTADO') return !( room && ((r.t==='FC' && over) || (r.t==='FC' && r.ref==null && r.fjPO>r.mb+1) || r.xbid>r.mb+1 || (r.sala&&r.sala.comps3&&r.sala.v>r.mb+1)) );
         return true; }).map(r=>r.addr+' '+r.vd).slice(0,5)''')
@@ -522,6 +522,15 @@ with sync_playwright() as p:
       const r={rows:rows.length, fl:rows.filter(t=>/Flórida/.test(t.cells[0].textContent)).length, n:(M.bt||{}).n||0, cal:Object.values(C).filter(v=>v.src==='backtest').length,
         hdr:[...document.querySelectorAll('#btab thead th')].map(t=>t.textContent).join('|')}; document.querySelector('#prem').close(); return r;})()""")
     check(bt['rows'] > 10 and bt['fl'] >= 4 and bt['n'] > 500 and bt['cal'] >= 3 and '÷ ARV' in bt['hdr'] and '÷ Zillow' in bt['hdr'] and '÷ condado' in bt['hdr'], f'backtest em Premissas (÷ARV, ÷Zillow, ÷condado por condado/faixa) e preço esperado recalibrado {bt}')
+    # PROPOSTA 11 (16/11): casa grande – obra em faixa (padrão médio/luxo pendente); a conta usa o piso, FLIP só se a ponta alta também der FLIP
+    ob = pg.evaluate("""(()=>{const d=window.__dash, I=d.ITEMS, PR=d.PR; const B=I.filter(r=>!/Lote|Terreno/.test(r.ty)&&r.sqft>PR.rhbBig&&r.yr&&r.val);
+      const rate=r=>r.yr>=2020?PR.rhb20:r.yr>=2015?PR.rhb15:r.yr>=2005?PR.rhb05:r.yr>=1995?PR.rhb95:PR.rhbOld;
+      const lo=r=>Math.max(PR.rhbMin,rate(r)*PR.rhbBig)+(r.pool?PR.rhbPool:0), hi=r=>Math.max(PR.rhbMin,rate(r)*r.sqft)+(r.pool?PR.rhbPool:0);
+      const bad=B.filter(r=>!(Math.abs(r.rep-lo(r))<1&&Math.abs(r.repHi-hi(r))<1)).map(r=>r.id).slice(0,5);
+      const flipBad=B.filter(r=>r.vd==='FLIP'&&r.roiHi!=null&&r.roiHi<PR.flip/100).length;
+      const small=I.filter(r=>!/Lote|Terreno/.test(r.ty)&&r.sqft&&r.sqft<=PR.rhbBig&&r.repHi).length;
+      const m=I.find(r=>/7925 Lake Mabel/i.test(r.addr)); return {n:B.length, bad, flipBad, small, mabel:m?[m.rep,m.repHi,m.vd]:null, opt:!!PR.rhbBig};})()""")
+    check(ob['n'] > 20 and not ob['bad'] and ob['flipBad'] == 0 and ob['small'] == 0 and ob['opt'] and (ob['mabel'] is None or (ob['mabel'][1] == 307965 and ob['mabel'][0] < 307965)), f'obra em faixa (casa grande, padrão médio/luxo pendente; veredito usa o piso) {ob}')
     cf = pg.evaluate("(()=>{const I=window.__dash.ITEMS; const W=I.find(r=>r.id==='TDpox0e3f3dd972d1'), R=I.find(r=>r.id==='FC1528998'); const H=I.filter(r=>['Casa','Townhouse','Mobile','Multifamily'].includes(r.ty)); return {semImg:H.filter(r=>!(r.imgs&&r.imgs.length)&&r.lat==null).length, nH:H.length, W:W?[W.lat,W.lon]:null, R:R?[R.lat,R.lon]:null};})()")
     near = lambda p, q: p and abs(p[0]-q[0]) < 0.0004 and abs(p[1]-q[1]) < 0.0004
     check(cf['semImg'] <= 0.01 * cf['nH'] and (cf['W'] is None or near(cf['W'], (28.825107, -81.580303))) and (cf['R'] is None or near(cf['R'], (26.648677, -81.593795))),

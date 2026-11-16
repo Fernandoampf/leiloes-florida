@@ -744,13 +744,13 @@ const PF=[
  ['Pacotes (vários lotes da mesma área)',[['pkg','Venda em pacote para construtora: % do valor de venda por lote',1],['pkgM','Venda em pacote: meses de posse',1],['pkgMin','Pacote: mínimo de lotes na mesma área e data',1]]],
  ['Capital',[['capc','Custo do capital (% a.a. sobre compra + reforma, nos meses de posse)',0.5]]],
  ['Compra (Flórida)',[['clerk1','Clerk Fee: % sobre os primeiros US$ 500',0.1],['clerk2','Clerk Fee: % sobre o restante do lance',0.1],['docb','Doc Stamps na compra (% do lance)',0.05],['qt','Quiet Title – tax deed construído (US$)',100],['qtLot','Title Certification do lote p/ revenda (US$)',100],['fee','Taxas extras do leilão (US$)',50],['ev','Eviction / Cash-for-Keys se ocupado (US$)',100],['dep','Deposit no leilão (% do lance)',0.5]]],
- ['Rehab (por idade e tamanho)',[['rhb20','Construído 2020+ (US$/sqft)',1],['rhb15','2015–2019 (US$/sqft)',1],['rhb05','2005–2014 (US$/sqft)',1],['rhb95','1995–2004 (US$/sqft)',1],['rhbOld','Antes de 1995 (US$/sqft)',1],['rhbMin','Reforma mínima (US$)',500],['rhbUnk','Ano desconhecido (US$)',1000],['rhbSqft','Área presumida se desconhecida (sqft)',50],['rhbPool','Piscina (+US$)',500],['cont','Contingência (% da reforma)',1]]],
+ ['Rehab (por idade e tamanho)',[['rhb20','Construído 2020+ (US$/sqft)',1],['rhb15','2015–2019 (US$/sqft)',1],['rhb05','2005–2014 (US$/sqft)',1],['rhb95','1995–2004 (US$/sqft)',1],['rhbOld','Antes de 1995 (US$/sqft)',1],['rhbMin','Reforma mínima (US$)',500],['rhbUnk','Ano desconhecido (US$)',1000],['rhbSqft','Área presumida se desconhecida (sqft)',50],['rhbPool','Piscina (+US$)',500],['rhbBig','Obra vira FAIXA acima de (sqft) enquanto o padrão MÉDIO/LUXO está pendente – o veredito usa o piso',100],['cont','Contingência (% da reforma)',1]]],
  ['Holding Costs',[['months','Meses de posse – construído',1],['monthsLot','Meses de posse – terreno',1],['htax','Imposto predial se o real não for conhecido (% do valor/ano)',0.1],['hins','Seguro (% do valor/ano)',0.1],['hutil','Contas/manutenção por mês – construído (US$)',10],['hutilLot','Manutenção por mês – terreno (US$)',10],['clear','Terreno: roçada / limpeza (US$)',100],['qtm','+ meses p/ quiet title',1],['evm','+ meses se houver despejo',1],['usedom','Usar dias no mercado do ZIP no lugar dos meses (1 = sim)',1],['closem','Meses de fechamento (só com dias no mercado)',0.5]]],
  ['Venda / Closing Costs (sobre o ARV)',[['list','Listing Commission (%)',0.1],['buyc','Buyer Agent Commission (%)',0.1],['commLot','Lote: comissão total de corretagem (%)',0.5],['conc','Construído: concessões ao comprador (%)',0.5],['titleP','Title Insurance (Owner’s Policy): % da tabela promulgada FL (vendedor paga; 0 em Miami-Dade, Broward, Sarasota, Collier)',5],['docs','Doc Stamps na venda (%)',0.05],['misc','Closing Costs / diversos (US$)',100],['wra','Flat Sale Fee (BidToFlip, origem não confirmada) – só construído (US$)',1]]],
  ['Aluguel, BRRRR e reconstrução',[['yld','Yield bruto p/ “aluguel forte” (%)',0.5],['refi','Taxa do refinanciamento (% a.a.)',0.1],['ltv','LTV do refi (% do ARV)',1],['tax','Imposto predial BRRRR (% do valor/ano, est.)',0.1],['ins','Seguro BRRRR (% do valor/ano, est.)',0.1],['vac','Vacância + manutenção (% do aluguel)',1],['mgmt','Administração (% do aluguel)',1],['rebuild','Reconstrução (US$/sqft)',5],['depr','Depreciação (% por ano de idade, máx. 60%)',0.1]]]
 ];
 const PKEYS=PF.flatMap(g=>g[1].map(f=>f[0]));
-const PDEF={}; const PFALL={qtm:2,tdxp:1,usedom:0,closem:1,hutilLot:50,months:7,monthsLot:3,evm:2,rhb20:5,rhb15:10,rhb05:30,rhb95:35,rhbOld:48,rhbMin:15000,rhbUnk:35000,rhbSqft:1500,rhbPool:5000,cont:20,hins:2,misc:1000,clear:500,qtLot:1200,wra:399,titleP:100,clerk1:3,clerk2:1.5,
+const PDEF={}; const PFALL={qtm:2,tdxp:1,usedom:0,closem:1,hutilLot:50,months:7,monthsLot:3,evm:2,rhb20:5,rhb15:10,rhb05:30,rhb95:35,rhbOld:48,rhbMin:15000,rhbUnk:35000,rhbSqft:1500,rhbPool:5000,rhbBig:3000,cont:20,hins:2,misc:1000,clear:500,qtLot:1200,wra:399,titleP:100,clerk1:3,clerk2:1.5,
  conc:2,commLot:8,capc:8,stress:10,lotS:15000,lotSroi:40,lotSnet:3000,lotM:60000,lotMroi:25,supAdd:0,wetMax:10,floodMat:10,netHouse:25000,pkg:85,pkgM:4,pkgMin:3,bMed:165,bLux:275,bSoft:25000,bSep:15000,bSell:6,bMo:11,bCap:10,bMarg:15}; PKEYS.forEach(k=>PDEF[k]=isFinite(+P[k])?+P[k]:(PFALL[k]??0));
 const PKEY='leilao_premissas_v8';   // v8 (out/2026): + pacotes (pkg/pkgM/pkgMin); v7: oferta alta sem +pontos, sem filtro de caixa – reseta premissas antigas
 let PR={...PDEF};
@@ -770,6 +770,10 @@ function rehabFor(r,Q){
  const sq = r.sqft || Q.rhbSqft;
  let v=Math.max(Q.rhbMin, rate*sq); const minHit = rate*sq<Q.rhbMin;
  if(r.pool) v+=Q.rhbPool;
+ // PROPOSTA 11 (aprovada 16/11): casa grande – o US$/sqft acima de rhbBig depende do padrão médio/luxo (PREMISSA PENDENTE).
+ // Obra = faixa [rate × rhbBig … rate × área]; conta e veredito usam o piso, a ponta alta só aparece (e segura FLIP em CONSIDER).
+ if(r.sqft && Q.rhbBig>0 && r.sqft>Q.rhbBig){ const lo=Math.max(Q.rhbMin, rate*Q.rhbBig)+(r.pool?Q.rhbPool:0);
+  return {v:lo, lo, hi:v, prov:1, why:'faixa '+money(lo)+' – '+money(v)+' ('+money(rate)+'/sqft × '+nf(Q.rhbBig)+'–'+nf(r.sqft)+' sqft · construído em '+r.yr+(r.pool?' · com piscina':'')+'; acima de '+nf(Q.rhbBig)+' sqft depende do padrão médio/luxo – PREMISSA PENDENTE; a conta usa o piso)'}; }
  return {v, why: money(rate)+'/sqft × '+nf(sq)+' sqft'+(r.sqft?'':' (área presumida)')+' · construído em '+r.yr+(minHit?' → mínimo '+money(Q.rhbMin):'')+(r.pool?' + piscina '+money(Q.rhbPool):'')};
 }
 function domMonths(r,rehab,Q){ Q=Q||PR; return r.dom!=null ? rehabMonths(rehab)+Math.ceil(r.dom/30)+Q.closem : null; }
@@ -798,7 +802,7 @@ function base(r,Q){
  const lien = survOn ? (r.survAmt||0) : ((r.fl.includes('mtg')||r.fl.includes('avoid'))?(r.m1||0):0);
  const rh=rehabFor(r,Q);
  const ex=exitParts(r,rh.v,ev,Q);
- return {td, ev, arv:r.val, rehab:rh.v, rehabWhy:rh.why, months:ex.months, mparts:ex.parts, rent:r.rent||0, lien, refi:Q.refi, ppsf:Q.rebuild, rebuild:null, pr:Q};
+ return {td, ev, arv:r.val, rehab:rh.v, rehabHi:rh.hi||null, rehabWhy:rh.why, months:ex.months, mparts:ex.parts, rent:r.rent||0, lien, refi:Q.refi, ppsf:Q.rebuild, rebuild:null, pr:Q};
 }
 // Owner's title policy on resale: Florida promulgated rate (F.A.C. 69O-186.003) – US$ 5.75 per 1,000 up to 100k, 5.00 per 1,000 to 1M,
 // 2.50 above. Seller pays by custom everywhere except Miami-Dade, Broward, Sarasota and Collier (buyer pays there → 0).
@@ -1009,6 +1013,7 @@ function scTip(r){ if(r.sc==null) return r.scKind||''; const sp=r.sp||{}; const 
 const TLOCK_FL=['jr','mtg','surv','code'];
 function titleLock(r){ if(isLand(r)||r.tok) return null; const f=TLOCK_FL.filter(k=>r.fl.includes(k)).map(k=>FL[k]?FL[k].l:k); if(r.hoaPl) f.push('autor é associação (HOA)'); return f.length?f:null; }
 function verdict(r){ let V=verdict0(r);
+ if(V.vd==='FLIP' && r.repHi && r.roiHi!=null && r.roiHi<PR.flip/100) V={vd:'CONSIDERAR', why:'obra em faixa '+money(r.rep)+' – '+money(r.repHi)+' (padrão médio/luxo pendente): FLIP no piso, mas com a obra máxima o ROI cai para '+pct(r.roiHi)+' – '+V.why, sub:'obra em faixa', obra:'FLIP'};   // PROPOSTA 11
  if(V.vd==='FLIP' && r.arvSrc==='fraca') V={vd:'CONSIDERAR', why:'estimativa fraca (sem Zillow e sem 3 vendas vizinhas de 12 meses): o ROI daria FLIP – '+V.why, sub:'estimativa fraca – nunca FLIP', weak:'FLIP'};   // PROPOSTA 7
  if((V.vd==='FLIP'||V.vd==='CONSIDERAR') && r.t==='FC' && r.ref==null && r.fjPO && r.mb>0 && r.fjPO>r.mb+1) V={vd:'DISPUTADO', why:'julgamento estimado (PropertyOnion: POV − equity) '+money(r.fjPO)+' acima do lance máx. '+money(r.mb)+' – estimativa só piora, nunca melhora; conferir o julgamento oficial', sub:'julg. estimado (PO) acima do máx.', poJ:1};   // PROPOSTA 9
  if(V.vd==='FLIP'||V.vd==='CONSIDERAR'){ const tl=titleLock(r); if(tl) return {vd:'TITULO', why:'trava de título ('+tl.join(', ')+'): o veredito seria '+VDL[V.vd]+' – '+V.why+'. Conferir título/registro e marcar titleOk no valuations_manual.json', sub:'seria '+VDL[V.vd], was:V.vd}; } return V; }
@@ -1043,7 +1048,7 @@ function evaluate(r){
  applySanity(r);
  if(r.hist && r.hist.length && !r.fl.includes('rebid')) r.fl.push('rebid');
  if(r.t==='TD' && r.plaint && /(CITY|TOWN|VILLAGE) OF/i.test(r.plaint) && !r.fl.includes('code') && !r.fl.includes('cityL')) r.fl.push('cityL');
- const o=base(r); r._o=o; const arv=o.arv; r.rep=o.rehab; r.repw=o.rehabWhy;
+ const o=base(r); r._o=o; const arv=o.arv; r.rep=o.rehab; r.repw=o.rehabWhy; r.repHi=o.rehabHi;
  r.yld = (r.rent&&arv) ? r.rent*12/arv : null;
  if(r.rent&&arv){ const noi=r.rent*12*(1-(PR.vac+PR.mgmt)/100)-arv*PR.tax/100-arv*PR.ins/100; r.cap=noi/arv; } else r.cap=null;
  r.strongRent = r.yld!=null && r.yld>=PR.yld/100;
@@ -1063,6 +1068,7 @@ function evaluate(r){
   r.xbid=realisticBid(r,o); compAdjust(r,o); salaPrice(r,o); r.refU=r.xbid!=null?r.xbid:r.ref; r.refx=null;
   if(r.xbid!=null){ const p=pnl(r,r.xbid,o); r.net=p.net; r.roi=p.roi; r.inv=p.inv; r.xroi=p.roi; }
   else { r.net=r.roi=r.inv=r.xroi=null; }
+  r.roiHi = (r.repHi && r.xbid!=null) ? pnl(r,r.xbid,{...o, rehab:r.repHi}).roi : null;   // PROPOSTA 11: ROI com a obra no topo da faixa
   if(r.ref!=null){ const p0=pnl(r,r.ref,o); r.roi0=p0.roi; r.net0=p0.net; } else r.roi0=r.net0=null;
   r.roiXp=(r.xp&&r.xp.v)?pnl(r,r.xp.v,o).roi:null;
   r.jmax = r.ref!=null && r.ref>r.r70;
@@ -1526,6 +1532,7 @@ function val3Html(r){ if(isLand(r)) return ''; const z=r.zw, n=r.ns, mis=valMis(
  return h+'</div>'; }
 function badges(r){
  const b=[lcBadge(r)];
+ if(r.repHi) b.push('<span class="bdg amb" title="'+esc(r.repw||'')+'">obra em faixa '+money(r.rep)+' – '+money(r.repHi)+'</span>');
  if(valMis(r)) b.push('<span class="bdg amb" title="'+esc(valMis(r))+'">⚠ valores não batem</span>');
  if(r.arvSrc==='fraca') b.push('<span class="bdg amb" title="Sem Zillow e sem 3 vendas vizinhas de 12 meses – nunca FLIP">estimativa fraca</span>');
  if(!/^\s*\d/.test(r.addr0||r.addr||'')) b.push('<span class="bdg red" title="O anúncio não tem número de casa: o endereço exibido é a rua (e a descrição legal quando houver). Confira pelo nº do processo e pela parcela, nunca por um número de casa vizinho.">Endereço aproximado — dar lance pelo nº do processo</span>');
@@ -1644,7 +1651,7 @@ const DCOLS=[
  ['Vendas vizinhas',r=>r.ns&&r.ns.n?'<b>'+money(r.ns.med)+'</b><div class="mini">'+r.ns.n+' venda'+(r.ns.n>1?'s':'')+(r.ns.n<3?' (poucas)':'')+'</div>':'<span class="c-mut">—</span>'],
  ['Teto',r=>'<b>'+money(r.mb)+'</b><div class="mini">lance máx. '+nf(PR.ret)+'%</div>'],
  ['Título',titleCell],
- ['Veredito',r=>vdHtml(r,true)+(valMis(r)?'<div><span class="bdg amb">⚠ valores não batem</span></div>':'')+(r.arvSrc==='fraca'?'<div><span class="bdg">estimativa fraca</span></div>':''),'wrap']];
+ ['Veredito',r=>vdHtml(r,true)+(valMis(r)?'<div><span class="bdg amb">⚠ valores não batem</span></div>':'')+(r.arvSrc==='fraca'?'<div><span class="bdg">estimativa fraca</span></div>':'')+(r.repHi?'<div><span class="bdg amb" title="'+esc(r.repw||'')+'">obra '+money(r.rep)+' – '+money(r.repHi)+'</span></div>':''),'wrap']];
 let dShown=0;
 function renderDec(reset){
  if(reset){ dShown=0; $('#dtbl').innerHTML='<thead><tr>'+DCOLS.map(c=>'<th>'+c[0]+'</th>').join('')+'</tr></thead><tbody></tbody>'; }
@@ -2408,7 +2415,7 @@ function renderHow(){
  '<p>Avaliação no estilo do BidToFlip (Valor de mercado POV/ARV, julgamento vs. valor, NET, ROI, veredito, nota e categoria), com a conta do radar do Fernando como reserva. Onde a lógica exata da referência não é pública, as regras abaixo são <b>inferidas</b> e documentadas. Tudo é recalculado ao mudar as <b>⚙ Premissas</b>'+(custom()?' (<b>personalizadas neste aparelho</b>)':'')+'. Sem teto de orçamento. Todos os valores em US$.</p>'+
  '<h4>1. Conta do flip (NET e ROI) – estrutura do BidToFlip com padrões realistas</h4><p>As linhas são as mesmas do BidToFlip, mas os valores padrão são <b>estimativas realistas</b>, não os mínimos otimistas. <b>Toda linha do P&L é editável</b> no painel do imóvel (toque no número); o botão “Salvar custos como meu padrão” grava neste aparelho e recalcula todos os imóveis; “Padrões originais” desfaz.</p><table><tr><th>Bloco</th><th>Padrão</th><th>Por quê</th></tr>'+
  '<tr><td>Compra</td><td>Doc stamps '+pctp(PR.docb,2)+' do lance + clerk '+pctp(PR.clerk1)+' dos primeiros US$ 500 + '+pctp(PR.clerk2)+' do restante'+(PR.fee?' + taxas '+money(PR.fee):'')+'</td><td>Tarifas legais da Flórida (iguais ao BidToFlip).</td></tr>'+
- '<tr><td>Reforma</td><td>US$/sqft por ano de construção: 2020+ '+money(PR.rhb20)+' · 2015–19 '+money(PR.rhb15)+' · 2005–14 '+money(PR.rhb05)+' · 1995–2004 '+money(PR.rhb95)+' · antes de 1995 '+money(PR.rhbOld)+'; mínimo '+money(PR.rhbMin)+'; ano desconhecido '+money(PR.rhbUnk)+'; área desconhecida = '+nf(PR.rhbSqft)+' sqft; piscina +'+money(PR.rhbPool)+'; <b>contingência '+pctp(PR.cont,0)+'</b> da reforma. Terreno: zero.</td><td>Escala com idade <i>e</i> tamanho (uma casa grande custa mais); imóveis de leilão são comprados sem vistoria, por isso a contingência.</td></tr>'+
+ '<tr><td>Reforma</td><td>US$/sqft por ano de construção: 2020+ '+money(PR.rhb20)+' · 2015–19 '+money(PR.rhb15)+' · 2005–14 '+money(PR.rhb05)+' · 1995–2004 '+money(PR.rhb95)+' · antes de 1995 '+money(PR.rhbOld)+'; mínimo '+money(PR.rhbMin)+'; ano desconhecido '+money(PR.rhbUnk)+'; área desconhecida = '+nf(PR.rhbSqft)+' sqft; piscina +'+money(PR.rhbPool)+'; acima de '+nf(PR.rhbBig)+' sqft a obra vira faixa (padrão médio/luxo pendente; a conta usa o piso e FLIP só se a ponta alta também der FLIP); <b>contingência '+pctp(PR.cont,0)+'</b> da reforma. Terreno: zero.</td><td>Escala com idade <i>e</i> tamanho (uma casa grande custa mais); imóveis de leilão são comprados sem vistoria, por isso a contingência.</td></tr>'+
  '<tr><td>Posse</td><td>'+nf(PR.months)+' meses (terreno '+nf(PR.monthsLot)+') × (imposto anual real ÷ 12 – ou '+pctp(PR.htax)+' do valor/ano – + seguro '+pctp(PR.hins)+' do valor/ano + contas/manutenção '+money(PR.hutil)+'/mês; terreno '+money(PR.hutilLot)+'/mês sem seguro)</td><td>Compra, obra, anúncio e fechamento raramente cabem em 4 meses; seguro de imóvel vago na Flórida é caro.'+(PR.usedom?' <b>Premissa ativa:</b> meses pelo prazo de saída do ZIP.':' O prazo de saída do ZIP (Redfin) aparece como sensibilidade.')+'</td></tr>'+
  '<tr><td>Venda (sobre o ARV)</td><td>Corretor vendedor '+pctp(PR.list)+' + comprador '+pctp(PR.buyc)+' + seguro de título do proprietário pela tabela promulgada da Flórida (US$ 5,75/mil até US$ 100 mil, US$ 5/mil acima; ≈ US$ 1.575 num imóvel de US$ 300 mil) × '+pctp(PR.titleP,0)+' – zero em Miami-Dade, Broward, Sarasota e Collier, onde o comprador paga; Lee, Charlotte e Manatee tratados como vendedor paga (fontes divergem) + doc stamps '+pctp(PR.docs,2)+' (vendedor paga na Flórida) + fechamento/diversos '+money(PR.misc)+' (lote: 3% do ARV, entre US$ 500 e '+money(PR.misc)+') + taxa fixa de venda '+money(PR.wra)+' (herdada do BidToFlip, origem não confirmada; só construído)</td><td>Venda pelo MLS normalmente paga as duas comissões.</td></tr>'+
  '<tr><td>Extras</td><td>Quiet title '+money(PR.qt)+' (tax deed construído); lote: certificação de título '+money(PR.qtLot)+' + roçada/limpeza '+money(PR.clear)+' (agrimensura fica com o comprador); fechamento do lote = 3% do ARV entre US$ 500 e '+money(PR.misc)+'; preço histórico do condado limitado a '+Math.round(XP_CAP_LAND*100)+'% do ARV em lote ('+Math.round(XP_CAP*100)+'% construído); despejo/cash-for-keys '+money(PR.ev)+' se ocupado/inquilino; liens que sobrevivem (1ª hipoteca quando há indício)</td><td>Título segurável, posse e dívidas que ficam com o comprador.</td></tr></table>'+
