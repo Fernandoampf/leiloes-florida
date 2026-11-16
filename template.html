@@ -205,7 +205,7 @@ dialog::backdrop{background:rgba(10,16,28,.6)}
 .kpi{cursor:pointer;border-color:#5a6476}.kpi.on{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset}
 .tabs{flex-wrap:wrap}
 .cat.viavel{background:#2f5543;color:#b4f5cf;border:1px solid #a3d9b5}.cat.abaixo{background:#50323a;color:#ffc9c9;border:1px solid #f1b0b0}.cat.lucro{background:#5a4a2c;color:#ffe08a;border:1px solid #f0cd8a}.cat.semdados{color:var(--mut);border:1px solid var(--line)}
-.vd.CONSIDERAR{background:#f59e0b;color:#1d1300;border:1px solid #d97706}.vd.PASSAR{background:#c62828;color:#fff;border:1px solid #b91c1c}.vd.DISPUTADO{background:#6d5bd0;color:#fff;border:1px solid #8b7cf0}.vd.TITULO{background:#7c2d12;color:#ffedd5;border:1px solid #fb923c}.cat.titulo{background:#4a1d0a;color:#ffedd5;border:1px solid #fb923c}.cat.disp{background:#3d3566;color:#ddd6ff;border:1px solid #a99cf2}
+.vd.CONSIDERAR{background:#f59e0b;color:#1d1300;border:1px solid #d97706}.vd.PASSAR{background:#c62828;color:#fff;border:1px solid #b91c1c}.vd.DISPUTADO{background:#6d5bd0;color:#fff;border:1px solid #8b7cf0}.vd.TITULO{background:#7c2d12;color:#ffedd5;border:1px solid #fb923c}.cat.titulo{background:#4a1d0a;color:#ffedd5;border:1px solid #fb923c}.vd.PROCESSO{background:#0f3d5e;color:#e0f2fe;border:1px solid #38bdf8}.cat.processo{background:#0b2a40;color:#e0f2fe;border:1px solid #38bdf8}.cat.disp{background:#3d3566;color:#ddd6ff;border:1px solid #a99cf2}
 .ty{display:inline-block;border-radius:4px;padding:0 6px;font-size:10.5px;font-weight:800;background:#2f5258;color:#b9f0f7;border:1px solid #a7d8e2;border-color:#4f97a3}
 .fsw{width:14px;height:14px;border-radius:50%;border:1px solid #9aa5b5;background:transparent;cursor:pointer;padding:0;display:inline-block;vertical-align:middle;border-color:#b4bdca}
 .fsw.gold{background:var(--gold);border-color:var(--gold)}.fsw.green{background:var(--green);border-color:var(--green)}.fsw.red{background:var(--red);border-color:var(--red)}.fsw.blue{background:var(--blue);border-color:var(--blue)}
@@ -455,7 +455,7 @@ select option{background:#2a303b;color:#eef1f5}
   <div class="fmain">
    <label class="w2">Buscar endereço / cidade / ZIP / condado / processo / autor<input id="q" type="search" placeholder="digite para filtrar…"></label>
    <label title="Condado do leilão">Condado<select id="fco"><option value="">Todos</option></select></label>
-   <label title="FLIP / CONSIDER: preço esperado ≤ lance máx. de 17% (ROI ≥ 25% / ≥ 17%) · CONTESTED: há espaço até o lance máx., mas o preço esperado (ou o julgamento do foreclosure) está acima · NO ROOM: tax deed com lance inicial acima do lance máx., ou nenhum lance dá 17%">Verdict<select id="fvd"><option value="">Todos</option><option value="PROXY" title="FLIP + CONSIDER + CONTESTED que ainda têm espaço (lance máx. acima do lance inicial/julgamento): dar lance proxy no teto">Dar lance (proxy no teto)</option><option value="FLIP">FLIP</option><option value="CONSIDERAR">CONSIDER</option><option value="TITULO" title="Seria FLIP/CONSIDER, mas tem selo de título (jr/mtg/surv/code/HOA) – conferir antes">CONFERIR TÍTULO</option><option value="DISPUTADO">CONTESTED</option><option value="PASSAR">NO ROOM</option></select></label>
+   <label title="FLIP / CONSIDER: preço esperado ≤ lance máx. de 17% (ROI ≥ 25% / ≥ 17%) · CONTESTED: há espaço até o lance máx., mas o preço esperado (ou o julgamento do foreclosure) está acima · NO ROOM: tax deed com lance inicial acima do lance máx., ou nenhum lance dá 17%">Verdict<select id="fvd"><option value="">Todos</option><option value="PROXY" title="FLIP + CONSIDER + CONTESTED que ainda têm espaço (lance máx. acima do lance inicial/julgamento): dar lance proxy no teto">Dar lance (proxy no teto)</option><option value="FLIP">FLIP</option><option value="CONSIDERAR">CONSIDER</option><option value="TITULO" title="Seria FLIP/CONSIDER, mas tem selo de título (jr/mtg/surv/code/HOA) – conferir antes">CONFERIR TÍTULO</option><option value="PROCESSO" title="Foreclosure que seria FLIP/CONSIDER, mas o processo no clerk ainda não foi aberto (réus, julgamento, falência, 1ª hipoteca)">CONFERIR PROCESSO</option><option value="DISPUTADO">CONTESTED</option><option value="PASSAR">NO ROOM</option></select></label>
    <label class="ck" title="Sem alerta grave, HOA, ocupação, JR-LIEN, leilão anterior, título não verificado grave…"><input type="checkbox" id="bclean"> Negócios limpos</label>
   </div>
   <button class="btn sm" id="fmorebtn" type="button">Mais filtros</button>
@@ -1016,6 +1016,8 @@ function verdict(r){ let V=verdict0(r);
  if(V.vd==='FLIP' && r.repHi && r.roiHi!=null && r.roiHi<PR.flip/100) V={vd:'CONSIDERAR', why:'obra em faixa '+money(r.rep)+' – '+money(r.repHi)+' (padrão médio/luxo pendente): FLIP no piso, mas com a obra máxima o ROI cai para '+pct(r.roiHi)+' – '+V.why, sub:'obra em faixa', obra:'FLIP'};   // PROPOSTA 11
  if(V.vd==='FLIP' && r.arvSrc==='fraca') V={vd:'CONSIDERAR', why:'estimativa fraca (sem Zillow e sem 3 vendas vizinhas de 12 meses): o ROI daria FLIP – '+V.why, sub:'estimativa fraca – nunca FLIP', weak:'FLIP'};   // PROPOSTA 7
  if((V.vd==='FLIP'||V.vd==='CONSIDERAR') && r.t==='FC' && r.ref==null && r.fjPO && r.mb>0 && r.fjPO>r.mb+1) V={vd:'DISPUTADO', why:'julgamento estimado (PropertyOnion: POV − equity) '+money(r.fjPO)+' acima do lance máx. '+money(r.mb)+' – estimativa só piora, nunca melhora; conferir o julgamento oficial', sub:'julg. estimado (PO) acima do máx.', poJ:1};   // PROPOSTA 9
+ // Fernando t318u (16/11): foreclosure só vira FLIP/CONSIDER depois de aberto o processo no clerk (réus, julgamento oficial, falência, 1ª hipoteca)
+ if((V.vd==='FLIP'||V.vd==='CONSIDERAR') && r.t==='FC' && !(r.cf&&r.cf.opened)){ const tl=titleLock(r); return {vd:'PROCESSO', why:'processo não aberto'+(r.cfWhy?' ('+r.cfWhy+')':'')+': o veredito seria '+VDL[V.vd]+(tl?' e ainda tem trava de título ('+tl.join(', ')+')':'')+' – '+V.why+'. Abrir o processo no clerk: autor/advogado, réus (EUA/HUD/VA/SBA = resgate federal de 1 ano; HOA; outros credores), data e valor do Final Judgment, falência, remarcações, e se a hipoteca executada é a 1ª', sub:'seria '+VDL[V.vd]+(tl?' · + título':''), was:V.vd, cfLock:1}; }
  if(V.vd==='FLIP'||V.vd==='CONSIDERAR'){ const tl=titleLock(r); if(tl) return {vd:'TITULO', why:'trava de título ('+tl.join(', ')+'): o veredito seria '+VDL[V.vd]+' – '+V.why+'. Conferir título/registro e marcar titleOk no valuations_manual.json', sub:'seria '+VDL[V.vd], was:V.vd}; } return V; }
 function verdict0(r){
  if(r.man && r.man.pass) return {vd:'PASSAR', why:'avaliação manual: passar ('+(r.man.notes||'')+')', man:1};
@@ -1037,7 +1039,7 @@ function verdict0(r){
  }
  return {vd: r.roi>=PR.flip/100 ? 'FLIP' : 'CONSIDERAR', why:'preço esperado '+money(r.xbid)+' ≤ lance máx. '+money(r.mb)+' ('+(r.mbWhy||'')+')'};
 }
-const VDL={FLIP:'FLIP',CONSIDERAR:'CONSIDER',DISPUTADO:'CONTESTED',PASSAR:'NO ROOM',TITULO:'CONFERIR TÍTULO'};
+const VDL={FLIP:'FLIP',CONSIDERAR:'CONSIDER',DISPUTADO:'CONTESTED',PASSAR:'NO ROOM',TITULO:'CONFERIR TÍTULO',PROCESSO:'CONFERIR PROCESSO'};
 function vdTxt(r,long){
  if(r.vd==='DISPUTADO') return long ? 'CONTESTED – lance até '+money(r.mb) : 'CONTESTED';
  if(r.vd==='PASSAR') return (r.vdWhy==='sem dados'||r.vdMan) ? 'PASS' : 'NO ROOM';
@@ -1133,8 +1135,8 @@ function evaluate(r){
  } else { r.sc=r.scR; r.sp=r.spR; r.scKind='radar do Fernando'; }
  // surviving liens: deducted in the P&L (estimated balance) + warning + moderate score penalty – no automatic PASS
  const V=verdict(r); r.vd=V.vd; r.vdWhy=V.why; r.vdSub=V.sub||null; r.vdMan=!!V.man; r.vdWas=V.was||null;
- r.kat = r.roi==null ? 'SEM DADOS' : r.vd==='PASSAR' ? 'NO ROOM' : r.vd==='DISPUTADO' ? 'CONTESTED' : r.vd==='TITULO' ? 'CONFERIR TÍTULO' : r.jmax ? 'J>MAX' : r.net<PR.lownet ? 'LUCRO BAIXO' : 'VIÁVEL';
- r.katk = r.roi==null ? 'semdados' : r.vd==='PASSAR' ? 'abaixo' : r.vd==='DISPUTADO' ? 'disp' : r.vd==='TITULO' ? 'titulo' : r.jmax ? 'jmax' : r.net<PR.lownet ? 'lucro' : 'viavel';
+ r.kat = r.roi==null ? 'SEM DADOS' : r.vd==='PASSAR' ? 'NO ROOM' : r.vd==='DISPUTADO' ? 'CONTESTED' : r.vd==='TITULO' ? 'CONFERIR TÍTULO' : r.vd==='PROCESSO' ? 'CONFERIR PROCESSO' : r.jmax ? 'J>MAX' : r.net<PR.lownet ? 'LUCRO BAIXO' : 'VIÁVEL';
+ r.katk = r.roi==null ? 'semdados' : r.vd==='PASSAR' ? 'abaixo' : r.vd==='DISPUTADO' ? 'disp' : r.vd==='TITULO' ? 'titulo' : r.vd==='PROCESSO' ? 'processo' : r.jmax ? 'jmax' : r.net<PR.lownet ? 'lucro' : 'viavel';
  r.clean = !r.fl.some(f=>HI.includes(f)||MD.includes(f)||f==='junk') && !r.suspect;
  // selo gleba ≥ 5 ac (29/10, só exibição): área do polígono da parcela (geo.ac), senão r.ac
  // selo lista com N dias (02/11, só exibição): lista RealAuction lida há > 7 dias
@@ -1653,6 +1655,19 @@ function plHtml(r){ if(r.t!=='FC') return ''; const h=plHist(r), nm=r.pk||'autor
   '<tr><td>ficou no lance de abertura (sem disputa)</td><td class="n">'+h.nocontest+'</td><td class="n">—</td><td class="n">—</td><td class="mini">ninguém disputou</td></tr></tbody></table></div>'+
   '<p class="mini">Medianas de '+h.n+' leilões com este autor ('+Object.entries(h.cos||{}).sort((a,b)=>b[1]-a[1]).slice(0,4).map(e=>e[0]+' '+e[1]).join(', ')+'). Autor ligado ao resultado pelo nº do processo (PropertyOnion), conferido pelo valor do julgamento.</p></div>';
  return x; }
+// Fernando t318u (16/11): processo do foreclosure no clerk
+function cfHtml(r){ if(r.t!=='FC') return ''; const c=r.cf, P=r.cfP;
+ let x='<div class="survbox" id="cfbox" style="border-color:#38bdf8"><b>Processo '+esc(r.case||'')+'</b> ';
+ if(c&&c.opened){ const L=(k,v)=>v?'<div><span class="mini">'+k+'</span> '+v+'</div>':'';
+  x+='<span class="mini c-green">aberto em '+esc(c.opened)+(c.by?' por '+esc(c.by):'')+'</span>'+L('Autor / advogado',esc((c.plaintiff||'—')+' / '+(c.attorney||'—')))+L('Réus',esc((c.defendants||[]).join('; ')))+
+   (c.fed?'<div class="c-red"><b>Réu federal (EUA/HUD/VA/SBA): resgate de 1 ano</b></div>':'')+(c.hoa?'<div class="c-amber">Associação (HOA) entre os réus</div>':'')+L('Outros credores',esc((c.creditors||[]).join('; ')))+
+   L('Final Judgment',(c.fjDate?esc(c.fjDate)+' · ':'')+(c.fjAmount?money(+c.fjAmount)+' (oficial)':''))+L('Falência',esc((c.bankruptcy||[]).map(b=>b.case+' '+(b.date||'')).join('; ')))+L('Remarcações',esc((c.resched||[]).join('; ')))+
+   (c.cancelMotion?'<div class="c-amber">Pedido de cancelamento no processo</div>':'')+L('Hipoteca executada é a 1ª?',c.firstMtg===true?'sim':c.firstMtg===false?'<b class="c-red">não</b>':'?')+L('Notas',esc(c.notes||''));
+ } else {
+  x+='<span class="mini c-amber">processo não aberto – '+esc(r.cfWhy||'clerk não sondado')+'</span><p class="mini">Até abrir: nunca FLIP/CONSIDER (veredito CONFERIR PROCESSO). Abrir no clerk e lançar em cases_manual.json (fora do git): autor/advogado, réus (EUA/HUD/VA/SBA = resgate federal de 1 ano; HOA; outros credores), data e valor do Final Judgment (oficial, substitui estimativas), falências, remarcações, pedido de cancelamento e se a hipoteca é a 1ª.</p>';
+ }
+ if(P&&P.d) x+='<p class="mini">Pistas da lista pública (parcial, "et al"): '+esc(P.d)+(P.fed?' · <b class="c-red">réu federal: '+esc(P.fed.join(', '))+'</b>':'')+(P.hoa?' · <span class="c-amber">associação entre os réus</span>':'')+(P.cred?' · outro credor citado':'')+'</p>';
+ return x+'</div>'; }
 function titleCell(r){ const tl=titleLock(r); if(tl) return '<b class="c-red" title="'+esc(tl.join(', '))+'">armadilha</b><div class="mini">'+esc(tl.slice(0,2).join(', '))+'</div>';
  if(r.tok) return '<b class="c-green">conferido</b>'+(r.man&&r.man.titleDate?'<div class="mini">'+esc(r.man.titleDate)+'</div>':''); return '<span class="c-amber">conferir</span>'; }
 const DCOLS=[
@@ -2220,7 +2235,7 @@ function openDrawer(id){
   '<div><span title="'+CASH_TIP+'">Cash to Close (Realistic Bid)</span><b>'+money(r.cash)+'</b><span class="mini">lance '+money(r.xbid)+' · depósito '+money(r.xbid!=null?r.xbid*PR.dep/100:null)+'</span></div>'+
   '<div><span>Orlando</span><b>'+distLbl(r)+'</b></div>'+
   '<div><span title="ROI no lance que a gente assume que ganha o leilão">ROI realista</span><b class="'+(r.roi>=PR.flip/100?'c-green':r.roi>=PR.ret/100?'c-amber':'c-red')+'">'+pct(r.roi)+'</b><span class="mini">'+money(r.net)+(r.roi0!=null&&Math.abs((r.xbid||0)-(r.ref||0))>1?' · inicial '+pct(r.roi0):'')+'</span></div></div>'+
-  galHtml(r)+val3Html(r)+plHtml(r)+
+  galHtml(r)+val3Html(r)+plHtml(r)+cfHtml(r)+
   '<div class="dlinks"><a class="btn gold" id="dzil" href="'+esc(zillowUrl(r))+'" target="_blank" rel="noopener">🏠 Zillow</a><a class="btn gold" id="drea" href="'+esc(redfinUrl(r))+'" target="_blank" rel="noopener">🏠 Redfin</a><a class="btn" href="'+esc(gmapsUrl(r))+'" target="_blank" rel="noopener">📍 Google Maps</a><a class="btn" href="'+esc(svUrl(r))+'" target="_blank" rel="noopener">🚶 Street View</a>'+(L.pa?'<a class="btn" href="'+esc(L.pa)+'" target="_blank" rel="noopener">🏛 Property Appraiser</a>':'')+(L.auc||L.list?'<a class="btn" href="'+esc(L.auc||L.list)+'" target="_blank" rel="noopener">⚖ Clerk / Leilão</a>':'')+(L.po?'<a class="btn" href="'+esc(L.po)+'" target="_blank" rel="noopener">PropertyOnion</a>':'')+'<button class="btn gold" id="dshare" title="Link que abre o site direto neste imóvel (depois da senha), ignorando filtros">🔗 Copiar link do imóvel</button><button class="btn '+(CAND[r.id]?'':'gold')+'" id="dcand">'+(CAND[r.id]?'✓ Candidato':'＋ Candidato')+'</button></div>'+
   (r.tconf?'<div class="survbox" id="tconfbox"><b>⚠ Lote? pode ter construção — verificar</b> As fontes não concordam sobre o tipo:<ul class="lcx">'+r.tconf.map(t=>'<li>'+esc(t)+'</li>').join('')+'</ul><span class="mini">O painel mantém o tipo do DOR, mas não usa comps de lote como ARV. Confira fotos, Street View e o Property Appraiser.</span></div>':'')+
   ((r.fl.includes('surv')||r.survAmt)?('<div class="survbox" id="survbox"><b>⚠ Hipoteca pode sobreviver</b>'+(r.survAmt?' – est. <b>'+money(r.survAmt)+'</b>':'')+'. '+esc(r.survWhy||FL.surv.d)+' <span class="mini">ESTIMATIVA – confirmar com title search. Toggle no P&L para deduzir/omitir.</span></div>'):'')+
@@ -2486,7 +2501,7 @@ if(DL && DL.explicit){ S.cat=''; S.kat=''; }
 if(DL && DL.r){ if(DL.explicit) apply(true); openDrawer(DL.r.id); }
 else if(DL && DL.explicit) setTimeout(()=>toast('Imóvel “'+DL.asked+'” não encontrado (leilão já passou ou foi removido)'),300);
 termify(document.body);
-window.__dash={apply, ITEMS, M, plHtml, bankCell, fjCap, plLine, jInt, titleCell, renderDec, salaPrice, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, redfinUrl, redfinFind, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
+window.__dash={apply, ITEMS, M, plHtml, cfHtml, bankCell, fjCap, plLine, jInt, titleCell, renderDec, salaPrice, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, redfinUrl, redfinFind, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
 })();
 </script>
 </body>

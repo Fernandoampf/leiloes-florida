@@ -71,11 +71,12 @@ with sync_playwright() as p:
     check(len(sl) > 100 and all(x['ok'] for x in sl), f'preço pela sala = índice × valor ({len(sl)} itens)')
     check(not any(x['bad'] for x in sl), 'lote com ≥ 3 comps e preço pela sala acima do máx. nunca é FLIP/CONSIDERAR')
     # vereditos e categorias
-    vds = set(pg.evaluate(D + '.ITEMS.map(r=>r.vd)')); check(vds <= {'FLIP', 'CONSIDERAR', 'DISPUTADO', 'PASSAR', 'TITULO'} and {'FLIP','DISPUTADO','PASSAR'} <= vds, f'vereditos {vds}')
+    vds = set(pg.evaluate(D + '.ITEMS.map(r=>r.vd)')); check(vds <= {'FLIP', 'CONSIDERAR', 'DISPUTADO', 'PASSAR', 'TITULO', 'PROCESSO'} and {'FLIP','DISPUTADO','PASSAR'} <= vds, f'vereditos {vds}')
     bad = pg.evaluate(D + '''.ITEMS.filter(r=>r.roi!=null&&r.mb!=null&&!(r.geo&&r.geo.poly!==false&&((r.geo.wetPct||0)>=10||(r.geo.sfhaPct||0)>=10))).filter(r=>{
         const room = r.mb>0, over = r.ref!=null && r.ref>r.mb+1;
         if(r.vd==='FLIP'||r.vd==='CONSIDERAR') return !(room && !over && !(r.xbid>r.mb+1) && (r.vd==='FLIP'?r.roi>=0.25&&r.arvSrc!=='fraca'&&!(r.repHi&&r.roiHi<0.25):(r.roi<0.25||r.arvSrc==='fraca'||(r.repHi&&r.roiHi<0.25))));
         if(r.vd==='TITULO') return !(room && !over && !(r.xbid>r.mb+1) && (r.vdWas==='FLIP'?r.roi>=0.25:(r.roi<0.25||r.arvSrc==='fraca'||(r.repHi&&r.roiHi<0.25))));   // PROPOSTA 8 (+ PROPOSTA 11: obra em faixa): mesma regra, travado por título
+        if(r.vd==='PROCESSO') return !(r.t==='FC' && !(r.cf&&r.cf.opened) && room && !over && !(r.xbid>r.mb+1) && (r.vdWas==='FLIP'?r.roi>=0.25:true));   // Fernando t318u: processo não aberto
         if(r.vd==='PASSAR') return !( !room || (r.t!=='FC' && over) || /^lote barato/.test(r.vdWhy||'') );
         if(r.vd==='DISPUTADO') return !( room && ((r.t==='FC' && over) || (r.t==='FC' && r.ref==null && r.fjPO>r.mb+1) || r.xbid>r.mb+1 || (r.sala&&r.sala.comps3&&r.sala.v>r.mb+1)) );
         return true; }).map(r=>r.addr+' '+r.vd).slice(0,5)''')
@@ -83,7 +84,7 @@ with sync_playwright() as p:
     check(pg.evaluate(D + '.ITEMS.filter(r=>r.t==="FC"&&r.vd==="PASSAR"&&r.mb>0&&r.ref>r.mb+1&&!(r.geo&&r.geo.poly!==false&&((r.geo.wetPct||0)>=10||(r.geo.sfhaPct||0)>=10))).length') == 0, 'foreclosure com julgamento acima do lance máx. é DISPUTADO, não SEM ESPAÇO')
     kats = pg.evaluate(D + '.ITEMS.map(r=>r.kat).join()'); check('NO ROOM' in kats and 'CONTESTED' in kats, 'categorias “NO ROOM” e “CONTESTED”')
     check(pg.evaluate(D + '.ITEMS.filter(r=>r.fl.includes("mtg")&&r.roi!=null&&r.mb>0&&!(r.ref>r.mb)&&!(r.xbid>r.mb+1)).every(r=>r.vd!=="PASSAR")'), 'hipoteca que sobrevive não é PASSAR automático')
-    check(pg.evaluate(D + '.ITEMS.filter(r=>r.survOrig).every(r=>r.survAmt<=r.survOrig)'), 'dívida que sobrevive = saldo estimado (≤ valor original)')
+    check(pg.evaluate(D + '.ITEMS.filter(r=>r.survOrig).every(r=>(r.survAmt||0)<=r.survOrig)'), 'dívida que sobrevive = saldo estimado (≤ valor original)')
     jvb = pg.evaluate(D + '.ITEMS.filter(r=>r.jv85&&r.arvSrc!=="zillow"&&r.arvSrc!=="vendas"&&!r.suspect&&!r.povAsArv&&!(r.sup&&r.sup.disc)&&!r.bld).filter(r=>Math.abs((r.val0!=null?r.val0:r.val)-r.jv85/0.85)>1).map(r=>[r.addr,r.val0,r.val,r.jv85]).slice(0,3)')
     check(not jvb and pg.evaluate(D + '.ITEMS.filter(r=>r.jv85).length') > 100, f'ARV só com just value = just value ÷ 0,85 {jvb}')
     check(pg.locator('#fvd option[value="DISPUTADO"]').count()==1 and 'contested' in pg.inner_text('#kpis').lower(), 'filtro e KPI CONTESTED')
@@ -506,7 +507,7 @@ with sync_playwright() as p:
     rf = pg.evaluate("(()=>{const d=window.__dash; const I=d.ITEMS.filter(r=>r.zip&&/^\\s*\\d/.test(r.addr)).slice(0,80); const ok=r=>{const z=decodeURIComponent(d.zillowUrl(r)), g=decodeURIComponent(d.gmapsUrl(r)), f=decodeURIComponent(d.redfinUrl(r)); return z.includes('-FL-'+r.zip) && g.includes(', FL '+r.zip) && /redfin\\.com/.test(f) && f.includes(r.zip) && !/zipcode/.test(f);}; return {n:I.length, bad:I.filter(r=>!ok(r)).map(r=>r.id).slice(0,5), btnI:I.some(r=>/btnI/.test(d.redfinFind(r)))};})()")
     check(rf['n'] > 50 and not rf['bad'] and not rf['btnI'], f'links Redfin/Zillow/Maps pelo endereço completo (cidade, FL, ZIP) {rf}')
     # PROPOSTA 8 (16/11): trava de título
-    tl = pg.evaluate("(()=>{const I=window.__dash.ITEMS; const lk=r=>!/Lote|Terreno/.test(r.ty)&&!r.tok&&(['jr','mtg','surv','code'].some(f=>r.fl.includes(f))||r.hoaPl); const bad=I.filter(r=>lk(r)&&(r.vd==='FLIP'||r.vd==='CONSIDERAR')).map(r=>r.id); const T=I.filter(r=>r.vd==='TITULO'); return {bad:bad.slice(0,5), n:T.length, was:T.every(r=>r.vdWas==='FLIP'||r.vdWas==='CONSIDERAR'), lockOk:T.every(lk), opt:!!document.querySelector('#fvd option[value=TITULO]')};})()")
+    tl = pg.evaluate("(()=>{const I=window.__dash.ITEMS; const lk=r=>!/Lote|Terreno/.test(r.ty)&&!r.tok&&(['jr','mtg','surv','code'].some(f=>r.fl.includes(f))||r.hoaPl); const bad=I.filter(r=>lk(r)&&(r.vd==='FLIP'||r.vd==='CONSIDERAR')).map(r=>r.id); const T=I.filter(r=>r.vd==='TITULO'||(r.vd==='PROCESSO'&&lk(r))); return {bad:bad.slice(0,5), n:T.length, was:T.every(r=>r.vdWas==='FLIP'||r.vdWas==='CONSIDERAR'), lockOk:T.every(lk), opt:!!document.querySelector('#fvd option[value=TITULO]')};})()")
     check(not tl['bad'] and tl['n'] > 0 and tl['was'] and tl['lockOk'] and tl['opt'], f'trava de título: jr/mtg/surv/code/HOA nunca FLIP/CONSIDER → CONFERIR TÍTULO {tl}')
     # PROPOSTA 7 (16/11): ARV de casa = Zillow manual > mediana de vendas vizinhas (≥3, 12 meses, ±20% pé²) > estimativa fraca (nunca FLIP)
     p7 = pg.evaluate("""(()=>{const d=window.__dash, I=d.ITEMS, H=I.filter(r=>['Casa','Townhouse','Condo','Mobile','Multifamily'].includes(r.ty)&&r.val0);
@@ -533,12 +534,19 @@ with sync_playwright() as p:
     check(ob['n'] > 20 and not ob['bad'] and ob['flipBad'] == 0 and ob['small'] == 0 and ob['opt'] and (ob['mabel'] is None or (ob['mabel'][1] == 307965 and ob['mabel'][0] < 307965)), f'obra em faixa (casa grande, padrão médio/luxo pendente; veredito usa o piso) {ob}')
     # PROPOSTA 6 – versão SUBSTITUTA (Fernando t319u, substitui a faixa 57–94% de 14/11): lance oculto com as 2 pontas + histórico do autor na ficha
     p6 = pg.evaluate("""(()=>{const d=window.__dash, I=d.ITEMS; const H=I.filter(r=>r.t==='FC'&&r.ref&&!r.pmax);
-      const both=H.every(r=>{const c=d.bankCell(r); return /lance oculto — conferir no dia/.test(c)&&/faixa: ~US\$ 100 \(sem disputa\)/.test(c);});
+      const both=H.every(r=>{const c=d.bankCell(r); return /lance oculto — conferir no dia/.test(c)&&/faixa: ~US\\$ 100 \\(sem disputa\\)/.test(c);});
       const w=H.find(r=>r.pk&&d.M.plh&&d.M.plh[r.pk]&&d.M.plh[r.pk].released>0); let t='';
       if(w){ d.openDrawer(w.id); t=(document.querySelector('#plh')||{}).textContent||''; d.closeDrawer(); }
       const below=I.filter(r=>r.t==='FC'&&r.ref!=null&&r.mb>0&&r.ref>r.mb+1&&r.vd==='PASSAR'&&!(r.geo&&r.geo.poly!==false&&((r.geo.wetPct||0)>=10||(r.geo.sfhaPct||0)>=10))).length;
-      return {n:H.length, both, drawer:/banco ficou/.test(t)&&/soltou para terceiro/.test(t)&&/preço ÷ julgamento/.test(t)&&/preço ÷ valor do condado/.test(t)&&/não<\/b> descarta|não descarta/.test(t.replace(/\s+/g,' ')), below, band:/57\\s*[–-]\\s*94\\s*%/.test(document.body.innerText+t)};})()""")
+      return {n:H.length, both, drawer:/banco ficou/.test(t)&&/soltou para terceiro/.test(t)&&/preço ÷ julgamento/.test(t)&&/preço ÷ valor do condado/.test(t)&&/não<\\/b> descarta|não descarta/.test(t.replace(/\\s+/g,' ')), below, band:/57\\s*[–-]\\s*94\\s*%/.test(document.body.innerText+t)};})()""")
     check(p6['n'] > 50 and p6['both'] and p6['drawer'] and p6['below'] == 0 and not p6['band'], f'lance oculto: 2 pontas + selo "conferir no dia" + histórico do autor (ficou/soltou, % julgamento e % condado); máx. < julgamento não descarta {p6}')
+    # Fernando t318u (16/11): processo do foreclosure – sem processo aberto nunca FLIP/CONSIDER (CONFERIR PROCESSO), clerks com captcha não contornados
+    pc = pg.evaluate("""(()=>{const d=window.__dash, I=d.ITEMS; const F=I.filter(r=>r.t==='FC'); const op=F.filter(r=>r.cf&&r.cf.opened);
+      const bad=F.filter(r=>!(r.cf&&r.cf.opened)&&(r.vd==='FLIP'||r.vd==='CONSIDERAR')).map(r=>r.id).slice(0,5); const P=I.filter(r=>r.vd==='PROCESSO');
+      const w=P[0]; let t=''; if(w){ d.openDrawer(w.id); t=(document.querySelector('#cfbox')||{}).textContent||''; d.closeDrawer(); }
+      return {fc:F.length, opened:op.length, bad, n:P.length, was:P.every(r=>r.vdWas==='FLIP'||r.vdWas==='CONSIDERAR'), fcOnly:P.every(r=>r.t==='FC'), why:P.every(r=>/processo não aberto/.test(r.vdWhy)),
+        drawer:/processo não aberto/.test(t), opt:!!document.querySelector('#fvd option[value=PROCESSO]'), orange:(I.find(r=>r.t==='FC'&&r.cs==='orange'&&!(r.cf&&r.cf.opened))||{}).cfWhy||''};})()""")
+    check(not pc['bad'] and pc['n'] > 0 and pc['was'] and pc['fcOnly'] and pc['why'] and pc['drawer'] and pc['opt'] and 'captcha' in pc['orange'].lower(), f'processo do foreclosure: sem processo aberto → CONFERIR PROCESSO (captcha não contornado) {pc}')
     cf = pg.evaluate("(()=>{const I=window.__dash.ITEMS; const W=I.find(r=>r.id==='TDpox0e3f3dd972d1'), R=I.find(r=>r.id==='FC1528998'); const H=I.filter(r=>['Casa','Townhouse','Mobile','Multifamily'].includes(r.ty)); return {semImg:H.filter(r=>!(r.imgs&&r.imgs.length)&&r.lat==null).length, nH:H.length, W:W?[W.lat,W.lon]:null, R:R?[R.lat,R.lon]:null};})()")
     near = lambda p, q: p and abs(p[0]-q[0]) < 0.0004 and abs(p[1]-q[1]) < 0.0004
     check(cf['semImg'] <= 0.01 * cf['nH'] and (cf['W'] is None or near(cf['W'], (28.825107, -81.580303))) and (cf['R'] is None or near(cf['R'], (26.648677, -81.593795))),

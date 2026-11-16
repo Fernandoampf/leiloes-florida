@@ -307,6 +307,37 @@ def merge_fav_changes(arch, runs=None):
 JINT = [['2024-01-01', 9.09], ['2024-04-01', 9.34], ['2024-07-01', 9.46], ['2024-10-01', 9.50], ['2025-01-01', 9.38], ['2025-04-01', 9.15],
         ['2025-07-01', 8.90], ['2025-10-01', 8.65], ['2026-01-01', 8.44], ['2026-04-01', 8.25], ['2026-07-01', 8.06], ['2026-10-01', 7.87]]
 
+# Fernando t318u (16/11): abrir o processo de cada foreclosure no clerk. Só automatizar onde o acesso é público SEM captcha/formulário.
+# Sondagem de 16/11 (1 GET por clerk, 2 s entre pedidos; nada contornado). Resultado: nenhum clerk dos condados com foreclosure
+# permite abrir o processo só com GET -> todos "processo não aberto" até Fernando/Claude abrirem à mão e lançarem em
+# /workspace/auc/statewide/cases/cases_manual.json (fora do git): {"orange|2025-CA-001234-O": {"opened": "2026-11-17", "by": "...",
+#   "plaintiff": "...", "attorney": "...", "defendants": [...], "fed": false, "hoa": false, "creditors": [...], "fjDate": "...",
+#   "fjAmount": 123456.78, "bankruptcy": [{"case": "...", "date": "..."}], "resched": [...], "cancelMotion": false, "firstMtg": true, "notes": "..."}}
+CLERK_BLOCK = {
+    'orange': 'myeClerk com reCAPTCHA', 'polk': 'PRO com bloqueio de robô', 'lee': 'matrix recusa conexão automática',
+    'hillsborough': 'HOVER recusa conexão automática', 'brevard': 'exige aceitar termos (formulário)', 'seminole': '403 Cloudflare',
+    'osceola': 'Benchmark recusa conexão automática', 'lake': 'ShowCase com captcha', 'duval': 'CORE com reCAPTCHA', 'pinellas': '403 Cloudflare',
+    'broward': 'reCAPTCHA/Turnstile', 'volusia': 'CCMS exige aceitar termos (formulário)', 'palmbeach': 'eCaseView (endereço mudou; não sondado)',
+    'miamidade': 'exige cadastro/login', }
+CASES_MANUAL = os.path.join('/workspace/auc', 'statewide', 'cases', 'cases_manual.json')
+FED_RE = re.compile(r'UNITED STATES|SECRETARY OF (HOUSING|VETERANS)|\bHUD\b|SMALL BUSINESS ADMIN|INTERNAL REVENUE|DEPARTMENT OF (HOUSING|VETERANS|THE TREASURY|TREASURY|AGRICULTURE)|\bU\.?S\.?A\b|RURAL (HOUSING|DEVELOPMENT)', re.I)
+HOA_RE = re.compile(r'ASSOCIATION|\bHOA\b|CONDOMINIUM|HOMEOWNERS|COMMUNITY DEVELOPMENT DISTRICT', re.I)
+CRED_RE = re.compile(r'BANK|MORTGAGE|CREDIT UNION|FINANCIAL|LENDING|CAPITAL ONE|DISCOVER|PORTFOLIO|MIDLAND|LVNV|CAVALRY|FUNDING|ACCEPTANCE', re.I)
+
+def case_norm(co, case):
+    k = plaintiff_hist.case_key(case)
+    return f"{co}|{k[0]}-{k[1]}" if k else None
+
+def load_cases_manual():
+    try: raw = json.load(open(CASES_MANUAL))
+    except Exception: return {}
+    out = {}
+    for k, v in raw.items():
+        if k.startswith('_') or '|' not in k or not isinstance(v, dict): continue
+        co, cs = k.split('|', 1); nk = case_norm(co.strip().lower(), cs)
+        if nk: out[nk] = v
+    return out
+
 def load_results():
     """-> (stats dict, recent 3rd-party sales list). Basis: RealAuction 'Assessed Value' shown on the auction listing."""
     import glob
@@ -599,6 +630,7 @@ def build_items(args):
     seen = jload(os.path.join(CACHE, 'seen_v4.json'), {})
     # 16/11 PROPOSTA 9: histórico das conferências do lance publicado (fora do git: cache/)
     bidh = jload(os.path.join(CACHE, 'bid_checks.json'), {})
+    casesM = load_cases_manual()
     if not bidh:      # 1ª vez: semeia com os snapshots diários runs/run_<data>.json (ref = opening bid / julgamento publicado naquele dia)
         import glob as _g
         for f in sorted(_g.glob(os.path.join(SW, 'runs', 'run_2026-*.json'))):
@@ -830,6 +862,11 @@ def build_items(args):
                 arv_src = 'fraca'
                 vsrc = f"{vsrc} · ESTIMATIVA FRACA: sem Zillow e sem 3 vendas vizinhas de 12 meses (±20% pé²) – nunca FLIP"
         ref = num(x.get('ob')) if src == 'TD' else num(x.get('fj')) if src == 'FC' else num(x.get('ref'))
+        cf0 = casesM.get(case_norm(cs, x.get('case')) or '') if src == 'FC' else None     # processo aberto à mão: julgamento OFICIAL substitui
+        cf_note = None
+        if cf0 and cf0.get('opened') and num(cf0.get('fjAmount')) and num(cf0['fjAmount']) > 0:
+            if ref and abs(num(cf0['fjAmount']) - ref) > 1: cf_note = f"Julgamento do processo {_usd(num(cf0['fjAmount']))} (lista dizia {_usd(ref)})."
+            ref = num(cf0['fjAmount'])
         nobid = bool((it.get('po_only') or x.get('inperson')) and not ref)
         if it.get('bid_fill') and ref:
             notes.append(f"Julgamento/lance obtido no RealAuction ({it['bid_fill'].get('how')}).")
@@ -888,6 +925,7 @@ def build_items(args):
         status = [a.get('auction_status') for a in same]
         # ---- flags
         flags, notes = [], []
+        if cf_note: notes.append(cf_note)
         ml = it.get('mlot')
         if ml:
             flags.append('mlot')
@@ -1016,6 +1054,18 @@ def build_items(args):
         if src == 'FC' and not ref and poe.get('pov') and poe.get('equity') is not None:
             fj_po = round(num(poe['pov']) - num(poe['equity']))
             if not fj_po or fj_po <= 0: fj_po = None
+        # Fernando t318u: processo do foreclosure. Manual (aberto à mão) substitui estimativas; senão "processo não aberto" + pistas das listas públicas
+        cf = cf_why = cf_p = None
+        if src == 'FC':
+            cf = cf0
+            if cf and cf.get('opened'):
+                if num(cf.get('fjAmount')): fj_po = None
+                if cf.get('fjDate'): fjd = cf['fjDate']
+            else:
+                cf = None; cf_why = CLERK_BLOCK.get(cs, 'clerk não sondado – abrir à mão')
+            dtxt = defend + ' ' + str((x.get('inperson') or {}).get('defendant') or '')
+            fed = sorted({m.group(0).upper() for m in FED_RE.finditer(dtxt)}); hoa = bool(HOA_RE.search(dtxt)); cred = bool(CRED_RE.search(dtxt))
+            if dtxt.strip(): cf_p = dict(d=dtxt.strip()[:240], fed=fed or None, hoa=hoa or None, cred=cred or None)
         # histórico das conferências: valor publicado (opening bid / julgamento / lance máx. do autor) por data da leitura do RealAuction
         pubv = num(x.get('pmax')) if src == 'FC' and x.get('pmax') not in (None, 'Hidden') else ref
         bh = bidh.setdefault(key, [])
@@ -1087,7 +1137,7 @@ def build_items(args):
             plat=('Presencial' if x.get('inperson') else 'PropertyOnion' if it.get('po_only') else x.get('platform')),
             ip=x.get('inperson'), addrSrc=x.get('addr_src'), addr0=x.get('addr0'), scan=x.get('scan'), cver=x.get('cver'),
             pmax=x.get('pmax') if x.get('pmax') not in (None, 'Hidden') else None,
-            pmaxH=(src == 'FC' and x.get('pmax') == 'Hidden') or None, fjd=fjd, pk=pk, fjPO=fj_po, bh=([e for i, e in enumerate(bh) if i == 0 or abs(e[1] - bh[i - 1][1]) > 0.5][-6:] if bh else None), bhl=(bh[-1][0] if bh else None), bhn=(len(bh) if bh else None),
+            pmaxH=(src == 'FC' and x.get('pmax') == 'Hidden') or None, fjd=fjd, pk=pk, fjPO=fj_po, cf=cf, cfWhy=cf_why, cfP=cf_p, bh=([e for i, e in enumerate(bh) if i == 0 or abs(e[1] - bh[i - 1][1]) > 0.5][-6:] if bh else None), bhl=(bh[-1][0] if bh else None), bhn=(len(bh) if bh else None),
             new=first == today, first=first if first != '0000-00-00' else None, muni=dictval(P0.get('municipality')),
         )
         # ---- type conflict: DOR says vacant land, other sources say something is built there
