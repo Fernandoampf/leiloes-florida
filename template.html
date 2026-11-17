@@ -1022,7 +1022,7 @@ function scTip(r){ if(r.sc==null) return r.scKind||''; const sp=r.sp||{}; const 
 const TLOCK_FL=['jr','mtg','surv','code'];
 // PROPOSTA 12 (16/11, aprovada): processo de VARA DO CONDADO (nº com CC, CONO ou COCE) = ação de associação/condomínio → a 1ª hipoteca sobrevive
 const isCC = r => r.t==='FC' && !!r.case && /(^|[\d\s\-])CC([\d\s\-]|[A-Z]*$)|^CO(NO|CE)[\s\-]/.test(String(r.case).toUpperCase());
-function titleLock(r){ if(r.tok) return null; const f=isLand(r)?[]:TLOCK_FL.filter(k=>r.fl.includes(k)).map(k=>FL[k]?FL[k].l:k); if(r.hoaPl&&!isLand(r)) f.push('autor é associação (HOA)'); if(isCC(r)) f.push('vara do condado (ação de associação – 1ª hipoteca sobrevive)'); return f.length?f:null; }
+function titleLock(r){ if(r.tok) return null; const f=isLand(r)?[]:TLOCK_FL.filter(k=>r.fl.includes(k)).map(k=>FL[k]?FL[k].l:k); if(r.hoaPl&&!isLand(r)) f.push('autor é associação (HOA)'); if(isCC(r)) f.push('vara do condado (ação de associação – 1ª hipoteca sobrevive)'); if(r.cf&&r.cf.opened&&r.cf.firstMtg===false) f.push('processo: hipoteca executada não é a 1ª'); return f.length?f:null; }
 function verdict(r){ let V=verdict0(r);
  if(V.vd==='FLIP' && r.repHi && r.roiHi!=null && r.roiHi<PR.flip/100) V={vd:'CONSIDERAR', why:'obra em faixa '+money(r.rep)+' – '+money(r.repHi)+' (padrão médio/luxo pendente): FLIP no piso, mas com a obra máxima o ROI cai para '+pct(r.roiHi)+' – '+V.why, sub:'obra em faixa', obra:'FLIP'};   // PROPOSTA 11
  if(V.vd==='FLIP' && r.arvSrc==='fraca') V={vd:'CONSIDERAR', why:'estimativa fraca (sem Zillow e sem 3 vendas vizinhas de 12 meses): o ROI daria FLIP – '+V.why, sub:'estimativa fraca – nunca FLIP', weak:'FLIP'};   // PROPOSTA 7
@@ -1031,6 +1031,7 @@ function verdict(r){ let V=verdict0(r);
  if((V.vd==='FLIP'||V.vd==='CONSIDERAR') && r.t==='FC' && !(r.cf&&r.cf.opened)){ const tl=titleLock(r); return {vd:'PROCESSO', why:'processo não aberto'+(r.cfWhy?' ('+r.cfWhy+')':'')+': o veredito seria '+VDL[V.vd]+(tl?' e ainda tem trava de título ('+tl.join(', ')+')':'')+' – '+V.why+'. Abrir o processo no clerk: autor/advogado, réus (EUA/HUD/VA/SBA = resgate federal de 1 ano; HOA; outros credores), data e valor do Final Judgment, falência, remarcações, e se a hipoteca executada é a 1ª', sub:'seria '+VDL[V.vd]+(tl?' · + título':''), was:V.vd, cfLock:1}; }
  if(V.vd==='FLIP'||V.vd==='CONSIDERAR'){ const tl=titleLock(r); if(tl) return {vd:'TITULO', why:'trava de título ('+tl.join(', ')+'): o veredito seria '+VDL[V.vd]+' – '+V.why+'. Conferir título/registro e marcar titleOk no valuations_manual.json', sub:'seria '+VDL[V.vd], was:V.vd}; } return V; }
 function verdict0(r){
+ if(r.cf && r.cf.opened && r.cf.rejected) return {vd:'PASSAR', why:'descartada pelo Fernando depois de aberto o processo', man:1};   // PROPOSTA 13
  if(r.man && r.man.pass) return {vd:'PASSAR', why:'avaliação manual: passar ('+(r.man.notes||'')+')', man:1};
  if(r.geo&&r.geo.poly!==false){ const wm=PR.wetMax??10, fm=PR.floodMat??10;
    if((r.geo.wetPct||0)>=wm) return {vd:'PASSAR', why:'áreas úmidas cobrem '+nf(r.geo.wetPct)+'% do lote (USFWS NWI; limite '+wm+'%) – pode não ser edificável', geo:1};
@@ -1681,12 +1682,13 @@ function plHtml(r){ if(r.t!=='FC') return ''; const h=plHist(r), nm=r.pk||'autor
 function cfHtml(r){ if(r.t!=='FC') return ''; const c=r.cf, P=r.cfP;
  let x='<div class="survbox" id="cfbox" style="border-color:#38bdf8"><b>Processo '+esc(r.case||'')+'</b> ';
  if(c&&c.opened){ const L=(k,v)=>v?'<div><span class="mini">'+k+'</span> '+v+'</div>':'';
+  if(c.rejected) x+='<div class="c-red"><b>Descartada pelo Fernando</b> (processo aberto)</div>';
   x+='<span class="mini c-green">aberto em '+esc(c.opened)+(c.by?' por '+esc(c.by):'')+'</span>'+L('Autor / advogado',esc((c.plaintiff||'—')+' / '+(c.attorney||'—')))+L('Réus',esc((c.defendants||[]).join('; ')))+
    (c.fed?'<div class="c-red"><b>Réu federal (EUA/HUD/VA/SBA): resgate de 1 ano</b></div>':'')+(c.hoa?'<div class="c-amber">Associação (HOA) entre os réus</div>':'')+L('Outros credores',esc((c.creditors||[]).join('; ')))+
-   L('Final Judgment',(c.fjDate?esc(c.fjDate)+' · ':'')+(c.fjAmount?money(+c.fjAmount)+' (oficial)':''))+L('Falência',esc((c.bankruptcy||[]).map(b=>b.case+' '+(b.date||'')).join('; ')))+L('Remarcações',esc((c.resched||[]).join('; ')))+
+   L('Final Judgment',(c.fjDate?esc(c.fjDate)+' · ':'')+(c.fjAmount?money(+c.fjAmount)+' (oficial)':''))+L('Falência',Array.isArray(c.bankruptcy)?esc(c.bankruptcy.map(b=>typeof b==='object'?(b.case||'')+' '+(b.date||''):String(b)).join('; ')):c.bankruptcy===true?'<b class="c-red">sim</b>':c.bankruptcy===false?'não':'')+L('Remarcações',esc((c.resched||[]).join('; ')))+
    (c.cancelMotion?'<div class="c-amber">Pedido de cancelamento no processo</div>':'')+L('Hipoteca executada é a 1ª?',c.firstMtg===true?'sim':c.firstMtg===false?'<b class="c-red">não</b>':'?')+L('Notas',esc(c.notes||''));
  } else {
-  x+='<span class="mini c-amber">processo não aberto – '+esc(r.cfWhy||'clerk não sondado')+'</span><p class="mini">Até abrir: nunca FLIP/CONSIDER (veredito CONFERIR PROCESSO). Abrir no clerk e lançar em cases_manual.json (fora do git): autor/advogado, réus (EUA/HUD/VA/SBA = resgate federal de 1 ano; HOA; outros credores), data e valor do Final Judgment (oficial, substitui estimativas), falências, remarcações, pedido de cancelamento e se a hipoteca é a 1ª.</p>';
+  x+='<span class="mini c-amber">processo não aberto – '+esc(r.cfWhy||'clerk não sondado')+'</span><p class="mini">Até abrir: nunca FLIP/CONSIDER (veredito CONFERIR PROCESSO). Abrir no clerk e lançar em data/cases_open.json (no git, só campos sem nome: opened, firstMortgage, fed, hoa, fjAmount, fjDate, cancelMotion, bankruptcy, rejected, titleOk) ou em cases_manual.json (fora do git, com nomes): autor/advogado, réus (EUA/HUD/VA/SBA = resgate federal de 1 ano; HOA; outros credores), data e valor do Final Judgment (oficial, substitui estimativas), falências, remarcações, pedido de cancelamento e se a hipoteca é a 1ª.</p>';
  }
  if(P&&P.d) x+='<p class="mini">Pistas da lista pública (parcial, "et al"): '+esc(P.d)+(P.fed?' · <b class="c-red">réu federal: '+esc(P.fed.join(', '))+'</b>':'')+(P.hoa?' · <span class="c-amber">associação entre os réus</span>':'')+(P.cred?' · outro credor citado':'')+'</p>';
  return x+'</div>'; }

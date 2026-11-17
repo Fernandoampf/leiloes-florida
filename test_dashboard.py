@@ -556,7 +556,7 @@ with sync_playwright() as p:
     st = pg.evaluate("""(()=>{const d=window.__dash, I=d.ITEMS; const O=I.filter(r=>r.ip&&r.ip.listDate); const T=Date.parse(new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'}));
       const old=O.filter(r=>(T-Date.parse(r.ip.listDate))/864e5>3.5); const ok=old.every(r=>r.fl.includes('stale')&&r.scanAge>3);
       const w=old[0]; let lab=''; if(w&&d.badges){ const b=document.createElement('div'); b.innerHTML=d.badges(w); lab=b.textContent; }
-      return {n:O.length, old:old.length, ok, lab:/lista com \d+ dias/.test(lab)||!old.length};})()""")
+      return {n:O.length, old:old.length, ok, lab:/lista com \\d+ dias/.test(lab)||!old.length};})()""")
     check(st['n'] > 0 and st['ok'] and st['lab'], f'lista presencial parada: selo "lista com N dias" {st}')
     # PROPOSTA 2 (14/11, aprovada 16/11): casa antes de 2000 fora das casas sugeridas (favtrack) e com selo nas vistas
     y2 = pg.evaluate("""(()=>{const d=window.__dash, I=d.ITEMS; const O=I.filter(r=>r.yr&&r.yr<2000&&['Casa','Townhouse','Condo','Mobile','Multifamily'].includes(r.ty)).slice(0,40);
@@ -577,6 +577,10 @@ with sync_playwright() as p:
       const b=document.createElement('div'); b.innerHTML=R?d.badges(R):''; const P=C.filter(r=>r.vd==='PROCESSO'||r.vd==='TITULO');
       return {n:C.length, bad, lockTxt:P.every(r=>/vara do condado/.test(r.vdWhy)), rob:!R||(/vara do condado/.test(b.textContent)&&/vara do condado/.test(R.vdWhy||'')), notCA:!I.some(r=>r.t==='FC'&&/^\\d{6}CA\\d{6}XXCICI$/.test(r.case||'')&&re.test(r.case))};})()""")
     check(cc['n'] > 0 and not cc['bad'] and cc['lockTxt'] and cc['rob'] and cc['notCA'], f'vara do condado (CC/CONO/COCE): 1ª hipoteca sobrevive, nunca FLIP/CONSIDER {cc}')
+    # PROPOSTA 13 (16/11, aprovada): processo aberto no git (data/cases_open.json, sem nomes) destrava com commit
+    co = pg.evaluate("""(()=>{const I=window.__dash.ITEMS; const P=I.find(r=>/1760 Portofino Meadows/i.test(r.addr)), C=I.find(r=>/14421 CONGRESS ST/i.test(r.addr)), R=I.find(r=>r.id==='FC1528998');
+      return {p:!P||(P.cf&&P.cf.opened&&P.tok&&P.vd!=='PROCESSO'&&P.vd!=='TITULO'), c:!C||(C.vd==='PASSAR'&&/descartada/.test(C.vdWhy)), r:!R||(R.cf&&R.cf.opened&&R.fjd==='2026-09-30'&&R.ref>700000), pv:P&&P.vd, cv:C&&C.vd};})()""")
+    check(co['p'] and co['c'] and co['r'], f'processo aberto no git (cases_open.json): Portofino destravada, Congress descartada, Roosevelt aberto {co}')
     cf = pg.evaluate("(()=>{const I=window.__dash.ITEMS; const W=I.find(r=>r.id==='TDpox0e3f3dd972d1'), R=I.find(r=>r.id==='FC1528998'); const H=I.filter(r=>['Casa','Townhouse','Mobile','Multifamily'].includes(r.ty)); return {semImg:H.filter(r=>!(r.imgs&&r.imgs.length)&&r.lat==null).length, nH:H.length, W:W?[W.lat,W.lon]:null, R:R?[R.lat,R.lon]:null};})()")
     near = lambda p, q: p and abs(p[0]-q[0]) < 0.0004 and abs(p[1]-q[1]) < 0.0004
     check(cf['semImg'] <= 0.01 * cf['nH'] and (cf['W'] is None or near(cf['W'], (28.825107, -81.580303))) and (cf['R'] is None or near(cf['R'], (26.648677, -81.593795))),

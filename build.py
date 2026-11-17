@@ -338,6 +338,23 @@ def load_cases_manual():
         if nk: out[nk] = v
     return out
 
+# PROPOSTA 13 (16/11, aprovada): processo aberto também DENTRO do git, só campos sem nome de pessoa – o Claude destrava com commit
+CASES_GIT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'cases_open.json')
+CASES_GIT_KEYS = ('opened', 'firstMortgage', 'fed', 'hoa', 'fjAmount', 'fjDate', 'cancelMotion', 'bankruptcy', 'rejected', 'titleOk')
+
+def load_cases_git():
+    """data/cases_open.json {items:[{county, case, <CASES_GIT_KEYS>}]} -> {case_norm: campos}. Qualquer outro campo é ignorado (sem nomes no git)."""
+    try: raw = json.load(open(CASES_GIT))
+    except Exception: return {}
+    out = {}
+    for e in raw.get('items', []):
+        nk = case_norm(str(e.get('county', '')).strip().lower().replace(' ', '').replace('-', '').replace('.', ''), e.get('case'))
+        if not nk: continue
+        extra = sorted(k for k in e if k not in CASES_GIT_KEYS + ('county', 'case'))
+        if extra: print(f'cases_open.json: campos ignorados em {nk}: {extra} (só campos sem nome de pessoa)', flush=True)
+        out[nk] = {k: e[k] for k in CASES_GIT_KEYS if k in e and e[k] is not None}
+    return out
+
 def load_results():
     """-> (stats dict, recent 3rd-party sales list). Basis: RealAuction 'Assessed Value' shown on the auction listing."""
     import glob
@@ -631,6 +648,10 @@ def build_items(args):
     # 16/11 PROPOSTA 9: histórico das conferências do lance publicado (fora do git: cache/)
     bidh = jload(os.path.join(CACHE, 'bid_checks.json'), {})
     casesM = load_cases_manual()
+    for k_, v_ in load_cases_git().items():          # git (sem nomes) por cima do manual de fora do git, campo a campo
+        m_ = dict(casesM.get(k_) or {}); m_.update(v_)
+        if m_.get('firstMortgage') is not None and m_.get('firstMtg') is None: m_['firstMtg'] = m_['firstMortgage']
+        casesM[k_] = m_
     if not bidh:      # 1ª vez: semeia com os snapshots diários runs/run_<data>.json (ref = opening bid / julgamento publicado naquele dia)
         import glob as _g
         for f in sorted(_g.glob(os.path.join(SW, 'runs', 'run_2026-*.json'))):
@@ -1210,6 +1231,8 @@ def build_items(args):
         man = manual.get((cs, nal.npid(x.get('parcel') or '')))
         if man and man.get('titleOk') is True:
             rec['tok'] = dict(date=man.get('titleDate') or man.get('date'), by=man.get('titleBy'), notes=man.get('titleNotes'))   # PROPOSTA 8: título conferido à mão
+        elif (rec.get('cf') or {}).get('titleOk') is True:   # PROPOSTA 13: titleOk vindo do processo aberto (data/cases_open.json)
+            rec['tok'] = dict(date=rec['cf'].get('opened') if isinstance(rec['cf'].get('opened'), str) else None, by='processo aberto (cases_open.json)', notes=None)
         cfine = (man or {}).get('codeFine')
         if cfine:   # 16/11 PROPOSTA 4 (14/11): multa de Code Enforcement do condado – sobrevive ao tax deed; projetada até a data do leilão
             amt = num(cfine.get('amount')) or 0

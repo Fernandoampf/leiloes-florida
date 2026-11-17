@@ -27,5 +27,17 @@ class T(unittest.TestCase):
     def test_band(self):
         self.assertEqual(bt.band(120000), '< 150 mil'); self.assertEqual(bt.band(320000), '300–500 mil'); self.assertEqual(bt.band(900000), '≥ 500 mil')
 
+    def test_cases_git_whitelist(self):   # PROPOSTA 13: no git só campos sem nome de pessoa
+        import build
+        d = tempfile.mkdtemp(); f = os.path.join(d, 'c.json')
+        json.dump({'items': [{'county': 'orange', 'case': '2025-CA-010620-O', 'opened': '2026-11-16', 'rejected': True, 'plaintiff': 'BANCO X', 'defendants': ['FULANO']}]}, open(f, 'w'))
+        old = build.CASES_GIT; build.CASES_GIT = f
+        try: o = build.load_cases_git()
+        finally: build.CASES_GIT = old
+        self.assertEqual(o, {'orange|2025-10620': {'opened': '2026-11-16', 'rejected': True}})
+        real = json.load(open(old))
+        for e in real['items']:
+            self.assertFalse(set(e) - set(build.CASES_GIT_KEYS) - {'county', 'case'}, e)
+
 if __name__ == '__main__':
     unittest.main()
