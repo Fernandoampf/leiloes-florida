@@ -1,5 +1,5 @@
 {
- "_doc": "Avaliações pesquisadas à mão. Chave = condado + parcela. Ganham do cálculo automático (valor de venda). addr = rua + descrição legal + processo/parcela — NUNCA um número de casa adivinhado. Campos: low/mid/high (faixa de revenda US$), ceiling (teto de lance pesquisado; null = usar o lance máx. de 17% da conta), pass, holdYr (HOA/CDD/clube por ano, entra na posse), qt (quiet title US$), date, sources, notes. subdivisions: anúncios/DOM por subdivisão (county + sub = nome da planta na descrição legal, como no painel): asking_low (menor anúncio US$), dom_days, date, source, notes. PROPOSTA 7/8 (16/11): campos opcionais zillow (Zestimate US$), zillowDate, zillowBy; titleOk (true = título conferido), titleDate, titleBy, titleNotes. Item só com zillow/titleOk (sem low/mid/high) NÃO substitui o cálculo: só dá o Zillow / destrava o título. · codeFine (PROPOSTA 4, 16/11): {case, daily (US$/dia), since (AAAA-MM-DD), base, amount, orders, src} – multa de Code Enforcement do condado; em tax deed é descontada integralmente do lance máximo, projetada até a data do leilão (pode existir sem low/mid/high).",
+ "_doc": "Avaliações pesquisadas à mão. Chave = condado + parcela. Ganham do cálculo automático (valor de venda). addr = rua + descrição legal + processo/parcela — NUNCA um número de casa adivinhado. Campos: low/mid/high (faixa de revenda US$), ceiling (teto de lance pesquisado; null = usar o lance máx. de 17% da conta), pass, holdYr (HOA/CDD/clube por ano, entra na posse), qt (quiet title US$), date, sources, notes. subdivisions: anúncios/DOM por subdivisão (county + sub = nome da planta na descrição legal, como no painel): asking_low (menor anúncio US$), dom_days, date, source, notes. PROPOSTA 7/8 (16/11): campos opcionais zillow (Zestimate US$), zillowDate, zillowBy; titleOk (true = título conferido), titleDate, titleBy, titleNotes. Item só com zillow/titleOk (sem low/mid/high) NÃO substitui o cálculo: só dá o Zillow / destrava o título. · codeFine (PROPOSTA 4, 16/11): {case, daily (US$/dia), since (AAAA-MM-DD), base, amount, orders, src} – multa de Code Enforcement do condado; em tax deed é descontada integralmente do lance máximo, projetada até a data do leilão (pode existir sem low/mid/high). · parcelAlt (opcional): lista com a mesma parcela em outro formato (ex.: Lake – RealAuction S-T-R × PO R-T-S).",
  "items": [
   {
    "county": "hernando",
@@ -124,6 +124,7 @@
   {
    "county": "lake",
    "parcel": "271923016000006000",
+   "parcelAlt": ["23-19-27-016000006000"],
    "addr": "32727 Wolfs Trl, Sorrento, FL 32776",
    "codeFine": {
     "case": "SM 2024-01-0012",

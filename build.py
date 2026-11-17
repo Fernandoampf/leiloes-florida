@@ -326,6 +326,9 @@ CRED_RE = re.compile(r'BANK|MORTGAGE|CREDIT UNION|FINANCIAL|LENDING|CAPITAL ONE|
 
 def case_norm(co, case):
     k = plaintiff_hist.case_key(case)
+    if not k:   # ano com 2 dígitos (Lee: '25-CA-005628') -> ('2025', 5628)
+        m = re.match(r'\s*(\d{2})\D{1,3}[A-Z]{2}\D{1,3}0*(\d{2,7})\b', str(case or '').upper())
+        if m: k = ('20' + m.group(1), int(m.group(2)))
     return f"{co}|{k[0]}-{k[1]}" if k else None
 
 def load_cases_manual():
@@ -579,7 +582,11 @@ def load_manual():
     """data/valuations_manual.json -> {(county slug, normalised parcel): entry}"""
     p = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'valuations_manual.json')
     if not os.path.exists(p): return {}
-    return {(e['county'], nal.npid(e['parcel'])): e for e in json.load(open(p)).get('items', [])}
+    out = {}
+    for e in json.load(open(p)).get('items', []):
+        for pid in [e['parcel']] + list(e.get('parcelAlt') or []):   # parcelAlt: same lot in another format (Lake: RealAuction S-T-R vs PO R-T-S)
+            out[(e['county'], nal.npid(pid))] = e
+    return out
 
 def load_manual_subs():
     """subdivision-level market notes (asking prices / days on market) -> {(county, SUBDIVISION NAME): entry}"""

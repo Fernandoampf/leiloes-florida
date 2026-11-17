@@ -39,5 +39,17 @@ class T(unittest.TestCase):
         for e in real['items']:
             self.assertFalse(set(e) - set(build.CASES_GIT_KEYS) - {'county', 'case'}, e)
 
+    def test_case_norm_two_digit_year(self):   # Lee '25-CA-005628' casa com cases_open.json
+        import build
+        self.assertEqual(build.case_norm('lee', '25-CA-005628'), 'lee|2025-5628')
+        self.assertEqual(build.case_norm('orange', '2025-CA-011892-O'), 'orange|2025-11892')
+        self.assertIsNone(build.case_norm('lee', '12345'))
+        self.assertIn('lee|2025-5628', build.load_cases_git())
+
+    def test_manual_parcel_alt(self):   # Wolfs Trl: parcela da RealAuction (S-T-R) e do PO (R-T-S)
+        import build, nal
+        m = build.load_manual()
+        self.assertIs(m[('lake', nal.npid('23-19-27-016000006000'))], m[('lake', nal.npid('271923016000006000'))])
+
 if __name__ == '__main__':
     unittest.main()

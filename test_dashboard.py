@@ -77,7 +77,7 @@ with sync_playwright() as p:
         if(r.vd==='FLIP'||r.vd==='CONSIDERAR') return !(room && !over && !(r.xbid>r.mb+1) && (r.vd==='FLIP'?r.roi>=0.25&&r.arvSrc!=='fraca'&&!(r.repHi&&r.roiHi<0.25):(r.roi<0.25||r.arvSrc==='fraca'||(r.repHi&&r.roiHi<0.25))));
         if(r.vd==='TITULO') return !(room && !over && !(r.xbid>r.mb+1) && (r.vdWas==='FLIP'?r.roi>=0.25:(r.roi<0.25||r.arvSrc==='fraca'||(r.repHi&&r.roiHi<0.25))));   // PROPOSTA 8 (+ PROPOSTA 11: obra em faixa): mesma regra, travado por título
         if(r.vd==='PROCESSO') return !(r.t==='FC' && !(r.cf&&r.cf.opened) && room && !over && !(r.xbid>r.mb+1) && (r.vdWas==='FLIP'?r.roi>=0.25:true));   // Fernando t318u: processo não aberto
-        if(r.vd==='PASSAR') return !( !room || (r.t!=='FC' && over) || /^lote barato/.test(r.vdWhy||'') );
+        if(r.vd==='PASSAR') return !( !room || (r.t!=='FC' && over) || /^lote barato/.test(r.vdWhy||'') || /descartada pelo Fernando/.test(r.vdWhy||'') );   // PROPOSTA 13: processo descartado
         if(r.vd==='DISPUTADO') return !( room && ((r.t==='FC' && over) || (r.t==='FC' && r.ref==null && r.fjPO>r.mb+1) || r.xbid>r.mb+1 || (r.sala&&r.sala.comps3&&r.sala.v>r.mb+1)) );
         return true; }).map(r=>r.addr+' '+r.vd).slice(0,5)''')
     check(not bad, f'veredito por espaço de lance: SEM ESPAÇO / DISPUTADO / FLIP ≥ 25% / CONSIDERAR {bad}')
@@ -548,7 +548,7 @@ with sync_playwright() as p:
         drawer:/processo não aberto/.test(t), opt:!!document.querySelector('#fvd option[value=PROCESSO]'), orange:(I.find(r=>r.t==='FC'&&r.cs==='orange'&&!(r.cf&&r.cf.opened))||{}).cfWhy||''};})()""")
     check(not pc['bad'] and pc['n'] > 0 and pc['was'] and pc['fcOnly'] and pc['why'] and pc['drawer'] and pc['opt'] and 'captcha' in pc['orange'].lower(), f'processo do foreclosure: sem processo aberto → CONFERIR PROCESSO (captcha não contornado) {pc}')
     # PROPOSTA 4 (14/11, aprovada 16/11): multa de Code Enforcement em tax deed – selo vermelho, desconto integral no lance máx.; Wolfs Trl → PASSAR
-    ce = pg.evaluate("""(()=>{const d=window.__dash, I=d.ITEMS; const W=I.find(r=>r.id==='TDpox0e3f3dd972d1'); if(!W) return {gone:true};
+    ce = pg.evaluate("""(()=>{const d=window.__dash, I=d.ITEMS; const W=I.find(r=>r.id==='TDpox0e3f3dd972d1'||/32727 WOLFS TRL/i.test(r.addr||'')); if(!W) return {gone:true};
       const C=I.filter(r=>r.ce&&r.t==='TD'); const b=document.createElement('div'); b.innerHTML=d.badges?d.badges(W):''; 
       return {vd:W.vd, ce:W.ce&&W.ce.amt, mb:W.mb, n:C.length, bdg:/Multa Code Enforcement/.test(b.textContent)||!d.badges, noflip:C.every(r=>r.vd!=='FLIP'&&r.vd!=='CONSIDERAR'||r.mb<=Math.max(0,(r.val||0)-r.ce.amt))};})()""")
     check(ce.get('gone') or (ce['vd'] == 'PASSAR' and (ce['ce'] or 0) >= 185000 and ce['bdg'] and ce['noflip']), f'multa de Code Enforcement: Wolfs Trl PASSAR, selo vermelho, desconto no lance {ce}')
@@ -575,7 +575,7 @@ with sync_playwright() as p:
     cc = pg.evaluate("""(()=>{const d=window.__dash, I=d.ITEMS; const re=/(^|[\\d\\s\\-])CC([\\d\\s\\-]|[A-Z]*$)|^CO(NO|CE)[\\s\\-]/; const C=I.filter(r=>r.t==='FC'&&r.case&&re.test(r.case.toUpperCase()));
       const bad=C.filter(r=>!r.tok&&(r.vd==='FLIP'||r.vd==='CONSIDERAR')).map(r=>r.id); const R=I.find(r=>/150 E ROBINSON ST UNIT 8A-17/i.test(r.addr));
       const b=document.createElement('div'); b.innerHTML=R?d.badges(R):''; const P=C.filter(r=>r.vd==='PROCESSO'||r.vd==='TITULO');
-      return {n:C.length, bad, lockTxt:P.every(r=>/vara do condado/.test(r.vdWhy)), rob:!R||(/vara do condado/.test(b.textContent)&&/vara do condado/.test(R.vdWhy||'')), notCA:!I.some(r=>r.t==='FC'&&/^\\d{6}CA\\d{6}XXCICI$/.test(r.case||'')&&re.test(r.case))};})()""")
+      return {n:C.length, bad, lockTxt:P.every(r=>/vara do condado/.test(r.vdWhy)), rob:!R||(/vara do condado/.test(b.textContent)&&(!['PROCESSO','TITULO'].includes(R.vd)||/vara do condado/.test(R.vdWhy||''))), notCA:!I.some(r=>r.t==='FC'&&/^\\d{6}CA\\d{6}XXCICI$/.test(r.case||'')&&re.test(r.case))};})()""")
     check(cc['n'] > 0 and not cc['bad'] and cc['lockTxt'] and cc['rob'] and cc['notCA'], f'vara do condado (CC/CONO/COCE): 1ª hipoteca sobrevive, nunca FLIP/CONSIDER {cc}')
     # PROPOSTA 13 (16/11, aprovada): processo aberto no git (data/cases_open.json, sem nomes) destrava com commit
     co = pg.evaluate("""(()=>{const I=window.__dash.ITEMS; const P=I.find(r=>/1760 Portofino Meadows/i.test(r.addr)), C=I.find(r=>/14421 CONGRESS ST/i.test(r.addr)), R=I.find(r=>r.id==='FC1528998');
@@ -587,7 +587,7 @@ with sync_playwright() as p:
       const box=document.querySelector('#pzq'); const tds=[...document.querySelectorAll('#dtbl td')].map(x=>x.textContent);
       const r={n:Q.length, ok, box:!!box&&/[Pp]edir Zillow/.test(box.textContent), vu:tds.some(x=>/vendas até \\d\\d\\/\\d\\d/.test(x))}; d.setView('table'); return r;})()""")
     check(pz['ok'] and pz['box'] and pz['vu'], f'Decisão: vendas até mm/aa + fila pedir Zillow {pz}')
-    cf = pg.evaluate("(()=>{const I=window.__dash.ITEMS; const W=I.find(r=>r.id==='TDpox0e3f3dd972d1'), R=I.find(r=>r.id==='FC1528998'); const H=I.filter(r=>['Casa','Townhouse','Mobile','Multifamily'].includes(r.ty)); return {semImg:H.filter(r=>!(r.imgs&&r.imgs.length)&&r.lat==null).length, nH:H.length, W:W?[W.lat,W.lon]:null, R:R?[R.lat,R.lon]:null};})()")
+    cf = pg.evaluate("(()=>{const I=window.__dash.ITEMS; const W=I.find(r=>r.id==='TDpox0e3f3dd972d1'||/32727 WOLFS TRL/i.test(r.addr||'')), R=I.find(r=>r.id==='FC1528998'); const H=I.filter(r=>['Casa','Townhouse','Mobile','Multifamily'].includes(r.ty)); return {semImg:H.filter(r=>!(r.imgs&&r.imgs.length)&&r.lat==null).length, nH:H.length, W:W?[W.lat,W.lon]:null, R:R?[R.lat,R.lon]:null};})()")
     near = lambda p, q: p and abs(p[0]-q[0]) < 0.0004 and abs(p[1]-q[1]) < 0.0004
     check(cf['semImg'] <= 0.01 * cf['nH'] and (cf['W'] is None or near(cf['W'], (28.825107, -81.580303))) and (cf['R'] is None or near(cf['R'], (26.648677, -81.593795))),
           f'casas sem foto têm satélite; coordenada pelo lote DOR (Wolfs Trl, Roosevelt) {cf}')
