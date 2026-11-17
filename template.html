@@ -500,7 +500,7 @@ select option{background:#2a303b;color:#eef1f5}
   </div>
  </section>
  <div class="goldbar"></div>
- <div id="v-dec"><div class="panel mini" style="margin-bottom:6px">Visão <b>Decisão</b>: casa · data/hora · banco vai até · Zillow · vendas vizinhas · teto · título · veredito. Clique na linha ou em <b>ver detalhes</b> para a ficha completa. <button class="btn sm" id="bfull" type="button">Visão completa (Lista)</button></div><div class="tblwrap"><table class="tbl dtbl" id="dtbl"></table></div><div class="more"><button class="btn" id="dmore">Mostrar mais</button></div></div>
+ <div id="v-dec"><div class="panel mini" style="margin-bottom:6px">Visão <b>Decisão</b>: casa · data/hora · banco vai até · Zillow · vendas vizinhas · teto · título · veredito. Clique na linha ou em <b>ver detalhes</b> para a ficha completa. <button class="btn sm" id="bfull" type="button">Visão completa (Lista)</button></div><div id="pzq"></div><div class="tblwrap"><table class="tbl dtbl" id="dtbl"></table></div><div class="more"><button class="btn" id="dmore">Mostrar mais</button></div></div>
  <div id="v-table"><div class="tblwrap"><table class="tbl" id="tbl"></table></div><div class="more"><button class="btn" id="tmore">Mostrar mais</button></div></div>
  <div id="v-cards" style="display:none"><div class="grid" id="grid"></div><div class="more"><button class="btn" id="cmore">Mostrar mais</button></div></div>
  <div id="v-map" style="display:none"><div id="map"><div class="mapmsg">Carregando mapa… (requer internet)</div></div><p class="mini" id="mapnote"></p></div>
@@ -1694,17 +1694,25 @@ function cfHtml(r){ if(r.t!=='FC') return ''; const c=r.cf, P=r.cfP;
  return x+'</div>'; }
 function titleCell(r){ const tl=titleLock(r); if(tl) return '<b class="c-red" title="'+esc(tl.join(', '))+'">armadilha</b><div class="mini">'+esc(tl.slice(0,2).join(', '))+'</div>';
  if(r.tok) return '<b class="c-green">conferido</b>'+(r.man&&r.man.titleDate?'<div class="mini">'+esc(r.man.titleDate)+'</div>':''); return '<span class="c-amber">conferir</span>'; }
+// PROPOSTA 14 (16/11, aprovada): "vendas até mm/aa" (o rol DOR termina ~mai/2026) e fila "pedir Zillow" (leilão em até 7 dias, sem Zillow)
+function nsTo(r){ const n=r.ns; if(!n) return null; let t=n.to; if(!t&&n.win){ const [y,m]=n.win.split('-').map(Number); const e=y*12+m-1+11; t=Math.floor(e/12)+'-'+String(e%12+1).padStart(2,'0'); } return t?t.slice(5,7)+'/'+t.slice(2,4):null; }
+const PZ_VD=['FLIP','CONSIDERAR','PROCESSO','TITULO'], PZ_TY=['Casa','Townhouse','Condo','Mobile','Multifamily'];
+function pzQueue(){ const T=Date.parse(TODAY_ET); return ITEMS.filter(r=>!isLand(r)&&PZ_TY.includes(r.ty)&&!(r.zw&&r.zw.v)&&PZ_VD.includes(r.vd)&&r.date&&(Date.parse(r.date)-T)/864e5>=1&&(Date.parse(r.date)-T)/864e5<=7).sort((a,b)=>(a.date+(a.time||'')).localeCompare(b.date+(b.time||''))||(b.sc||0)-(a.sc||0)); }
+function pzHtml(){ const Q=pzQueue(); if(!Q.length) return '<div class="panel mini" style="margin-bottom:6px">Fila <b>pedir Zillow</b>: nenhuma casa com leilão em até 7 dias sem Zillow.</div>';
+ return '<details class="panel" id="pzbox" style="margin-bottom:6px"><summary><b>Pedir Zillow</b> <span class="mini">('+Q.length+' casa'+(Q.length>1?'s':'')+' com leilão em até 7 dias, veredito FLIP/CONSIDER/CONFERIR e sem Zillow – o Zillow bloqueia robô: Fernando/Claude preenchem zillow + zillowDate em data/valuations_manual.json)</span></summary><div class="tblwrap"><table class="tbl"><thead><tr><th>Leilão</th><th>Casa</th><th>Veredito</th><th>Parcela</th><th>Zillow</th></tr></thead><tbody>'+
+  Q.map(r=>'<tr data-id="'+r.id+'"><td>'+whenLbl(r.date)+' <span class="mini">'+esc(r.time||'')+'</span></td><td>'+esc(r.addr)+'<div class="mini">'+esc(r.co)+' · '+esc(r.ty)+'</div></td><td>'+vdHtml(r,true)+'</td><td class="mini">'+esc(r.parcel||'')+'</td><td><a href="'+esc(zillowUrl(r))+'" target="_blank" rel="noopener">abrir</a></td></tr>').join('')+'</tbody></table></div></details>'; }
 const DCOLS=[
  ['Casa',r=>{ const im=firstImg(r); return '<div class="dcasa">'+(im?'<img loading="lazy" referrerpolicy="no-referrer" src="'+esc(im)+'" alt="">':'<div class="thx">'+(isLand(r)?r.ty:'sem foto')+'</div>')+'<div><b>'+esc(r.addr)+'</b><div class="mini">'+esc(r.co)+' · '+esc(r.ty)+' · '+TYPES[r.t]+'</div><button class="btn sm" type="button" data-id="'+r.id+'">ver detalhes</button> <button class="star'+(FAV.has(r.id)?' on':'')+'" data-star="'+r.id+'">'+(FAV.has(r.id)?'★':'☆')+'</button></div></div>'; },'addr'],
  ['Data / hora',r=>'<b>'+whenLbl(r.date)+'</b><div class="mini">'+esc(r.time||'')+'</div>'],
  ['Banco vai até',bankCell,'wrap'],
  ['Zillow',r=>r.zw&&r.zw.v?'<b>'+money(r.zw.v)+'</b><div class="mini">'+esc(r.zw.d||'')+'</div>':'<span class="c-mut">—</span>'],
- ['Vendas vizinhas',r=>r.ns&&r.ns.n?'<b>'+money(r.ns.med)+'</b><div class="mini">'+r.ns.n+' venda'+(r.ns.n>1?'s':'')+(r.ns.n<3?' (poucas)':'')+'</div>':'<span class="c-mut">—</span>'],
+ ['Vendas vizinhas',r=>{ const ut=nsTo(r); return (r.ns&&r.ns.n?'<b>'+money(r.ns.med)+'</b><div class="mini">'+r.ns.n+' venda'+(r.ns.n>1?'s':'')+(r.ns.n<3?' (poucas)':'')+'</div>':'<span class="c-mut">—</span>')+(ut?'<div class="mini c-amber" title="O rol de vendas do DOR (Flórida) vai só até este mês: vendas mais recentes não aparecem – conferir no Zillow/Redfin">vendas até '+ut+'</div>':''); }],
  ['Teto',r=>'<b>'+money(r.mb)+'</b><div class="mini">lance máx. '+nf(PR.ret)+'%</div>'],
  ['Título',titleCell],
  ['Veredito',r=>vdHtml(r,true)+(valMis(r)?'<div><span class="bdg amb">⚠ valores não batem</span></div>':'')+(r.arvSrc==='fraca'?'<div><span class="bdg">estimativa fraca</span></div>':'')+(r.repHi?'<div><span class="bdg amb" title="'+esc(r.repw||'')+'">obra '+money(r.rep)+' – '+money(r.repHi)+'</span></div>':''),'wrap']];
 let dShown=0;
 function renderDec(reset){
+ if(reset&&$('#pzq')) $('#pzq').innerHTML=pzHtml();
  if(reset){ dShown=0; $('#dtbl').innerHTML='<thead><tr>'+DCOLS.map(c=>'<th>'+c[0]+'</th>').join('')+'</tr></thead><tbody></tbody>'; }
  const tb=$('#dtbl tbody');
  if(!CUR.length){ tb.innerHTML='<tr><td colspan="8" style="text-align:center;padding:30px" class="c-mut">Nenhum imóvel com esses filtros.</td></tr>'; $('#dmore').style.display='none'; return; }
@@ -2526,7 +2534,7 @@ if(DL && DL.explicit){ S.cat=''; S.kat=''; }
 if(DL && DL.r){ if(DL.explicit) apply(true); openDrawer(DL.r.id); }
 else if(DL && DL.explicit) setTimeout(()=>toast('Imóvel “'+DL.asked+'” não encontrado (leilão já passou ou foi removido)'),300);
 termify(document.body);
-window.__dash={apply, ITEMS, M, plHtml, cfHtml, badges, bankCell, fjCap, plLine, jInt, titleCell, renderDec, salaPrice, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, redfinUrl, redfinFind, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
+window.__dash={apply, ITEMS, pzQueue, nsTo, M, plHtml, cfHtml, badges, bankCell, fjCap, plLine, jInt, titleCell, renderDec, salaPrice, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, redfinUrl, redfinFind, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
 })();
 </script>
 </body>

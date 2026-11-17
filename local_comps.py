@@ -347,11 +347,12 @@ def nearby_sales(d, pid, today, months=12, band=0.20):
         L = [c for c in cand if f(c)]
         if len(L) >= 3: pick = (lv, txt, L); break
         if L and (not pick or len(L) > len(pick[2])): pick = (lv, txt, L)
-    if not pick: return dict(n=0, win=f'{(endm - months + 1) // 12}-{((endm - months) % 12) + 1:02d}', size=size)
+    to = f'{ay}-{am:02d}'   # PROPOSTA 14: mês em que termina o rol ("vendas até mm/aa")
+    if not pick: return dict(n=0, win=f'{(endm - months + 1) // 12}-{((endm - months) % 12) + 1:02d}', to=to, size=size)
     lv, txt, L = pick
     L.sort(key=lambda c: (-c['m'], c['mi'] if c['mi'] is not None else 9))
     L = L[:12]
     ps = sorted(c['p'] for c in L)
     q = lambda p: ps[min(len(ps) - 1, int(p * (len(ps) - 1) + 0.5))]
     return dict(lvl=lv, txt=txt, n=len(L), med=round(statistics.median(ps)), lo=q(0.25), hi=q(0.75), size=size,
-                win=f'{(endm - months + 1) // 12}-{((endm - months) % 12) + 1:02d}', l=[[c['addr'], c['d'], c['p'], c['sz'], c['mi']] for c in L])
+                win=f'{(endm - months + 1) // 12}-{((endm - months) % 12) + 1:02d}', to=to, l=[[c['addr'], c['d'], c['p'], c['sz'], c['mi']] for c in L])
