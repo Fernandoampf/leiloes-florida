@@ -795,6 +795,9 @@ function holdMonth(r,arv,Q){
  const assoc = (r.man&&r.man.holdYr) ? r.man.holdYr/12 : 0;   // researched HOA / CDD / club dues (manual valuation)
  return {tax,ins,util,assoc,total:tax+ins+util+assoc,taxReal:!!r.tax && (land || r.tax>=arv*Q.htax/100)};
 }
+// 16/11 PROPOSTA 4 (14/11): multa de Code Enforcement do condado (ordem do Special Master) sobrevive ao tax deed (FS 197.552) → custo integral,
+// projetado até a data do leilão (US$/dia × dias desde o início, ou valor fixo) – entra à mão em data/valuations_manual.json (codeFine)
+const ceAmt = r => (r && r.ce && r.t==='TD') ? (r.ce.amt||0) : 0;
 function base(r,Q){
  Q=Q||PR;
  const td=r.t==='TD', ev=!isLand(r) && (r.fl.includes('occ')||r.fl.includes('ten'));
@@ -815,7 +818,7 @@ function pnl(r,bid,o){
  const arv=o.arv||0, clerk=clerkFee(bid,Q), docb=bid*Q.docb/100, acq=bid+clerk+docb;
  const cont=o.rehab*Q.cont/100;
  const hm=holdMonth(r,arv,Q), hold=hm.total*o.months;
- const fees={fee:Q.fee, qt:needQT(r)?((r.man&&r.man.qt!=null)?r.man.qt:(land?Q.qtLot:Q.qt)):0, ev:o.ev?Q.ev:0, clear:land?Q.clear:0}; const flat=fees.fee+fees.qt+fees.ev+fees.clear;
+ const fees={fee:Q.fee, qt:needQT(r)?((r.man&&r.man.qt!=null)?r.man.qt:(land?Q.qtLot:Q.qt)):0, ev:o.ev?Q.ev:0, clear:land?Q.clear:0, ce:ceAmt(r)}; const flat=fees.fee+fees.qt+fees.ev+fees.clear+fees.ce;
  const sell={list:land?arv*Q.commLot/100:arv*Q.list/100,buyc:land?0:arv*Q.buyc/100,title:titlePrem(arv,r)*Q.titleP/100,docs:arv*Q.docs/100,misc:arv?(land?Math.min(Q.misc,Math.max(500,arv*0.03)):Q.misc):0,wra:(arv&&!land)?Q.wra:0,conc:(arv&&!land)?arv*Q.conc/100:0};
  const sellT=sell.list+sell.buyc+sell.title+sell.docs+sell.misc+sell.wra+sell.conc;
  // cost of capital on the money tied up in the deal (acquisition + rehab + contingency) for the holding months
@@ -1541,6 +1544,7 @@ function badges(r){
  if(r.suspect) b.push('<span class="bdg amb" title="'+esc(r.sanityWhy||'')+'">Valor suspeito</span>');
  const LB={nocomps:['Sem comps','Menos de 3 vendas comparáveis de terreno. Nota limitada a 55.'],big:['Gleba grande','Mais de 5 acres — não é lote residencial de flip. Nota limitada a 55.'],use:['Uso comercial/agrícola','Código de uso não é terreno vago residencial (000). Nota limitada a 55.']};
  (r.lotBadges||[]).forEach(k=>{ const d=LB[k]; if(d) b.push('<span class="bdg amb" title="'+esc(d[1])+'">'+d[0]+'</span>'); });
+ if(r.ce) b.push('<span class="bdg red" title="'+esc('Ordem de multa de Code Enforcement do condado '+(r.ce.case||'')+(r.ce.daily?': US$ '+nf(r.ce.daily)+'/dia desde '+fdate(r.ce.since):'')+(r.ce.orders?' (ordens '+r.ce.orders+')':'')+'. Dívida de governo: sobrevive ao tax deed (FS 197.552). '+(r.t==='TD'?'Descontada integralmente do lance máximo.':'Em foreclosure: conferir no processo/título.')+(r.ce.src?' Fonte: '+r.ce.src:''))+'">⚠ Multa Code Enforcement ~'+money(r.ce.amt)+'</span>');
  if(r.vd==='FLIP') b.push('<span class="bdg blu">FLIP</span>');
  r.fl.forEach(f=>{ if(f==='flood') return; if(f==='mtg'&&r.fl.includes('surv')) return; const d=FL[f]; if(!d) return;
   let lab=d.l; if(f==='surv'&&r.survAmt) lab+=' ~'+money(r.survAmt); if(f==='stale'&&r.scanAge) lab='lista com '+r.scanAge+' dias'; if(f==='bldA'&&r.bld) lab='🏗 Construtoras ativas: '+r.bld.n+' compras 12m'; if(f==='ipres'&&r.ip) lab='Leilão presencial — Fórum de '+(r.ip.city||(r.ip.co==='lake'?'Tavares':'Kissimmee'))+', 11h';
@@ -2352,6 +2356,7 @@ function drCalc(){
    '<tr><td>Holding Costs '+oin('months')+' meses <span class="mini">× '+money(p.hm.total)+'/mês: imposto '+(p.hm.taxReal?money(p.hm.tax)+' (conta real ÷ 12)':pin('htax','%')+'/ano ('+money(p.hm.tax)+')')+(land?'':' + seguro '+pin('hins','%')+'/ano ('+money(p.hm.ins)+')')+' + contas '+(land?pin('hutilLot','$'):pin('hutil','$'))+'/mês'+(p.hm.assoc?' + HOA/CDD/clube '+money(p.hm.assoc)+'/mês ('+money(r.man.holdYr)+'/ano, avaliação manual)':'')+'</span></td><td>'+z(p.hold)+'</td></tr>'+
    (land?'<tr><td>Limpeza / agrimensura do terreno <span class="mini">'+pin('clear','$')+'</span></td><td>'+z(p.fees.clear)+'</td></tr>':'')+
    (needQT(r)?'<tr><td>'+((r.man&&r.man.qt!=null)?'Quiet Title <span class="mini">(avaliação manual: '+money(r.man.qt)+')':(land?'Title Certification (lote)':'Quiet Title')+' <span class="mini">('+(r.t==='TD'?'tax deed':'lote')+') '+pin(land?'qtLot':'qt','$'))+'</span></td><td>'+z(p.fees.qt)+'</td></tr>':'')+
+   (p.fees.ce?'<tr><td class="c-red">Multa de Code Enforcement <span class="mini">('+esc(r.ce.case||'')+(r.ce.daily?' · US$ '+nf(r.ce.daily)+'/dia desde '+fdate(r.ce.since):'')+' · projetada até '+fdate(r.ce.asOf)+'; sobrevive ao tax deed)</span></td><td>'+z(p.fees.ce)+'</td></tr>':'')+
    (o.ev?'<tr><td>Eviction / Cash-for-Keys <span class="mini">(ocupado, est.) '+pin('ev','$')+'</span></td><td>'+z(p.fees.ev)+'</td></tr>':'')+
    '<tr><td>Taxas extras do leilão <span class="mini">'+pin('fee','$')+'</span></td><td>'+z(p.fees.fee)+'</td></tr>'+
    '<tr><td>Surviving Lien '+oin('lien','US$ ')+' <span class="mini">'+(r.survAmt?'ESTIMATIVA PO'+(r.survWhy?': '+esc(r.survWhy.slice(0,90)):'')+' – confirmar com title search':(r._o.lien?'(reserva: 1ª hipoteca – indício)':'('+(r.t==='TD'?'liens do governo: não verificado':'não verificado no processo')+')'))+'</span>'+(r.survAmt?' <label class="mini" style="display:inline-flex;gap:4px;align-items:center;margin-left:6px"><input type="checkbox" id="surv-tog"'+(r.survDeduct!==false?' checked':'')+'> deduzir no P&L</label>':'')+'</td><td>'+z(p.lien)+'</td></tr>'+
@@ -2501,7 +2506,7 @@ if(DL && DL.explicit){ S.cat=''; S.kat=''; }
 if(DL && DL.r){ if(DL.explicit) apply(true); openDrawer(DL.r.id); }
 else if(DL && DL.explicit) setTimeout(()=>toast('Imóvel “'+DL.asked+'” não encontrado (leilão já passou ou foi removido)'),300);
 termify(document.body);
-window.__dash={apply, ITEMS, M, plHtml, cfHtml, bankCell, fjCap, plLine, jInt, titleCell, renderDec, salaPrice, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, redfinUrl, redfinFind, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
+window.__dash={apply, ITEMS, M, plHtml, cfHtml, badges, bankCell, fjCap, plLine, jInt, titleCell, renderDec, salaPrice, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, redfinUrl, redfinFind, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
 })();
 </script>
 </body>

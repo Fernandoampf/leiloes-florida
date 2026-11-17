@@ -1,5 +1,5 @@
 {
- "_doc": "Avaliações pesquisadas à mão. Chave = condado + parcela. Ganham do cálculo automático (valor de venda). addr = rua + descrição legal + processo/parcela — NUNCA um número de casa adivinhado. Campos: low/mid/high (faixa de revenda US$), ceiling (teto de lance pesquisado; null = usar o lance máx. de 17% da conta), pass, holdYr (HOA/CDD/clube por ano, entra na posse), qt (quiet title US$), date, sources, notes. subdivisions: anúncios/DOM por subdivisão (county + sub = nome da planta na descrição legal, como no painel): asking_low (menor anúncio US$), dom_days, date, source, notes. PROPOSTA 7/8 (16/11): campos opcionais zillow (Zestimate US$), zillowDate, zillowBy; titleOk (true = título conferido), titleDate, titleBy, titleNotes. Item só com zillow/titleOk (sem low/mid/high) NÃO substitui o cálculo: só dá o Zillow / destrava o título.",
+ "_doc": "Avaliações pesquisadas à mão. Chave = condado + parcela. Ganham do cálculo automático (valor de venda). addr = rua + descrição legal + processo/parcela — NUNCA um número de casa adivinhado. Campos: low/mid/high (faixa de revenda US$), ceiling (teto de lance pesquisado; null = usar o lance máx. de 17% da conta), pass, holdYr (HOA/CDD/clube por ano, entra na posse), qt (quiet title US$), date, sources, notes. subdivisions: anúncios/DOM por subdivisão (county + sub = nome da planta na descrição legal, como no painel): asking_low (menor anúncio US$), dom_days, date, source, notes. PROPOSTA 7/8 (16/11): campos opcionais zillow (Zestimate US$), zillowDate, zillowBy; titleOk (true = título conferido), titleDate, titleBy, titleNotes. Item só com zillow/titleOk (sem low/mid/high) NÃO substitui o cálculo: só dá o Zillow / destrava o título. · codeFine (PROPOSTA 4, 16/11): {case, daily (US$/dia), since (AAAA-MM-DD), base, amount, orders, src} – multa de Code Enforcement do condado; em tax deed é descontada integralmente do lance máximo, projetada até a data do leilão (pode existir sem low/mid/high).",
  "items": [
   {
    "county": "hernando",
@@ -120,6 +120,20 @@
    "zillow": 466200,
    "zillowDate": "2026-11-16",
    "zillowBy": "Claude (DIARIO.md 16/11, conferido no Zillow)"
+  },
+  {
+   "county": "lake",
+   "parcel": "271923016000006000",
+   "addr": "32727 Wolfs Trl, Sorrento, FL 32776",
+   "codeFine": {
+    "case": "SM 2024-01-0012",
+    "daily": 200,
+    "since": "2024-04-20",
+    "orders": "OR 6453/1511, 6621/923, 6739/2238",
+    "src": "registro público do condado de Lake (Claude, DIARIO 14/11)"
+   },
+   "date": "2026-11-16",
+   "notes": "Multa de Code Enforcement ainda correndo (~US$ 191 mil em 01/12/2026)."
   }
  ],
  "subdivisions": [

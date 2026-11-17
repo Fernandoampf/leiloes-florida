@@ -1210,6 +1210,14 @@ def build_items(args):
         man = manual.get((cs, nal.npid(x.get('parcel') or '')))
         if man and man.get('titleOk') is True:
             rec['tok'] = dict(date=man.get('titleDate') or man.get('date'), by=man.get('titleBy'), notes=man.get('titleNotes'))   # PROPOSTA 8: título conferido à mão
+        cfine = (man or {}).get('codeFine')
+        if cfine:   # 16/11 PROPOSTA 4 (14/11): multa de Code Enforcement do condado – sobrevive ao tax deed; projetada até a data do leilão
+            amt = num(cfine.get('amount')) or 0
+            if cfine.get('daily') and cfine.get('since'):
+                try: amt = max(amt, num(cfine['daily']) * (dt.date.fromisoformat(d_iso) - dt.date.fromisoformat(cfine['since'])).days + (num(cfine.get('base')) or 0))
+                except Exception: pass
+            if amt > 0:
+                rec['ce'] = dict(case=cfine.get('case'), daily=cfine.get('daily'), since=cfine.get('since'), orders=cfine.get('orders'), src=cfine.get('src'), amt=round(amt), asOf=d_iso)
         if man and man.get('mid') is not None:
             m = {k: man.get(k) for k in ('low', 'mid', 'high', 'ceiling', 'pass', 'date', 'sources', 'notes', 'holdYr', 'qt', 'legal')}
             m['prev'] = rec.get('val'); rec['man'] = m
