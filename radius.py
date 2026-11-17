@@ -58,6 +58,24 @@ def analyze(pid, s, today, anc=None):
     return dict(at=today, found=True, nTot=ntot, nVac=nvac, nBuilt=ntot - nvac, pctBuilt=round(100 * (ntot - nvac) / ntot) if ntot else None,
                 s12=len(single), bld=bld, win='%04d-%02d' % (ty, tm), who=sorted(who.items(), key=lambda t: -t[1])[:4], newH=newh, newSince=ty - 4)
 
+
+def _bounded(fn, items, threads, budget, stop):
+    """17/11: como ThreadPoolExecutor.map, mas com tempo total (threads daemon): uma conexão pendurada não segura o build."""
+    import queue, threading, time as _t
+    q = queue.Queue()
+    for it in items: q.put(it)
+    t0 = _t.time()
+    def w():
+        while not stop.is_set() and _t.time() - t0 < budget:
+            try: it = q.get_nowait()
+            except queue.Empty: return
+            fn(it)
+    ts = [threading.Thread(target=w, daemon=True) for _ in range(threads)]
+    for t in ts: t.start()
+    for t in ts: t.join(max(0.0, budget + 30 - (_t.time() - t0)))
+    stop.set()
+    return not any(t.is_alive() for t in ts) and q.empty()
+
 def refresh(keys, offline=False, limit=700, today=None, anchors=None):
     """keys: iterable of (county, PARCEL_ID). Fetch missing / older than TTL days / other sales window (at most `limit`).
     anchors: county -> (year, month) end of the 12-month sales window (roll cutoff)."""
@@ -83,6 +101,6 @@ def refresh(keys, offline=False, limit=700, today=None, anchors=None):
         with _lock:
             c[f'{k[0]}|{k[1]}'] = e; st['done'] += 1
             if st['done'] % 25 == 0: json.dump(c, open(PATH, 'w'))
-    with ThreadPoolExecutor(3) as ex: list(ex.map(job, stale[:limit]))
+    if not _bounded(job, stale[:limit], 3, float(os.environ.get('RADIUS_BUDGET', '900')), stop) and not st.get('stopped'): st['stopped'] = 'tempo (RADIUS_BUDGET)'
     json.dump(c, open(PATH, 'w'))
     return st

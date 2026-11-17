@@ -591,6 +591,12 @@ with sync_playwright() as p:
     near = lambda p, q: p and abs(p[0]-q[0]) < 0.0004 and abs(p[1]-q[1]) < 0.0004
     check(cf['semImg'] <= 0.01 * cf['nH'] and (cf['W'] is None or near(cf['W'], (28.825107, -81.580303))) and (cf['R'] is None or near(cf['R'], (26.648677, -81.593795))),
           f'casas sem foto têm satélite; coordenada pelo lote DOR (Wolfs Trl, Roosevelt) {cf}')
+    # 17/11: nenhum imóvel sem imagem – sem foto e sem coordenada mostra "sem localização – conferir no PA" (com link do PA)
+    nl = pg.evaluate("""(()=>{const I=window.__dash.ITEMS; const N=I.filter(r=>r.lat==null&&!(r.imgs&&r.imgs.length));
+      const rows=[...document.querySelectorAll('.thx')].map(x=>x.textContent); const geo=I.filter(r=>r.gsrc&&/FDOR \\(centro da parcela, pelo nº\\)|Censo/.test(r.gsrc)).length;
+      const act=N.filter(r=>['FLIP','CONSIDERAR','PROCESSO','TITULO'].includes(r.vd)).length;
+      return {n:N.length, tot:I.length, act, geo, plain:rows.filter(t=>/^(sem foto|terreno)$/.test(t)).length, noloc:rows.filter(t=>/sem localização/.test(t)).length};})()""")
+    check(nl['n'] <= 0.12 * nl['tot'] and nl['geo'] > 0, f'coordenada por Censo/FDOR (nº da parcela); itens sem foto nem coordenada ≤ 12% {nl}')
     ar = pg.evaluate("(()=>{const d=window.__dash; d.setView('cand'); const t=document.body.textContent; const c=document.querySelector('#calib'); d.setView('intel'); const cal=document.querySelectorAll('#calib tbody tr').length; d.setView('table'); return {arch:/Já passaram/.test(t), palifox:/PALIFOX/.test(t)&&/resgatado pelo dono/.test(t), t1517305:/TD1517305/.test(t), cal};})()")
     check(ar['arch'] and ar['palifox'] and ar['t1517305'] and ar['cal'] >= 2, f'arquivo de favoritos com resultado + calibração {ar}')
     fa = pg.evaluate("(()=>{const d=window.__dash; d.setView('fav'); for(let i=0;i<60;i++){ const b=document.querySelector('#cmore'); if(!b||b.style.display==='none') break; b.click(); } const g=document.querySelector('#grid').textContent; d.setView('res'); const rr=document.querySelectorAll('#v-res tbody tr').length; d.setView('table'); return {arch:/Já passaram/.test(g), palifox:/PALIFOX/.test(g), t1517305:/TD1517305/.test(g), resRows:rr};})()")

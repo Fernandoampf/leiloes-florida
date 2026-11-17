@@ -112,12 +112,25 @@ def resolve(street, zips, city=None, known=None, fetch=False, refresh_old=False)
     if not pid: return None, None, None
     return pid, slug, full(pid, slug, fetch, refresh_old)
 
-def prefetch(jobs, threads=3, log_every=200):
-    """jobs: list of dict(street, zips, city, known). Fetches searches + detail pages for all, politely."""
-    n = [0]
-    def one(j):
-        try: resolve(j.get('street'), j.get('zips'), j.get('city'), j.get('known'), fetch=True, refresh_old=True)
-        except Exception: pass
-        n[0] += 1
-        if n[0] % log_every == 0: print(f'  prefetch {n[0]}/{len(jobs)}', flush=True)
-    with ThreadPoolExecutor(threads) as ex: list(ex.map(one, jobs))
+def prefetch(jobs, threads=3, log_every=200, budget=None):
+    """jobs: list of dict(street, zips, city, known). Fetches searches + detail pages for all, politely.
+    17/11: tempo total limitado (PO_PREFETCH_BUDGET s, padrão 1800) com threads daemon – em 16/11 o prefetch travou em
+    6.600/6.725 com conexões penduradas e segurou o build; agora o que sobrar fica para o próximo build (cache)."""
+    import queue, threading
+    budget = float(budget if budget is not None else os.environ.get('PO_PREFETCH_BUDGET', '1800'))
+    q = queue.Queue()
+    for j in jobs: q.put(j)
+    n = [0]; t0 = time.time()
+    def worker():
+        while time.time() - t0 < budget:
+            try: j = q.get_nowait()
+            except queue.Empty: return
+            try: resolve(j.get('street'), j.get('zips'), j.get('city'), j.get('known'), fetch=True, refresh_old=True)
+            except Exception: pass
+            n[0] += 1
+            if n[0] % log_every == 0: print(f'  prefetch {n[0]}/{len(jobs)}', flush=True)
+    ts = [threading.Thread(target=worker, daemon=True) for _ in range(max(1, threads))]
+    for t in ts: t.start()
+    for t in ts: t.join(max(0.0, budget + 60 - (time.time() - t0)))
+    if any(t.is_alive() for t in ts) or not q.empty():
+        print(f'  prefetch: limite de {budget:.0f}s – {n[0]}/{len(jobs)} feitos; o resto fica para o próximo build', flush=True)

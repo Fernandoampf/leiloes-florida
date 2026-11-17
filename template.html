@@ -95,6 +95,7 @@ table.tbl{border-collapse:collapse;width:100%;font-size:12px}
 .pr{display:flex;gap:9px;align-items:flex-start}
 .th{width:74px;height:56px;border-radius:6px;object-fit:cover;flex:none;background:#2d333e}
 .thw{position:relative;flex:none;display:inline-block;line-height:0}.thw .satb{display:none;position:absolute;left:2px;bottom:2px;background:rgba(0,0,0,.7);color:#ffd700;font-size:9px;line-height:1.2;padding:1px 3px;border-radius:3px}.thw .satb.on{display:block}
+.thx.noloc{text-align:center;line-height:1.15;padding:2px;color:#ffd27a;text-decoration:none;font-size:9.5px;border:1px dashed #b58a2e;box-sizing:border-box}
 .thx{width:74px;height:56px;border-radius:6px;flex:none;background:repeating-linear-gradient(45deg,#3c4453,#3c4453 8px,#38404e 8px,#38404e 16px);display:flex;align-items:center;justify-content:center;color:#c3cbd7;font-size:10px}
 .pa{font-weight:700;font-size:12.5px;color:var(--ink)}
 .pf{color:var(--mut);font-size:11px;margin:2px 0}
@@ -1579,10 +1580,13 @@ const ESRI_ATTR='Imagem de satélite: Esri, Vantor, Earthstar Geographics e GIS 
 function esriBox(lat,lon,halfM,W,H){ const dl=halfM/111320, dn=dl/Math.cos(lat*Math.PI/180)*(W/H); return [lon-dn,lat-dl,lon+dn,lat+dl]; }
 function esriImg(b,W,H){ return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox='+b.map(v=>v.toFixed(6)).join(',')+'&bboxSR=4326&imageSR=4326&size='+W+','+H+'&format=jpg&f=image'; }
 const satThumb = r=> r.lat!=null ? esriImg(esriBox(r.lat,r.lon,isLand(r)?70:55,300,200),300,200) : null;
+// 17/11: sem foto e sem coordenada (nem Censo nem centro da parcela FDOR) → aviso claro com o link do Property Appraiser
+const NOLOC_T='Sem coordenada: endereço sem número/sem situs e parcela não achada no cadastro estadual (FDOR). Abra o Property Appraiser pela parcela para ver mapa/foto.';
+const noLoc = (r,st)=>{ const pa=r.links&&r.links.pa; const t='sem localização – conferir no PA'; return pa ? '<a class="thx noloc" href="'+esc(pa)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="'+NOLOC_T+'"'+(st?' style="'+st+'"':'')+'>'+t+'</a>' : '<div class="thx noloc" title="'+NOLOC_T+'"'+(st?' style="'+st+'"':'')+'>'+t+'</div>'; };
 const firstImg = r=> isLand(r) ? (satThumb(r)||(r.imgs&&r.imgs[0])||null) : (r.imgs&&r.imgs.length ? r.imgs[0] : satThumb(r));
 const isSatThumb = r=> isLand(r) ? r.lat!=null : !(r.imgs&&r.imgs.length) && r.lat!=null;
 // casa sem foto própria → satélite Esri pelo centro da parcela, com selo "satélite" (não é foto do imóvel); foto quebrada → satélite
-const thumb = r=>{ const u=firstImg(r); if(!u) return '<div class="thx">'+(isLand(r)?'terreno':'sem foto')+'</div>';
+const thumb = r=>{ const u=firstImg(r); if(!u) return r.lat==null ? noLoc(r) : '<div class="thx">'+(isLand(r)?'terreno':'sem foto')+'</div>';
  const sat=isSatThumb(r), fb=!sat&&r.lat!=null?satThumb(r):null;
  return '<span class="thw"><img class="th" loading="lazy" referrerpolicy="no-referrer" src="'+esc(u)+'" alt="" onerror="'+(fb?'this.onerror=function(){this.outerHTML=\'<div class=thx>sem foto</div>\'};this.src=\''+esc(fb)+'\';this.nextSibling&&this.nextSibling.classList.add(\'on\')':'this.outerHTML=\'<div class=thx>sem foto</div>\'')+'"><span class="satb'+(sat?' on':'')+'" title="Imagem de satélite (Esri) – não é foto do imóvel">🛰 satélite</span></span>'; };
 const facts = r=> isLand(r) ? '<span class="ty">'+r.ty+'</span> '+(r.ac?nf(r.ac,2)+' acre':'área —')+(r.zon?' · '+esc(r.zon):'')+(r.ucd?' · '+esc(r.ucd):'') : '<span class="ty">'+r.ty+'</span> '+(r.beds?nf(r.beds)+'qt/':'')+(r.baths?nf(r.baths,1)+'bh · ':'')+(r.sqft?nf(r.sqft)+' sqft':'— sqft')+' · '+(r.yr?'Constr. '+r.yr:'ano —')+(r.ty==='Comercial'&&r.ucd?' · '+esc(r.ucd):'');
@@ -1702,7 +1706,7 @@ function pzHtml(){ const Q=pzQueue(); if(!Q.length) return '<div class="panel mi
  return '<details class="panel" id="pzbox" style="margin-bottom:6px"><summary><b>Pedir Zillow</b> <span class="mini">('+Q.length+' casa'+(Q.length>1?'s':'')+' com leilão em até 7 dias, veredito FLIP/CONSIDER/CONFERIR e sem Zillow – o Zillow bloqueia robô: Fernando/Claude preenchem zillow + zillowDate em data/valuations_manual.json)</span></summary><div class="tblwrap"><table class="tbl"><thead><tr><th>Leilão</th><th>Casa</th><th>Veredito</th><th>Parcela</th><th>Zillow</th></tr></thead><tbody>'+
   Q.map(r=>'<tr data-id="'+r.id+'"><td>'+whenLbl(r.date)+' <span class="mini">'+esc(r.time||'')+'</span></td><td>'+esc(r.addr)+'<div class="mini">'+esc(r.co)+' · '+esc(r.ty)+'</div></td><td>'+vdHtml(r,true)+'</td><td class="mini">'+esc(r.parcel||'')+'</td><td><a href="'+esc(zillowUrl(r))+'" target="_blank" rel="noopener">abrir</a></td></tr>').join('')+'</tbody></table></div></details>'; }
 const DCOLS=[
- ['Casa',r=>{ const im=firstImg(r); return '<div class="dcasa">'+(im?'<img loading="lazy" referrerpolicy="no-referrer" src="'+esc(im)+'" alt="">':'<div class="thx">'+(isLand(r)?r.ty:'sem foto')+'</div>')+'<div><b>'+esc(r.addr)+'</b><div class="mini">'+esc(r.co)+' · '+esc(r.ty)+' · '+TYPES[r.t]+'</div><button class="btn sm" type="button" data-id="'+r.id+'">ver detalhes</button> <button class="star'+(FAV.has(r.id)?' on':'')+'" data-star="'+r.id+'">'+(FAV.has(r.id)?'★':'☆')+'</button></div></div>'; },'addr'],
+ ['Casa',r=>{ const im=firstImg(r); return '<div class="dcasa">'+(im?'<img loading="lazy" referrerpolicy="no-referrer" src="'+esc(im)+'" alt="">':r.lat==null?noLoc(r):'<div class="thx">'+(isLand(r)?r.ty:'sem foto')+'</div>')+'<div><b>'+esc(r.addr)+'</b><div class="mini">'+esc(r.co)+' · '+esc(r.ty)+' · '+TYPES[r.t]+'</div><button class="btn sm" type="button" data-id="'+r.id+'">ver detalhes</button> <button class="star'+(FAV.has(r.id)?' on':'')+'" data-star="'+r.id+'">'+(FAV.has(r.id)?'★':'☆')+'</button></div></div>'; },'addr'],
  ['Data / hora',r=>'<b>'+whenLbl(r.date)+'</b><div class="mini">'+esc(r.time||'')+'</div>'],
  ['Banco vai até',bankCell,'wrap'],
  ['Zillow',r=>r.zw&&r.zw.v?'<b>'+money(r.zw.v)+'</b><div class="mini">'+esc(r.zw.d||'')+'</div>':'<span class="c-mut">—</span>'],
@@ -1721,7 +1725,7 @@ function renderDec(reset){
  dShown+=next.length; $('#dmore').style.display=dShown<CUR.length?'inline-flex':'none'; $('#dmore').textContent='Mostrar mais ('+(CUR.length-dShown)+' restantes)';
 }
 function card(r){
- const ph=firstImg(r)?'<img loading="lazy" referrerpolicy="no-referrer" src="'+esc(firstImg(r))+'" alt="">':'<div class="thx" style="width:100%;height:100%;border-radius:0">'+(isLand(r)?r.ty+' – sem foto':'Sem foto')+'</div>';
+ const ph=firstImg(r)?'<img loading="lazy" referrerpolicy="no-referrer" src="'+esc(firstImg(r))+'" alt="">':r.lat==null?noLoc(r,'width:100%;height:100%;border-radius:0'):'<div class="thx" style="width:100%;height:100%;border-radius:0">'+(isLand(r)?r.ty+' – sem foto':'Sem foto')+'</div>';
  return '<article class="card" data-id="'+r.id+'"><div class="ph">'+ph+'<div class="tl"><span class="cat '+r.katk+'">'+r.kat+'</span>'+vdHtml(r,true)+'<span class="bdg">'+TYPES[r.t]+'</span><span class="ty">'+r.ty+'</span></div><div class="tr"><span class="sc '+scCls(r.sc)+'">'+(r.sc==null?'—':r.sc)+'</span></div><div class="bl">🗓 '+whenLbl(r.date)+'</div></div>'+
   '<div class="bd"><div style="display:flex;justify-content:space-between;gap:8px"><div class="pa">'+esc(r.addr)+'</div><span>'+flagBtn(r)+' <button class="star'+(FAV.has(r.id)?' on':'')+'" data-star="'+r.id+'">'+(FAV.has(r.id)?'★':'☆')+'</button> <button class="btn sm" data-cand="'+r.id+'" title="Meus candidatos" style="padding:2px 6px;font-size:11px">'+(CAND[r.id]?'✓':'＋')+'</button></span></div><div class="pf">'+facts(r)+' · '+esc(r.co)+' · '+distLbl(r)+'</div>'+
   '<div class="pf"><b>'+whenLbl(r.date)+'</b> · <span class="tmr" title="'+CASH_TIP+'">Cash to Close</span> <b>'+money(r.cash)+'</b> <span class="mini">(lance '+money(r.xbid)+' · depósito '+money(r.xbid!=null?r.xbid*PR.dep/100:null)+')</span></div>'+
@@ -2051,7 +2055,7 @@ function galShow(){
  $$('#gal [data-gt]').forEach(b=>b.classList.toggle('on',b.dataset.gt===GAL.tab));
  th.innerHTML='';
  if(GAL.tab==='ph'){
-  if(!im.length){ if(r.lat!=null){ GAL.tab='sat'; galShow(); return; } m.innerHTML='<div class="galnone">Sem fotos para este imóvel. Use Street View, satélite ou os links abaixo.</div>'; return; }
+  if(!im.length){ if(r.lat!=null){ GAL.tab='sat'; galShow(); return; } m.innerHTML='<div class="galnone">'+(r.lat==null?'Sem fotos e <b>sem localização</b> (sem nº de rua e parcela não achada no cadastro estadual) – '+(r.links&&r.links.pa?'<a href="'+esc(r.links.pa)+'" target="_blank" rel="noopener">conferir no PA</a>':'conferir no Property Appraiser')+'.':'Sem fotos para este imóvel. Use Street View, satélite ou os links abaixo.')+'</div>'; return; }
   m.innerHTML='<img id="galimg" referrerpolicy="no-referrer" src="'+esc(im[GAL.i])+'" alt="foto '+(GAL.i+1)+'" onerror="this.replaceWith(Object.assign(document.createElement(\'div\'),{className:\'galnone\',textContent:\'Foto indisponível (link externo expirou).\'}))">'+(im.length>1?'<button class="galnav l" data-gn="-1">‹</button><button class="galnav r" data-gn="1">›</button>':'')+'<span class="galcnt">'+(GAL.i+1)+' / '+im.length+'</span>';
   th.innerHTML=im.map((u,i)=>'<img loading="lazy" referrerpolicy="no-referrer" src="'+esc(u)+'" data-gi="'+i+'"'+(i===GAL.i?' class="on"':'')+' onerror="this.remove()">').join('');
  } else if(GAL.tab==='sat'){ satShow(r,m); } else {

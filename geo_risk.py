@@ -71,6 +71,24 @@ def analyze(pid, s):
     return out
 
 
+
+def _bounded(fn, items, threads, budget, stop):
+    """17/11: como ThreadPoolExecutor.map, mas com tempo total (threads daemon): uma conexão pendurada não segura o build."""
+    import queue, threading, time as _t
+    q = queue.Queue()
+    for it in items: q.put(it)
+    t0 = _t.time()
+    def w():
+        while not stop.is_set() and _t.time() - t0 < budget:
+            try: it = q.get_nowait()
+            except queue.Empty: return
+            fn(it)
+    ts = [threading.Thread(target=w, daemon=True) for _ in range(threads)]
+    for t in ts: t.start()
+    for t in ts: t.join(max(0.0, budget + 30 - (_t.time() - t0)))
+    stop.set()
+    return not any(t.is_alive() for t in ts) and q.empty()
+
 def refresh(keys, offline=False, limit=600):
     """keys: iterable of (county, PARCEL_ID). Fetches missing/stale ones (at most `limit`). Returns stats."""
     c = load(); st = dict(asked=0, fetched=0, nopoly=0, err=0, blocked=None)
@@ -108,7 +126,7 @@ def refresh(keys, offline=False, limit=600):
                 if 'fzErr' in res: st['fzErr'] = st.get('fzErr', 0) + 1
             if (st['fetched'] + st['err']) % 25 == 0: json.dump(c, open(CACHE, 'w'))
         time.sleep(0.4)
-    with ThreadPoolExecutor(3) as ex: list(ex.map(job, todo[:limit]))
+    if not _bounded(job, todo[:limit], 3, float(os.environ.get('GEO_BUDGET', '900')), stop) and not st.get('stopped'): st['stopped'] = 'tempo (GEO_BUDGET)'
     json.dump(c, open(CACHE, 'w'))
     st['left'] = max(0, len(todo) - limit)
     return st

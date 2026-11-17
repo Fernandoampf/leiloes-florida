@@ -38,6 +38,7 @@ import inperson
 import clerk_verify
 import geo_risk, radius
 import census_geo
+import parcel_geo
 
 AUC = '/workspace/auc'
 SW = os.path.join(AUC, 'statewide')
@@ -489,6 +490,54 @@ def prefetch_all(items, args):
 DOR_CO_NO = {c: str(11 + i) for i, c in enumerate(['alachua', 'baker', 'bay', 'bradford', 'brevard', 'broward', 'calhoun', 'charlotte', 'citrus', 'clay', 'collier', 'columbia', 'miamidade', 'desoto', 'dixie', 'duval', 'escambia', 'flagler', 'franklin', 'gadsden', 'gilchrist', 'glades', 'gulf', 'hamilton', 'hardee', 'hendry', 'hernando', 'highlands', 'hillsborough', 'holmes', 'indianriver', 'jackson', 'jefferson', 'lafayette', 'lake', 'lee', 'leon', 'levy', 'liberty', 'madison', 'manatee', 'marion', 'martin', 'monroe', 'nassau', 'okaloosa', 'okeechobee', 'orange', 'osceola', 'palmbeach', 'pasco', 'pinellas', 'polk', 'putnam', 'stjohns', 'stlucie', 'santarosa', 'sarasota', 'seminole', 'sumter', 'suwannee', 'taylor', 'union', 'volusia', 'wakulla', 'walton', 'washington'])}
 
 def county_slug(c): return c.replace('myorangeclerk', 'orange').replace('-', '')
+
+def geofill(out, args, today):
+    """17/11: itens que saíram do laço sem coordenada -> Censo em LOTE (endereço) e FDOR centro da parcela (nº), no MESMO
+    build (antes os downloads de coordenada iam para depois do build e só entravam no dia seguinte; o Censo era 1 a 1,
+    máx. 150). Tempo limitado (GEOFILL_BUDGET s, padrão 300) para não travar a rotina. GEOFILL_OFF=1 = só cache."""
+    need = [r for r in out if r.get('_gneed')]
+    off = os.environ.get('GEOFILL_OFF', '').strip().lower() in ('1', 'true', 'yes', 'on')   # Censo/FDOR são públicos (não é clerk): roda mesmo com LEILOES_NO_CLERK
+    budget = float(os.environ.get('GEOFILL_BUDGET', '300'))
+    st = dict(need=len(need), census=None, parcel=None, filled=0, off=off)
+    if need and not off:
+        t0 = time.time()
+        rows = [(a, c, g[4]) for g in (r['_gneed'] for r in need) if g[2] for a, c in census_geo.variants(g[2], g[3])]   # + prédio do condo, cidade grudada
+        try: st['census'] = census_geo.batch(rows, budget=budget * 0.5)
+        except Exception as ex: st['census'] = dict(err=type(ex).__name__)
+        jobs = {}
+        for r in need:
+            co_no, gids = r['_gneed'][0], r['_gneed'][1]
+            if co_no:
+                for p in parcel_geo.pending(co_no, gids, today): jobs.setdefault(co_no, set()).add(p)
+        try: st['parcel'] = parcel_geo.fetch(jobs, budget=max(30, budget - (time.time() - t0)))
+        except Exception as ex: st['parcel'] = dict(err=type(ex).__name__)
+    pj = {}
+    for r in need:
+        if r['_gneed'][0]:
+            for p in parcel_geo.pending(r['_gneed'][0], r['_gneed'][1], today): pj.setdefault(r['_gneed'][0], set()).add(p)
+    try: parcel_geo.save_pending(pj)        # o que sobrou: `python3 parcel_geo.py` (rotina, antes do build) busca com mais tempo
+    except Exception: pass
+    for r in out:
+        g = r.pop('_gneed', None)
+        if not g: continue
+        co_no, gids, street, city, zip5 = g
+        lat = lon = None; src = None
+        for a, c in (census_geo.variants(street, city) if street else []):
+            cg = census_geo.get(a, c, zip5)
+            if cg and cg.get('lat') and 24 < cg['lat'] < 31.2:
+                lat, lon = cg['lat'], cg['lon']
+                src = 'Censo EUA (endereço do prédio, aproximado)' if a == census_geo.no_unit(street) else 'Censo EUA (endereço, aproximado)'
+                break
+        if lat is None and co_no:
+            ll = parcel_geo.get(co_no, gids)
+            if ll: (lat, lon), src = ll, 'FDOR (centro da parcela, pelo nº)'
+        if lat is None: continue
+        r['lat'], r['lon'], r['gsrc'] = lat, lon, src
+        r['dist'] = round(hav(ORLANDO, (lat, lon))); r.pop('dap', None)
+        st['filled'] += 1
+    st['semCoord'] = sum(1 for r in out if r.get('lat') is None)
+    print('coordenadas (Censo lote + FDOR centro da parcela):', json.dumps(st), flush=True)
+    build_items._geofill = st
 
 def pid_variants(parcel):
     """normalised parcel ids to try against the DOR roll. Pinellas lists SS-TT-RR-… (section first) on RealAuction
@@ -942,6 +991,14 @@ def build_items(args):
             # no parcel polygon: validated Census address point (approximate; map/satellite only, not used for utilities)
             cg = census_geo.get(st0, (nf or {}).get('city') or x.get('city') or '', zip5, fetch=args.fetch)
             if cg and cg.get('lat') and 24 < cg['lat'] < 31.2: lat, lon = cg['lat'], cg['lon']; gsrc = 'Censo EUA (endereço, aproximado)'
+        gneed = None
+        if lat is None:
+            # 17/11: sem ponto PO, sem polígono FLWMI e sem Censo -> centro da parcela pelo nº (FDOR Cadastral Centroids).
+            # Usa o PARCEL_ID do rol DOR (formato com traços, que a FLWMI/npid não casavam) e o nº da lista.
+            gids = [v for v in [(nf or {}).get('pid'), x.get('parcel')] + pid_variants(x.get('parcel')) if v and re.search(r'\d{4}', str(v))]
+            ll = parcel_geo.get(co_no, gids) if co_no else None
+            if ll: lat, lon = ll; gsrc = 'FDOR (centro da parcela, pelo nº)'
+            else: gneed = (co_no, gids, st0 if re.match(r'\s*[1-9]', st0 or '') else None, (nf or {}).get('city') or x.get('city') or '', zip5)
         if lat and lon:
             dist = hav(ORLANDO, (lat, lon)); dapprox = False
         else:
@@ -1257,7 +1314,9 @@ def build_items(args):
         rec = {k: v for k, v in rec.items() if v not in (None, '', [], {})}
         rec.setdefault('fl', []); rec.setdefault('links', {})
         if nf and nf.get('pid') and rec.get('ty') in ('Lote', 'Terreno'): rec['_pid'] = nf['pid']
+        if gneed: rec['_gneed'] = gneed
         out.append(rec)
+    geofill(out, args, today)
     # ---- ≈0.5 mi radius (FDOR cadastral) for lots the supply rule would discount; applied from the cache, refreshed incrementally
     rq = [k for k in getattr(build_items, '_radq', []) if any(r.get('cs') == k[0] and (r.get('sup') or {}).get('disc') for r in out if r.get('_pid') == k[1])]
     rst = radius.refresh(rq, offline=bool(getattr(args, 'no_clerk', False)) or os.environ.get('LEILOES_NO_CLERK', '').strip().lower() in ('1', 'true', 'yes', 'on'),

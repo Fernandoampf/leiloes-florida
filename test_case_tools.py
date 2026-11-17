@@ -51,5 +51,23 @@ class T(unittest.TestCase):
         m = build.load_manual()
         self.assertIs(m[('lake', nal.npid('23-19-27-016000006000'))], m[('lake', nal.npid('271923016000006000'))])
 
+    def test_geo_helpers(self):   # 17/11: Censo em lote (mesma validação) e cache do centro da parcela FDOR
+        import census_geo, parcel_geo
+        self.assertTrue(census_geo._accept('1481 Providence Blvd', '1481 PROVIDENCE BLVD, DELTONA, FL, 32725'))
+        self.assertFalse(census_geo._accept('23 NW 3 ST', '23 NW 3RD AVE, MIAMI, FL, 33128'))
+        self.assertEqual(census_geo.no_unit('3 GROVE ISLE DR C308'), '3 GROVE ISLE DR')
+        self.assertEqual(census_geo.no_unit('3011 LINTON BLVD # D-107'), '3011 LINTON BLVD')
+        self.assertIsNone(census_geo.no_unit('1481 PROVIDENCE BLVD'))
+        self.assertIn(('1330 JEFF DRIVE', 'APOPKA'), census_geo.variants('1330 JEFF DRIVE APOPKA', ''))
+        self.assertEqual(parcel_geo.k(64, ' 35-09-24-4076-0530-0120 '), '64|35-09-24-4076-0530-0120')
+        old = parcel_geo._db
+        try:
+            parcel_geo._db = {'64|AB-1234': {'lat': 29.6, 'lon': -81.8, 'd': '2026-11-17'}, '64|ZZ-9999': {'d': '2026-11-16'}}
+            self.assertEqual(parcel_geo.get(64, ['x', 'ab-1234']), (29.6, -81.8))
+            self.assertEqual(parcel_geo.pending(64, ['ZZ-9999', 'QQ-5555'], '2026-11-17'), ['QQ-5555'])
+            self.assertEqual(parcel_geo.pending(64, ['ZZ-9999'], '2026-12-17'), ['ZZ-9999'])
+            self.assertEqual(parcel_geo.pending(64, ['AB-1234', 'QQ-5555'], '2026-11-17'), [])
+        finally: parcel_geo._db = old
+
 if __name__ == '__main__':
     unittest.main()
