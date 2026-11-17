@@ -501,7 +501,7 @@ select option{background:#2a303b;color:#eef1f5}
   </div>
  </section>
  <div class="goldbar"></div>
- <div id="v-dec"><div class="panel mini" style="margin-bottom:6px">Visão <b>Decisão</b>: casa · data/hora · banco vai até · Zillow · vendas vizinhas · teto · título · veredito. Clique na linha ou em <b>ver detalhes</b> para a ficha completa. <button class="btn sm" id="bfull" type="button">Visão completa (Lista)</button></div><div id="pzq"></div><div class="tblwrap"><table class="tbl dtbl" id="dtbl"></table></div><div class="more"><button class="btn" id="dmore">Mostrar mais</button></div></div>
+ <div id="v-dec"><div class="panel mini" style="margin-bottom:6px">Visão <b>Decisão</b>: casa · data/hora · banco vai até · dívida / julgamento · Zillow · vendas vizinhas · teto · título · veredito. Clique na linha ou em <b>ver detalhes</b> para a ficha completa. <button class="btn sm" id="bfull" type="button">Visão completa (Lista)</button></div><div id="pzq"></div><div class="tblwrap"><table class="tbl dtbl" id="dtbl"></table></div><div class="more"><button class="btn" id="dmore">Mostrar mais</button></div></div>
  <div id="v-table"><div class="tblwrap"><table class="tbl" id="tbl"></table></div><div class="more"><button class="btn" id="tmore">Mostrar mais</button></div></div>
  <div id="v-cards" style="display:none"><div class="grid" id="grid"></div><div class="more"><button class="btn" id="cmore">Mostrar mais</button></div></div>
  <div id="v-map" style="display:none"><div id="map"><div class="mapmsg">Carregando mapa… (requer internet)</div></div><p class="mini" id="mapnote"></p></div>
@@ -1663,7 +1663,7 @@ function mpTxt(r){ if(!r.mp) return ''; const one=v=>v?money(v):'?';
   +(r.mp.tot?' · Soma dos julgamentos do processo: '+money(r.mp.tot)+'.':'')+' O mesmo credor executa todos: conferir no processo como o julgamento foi repartido e se a venda de um item abate o outro.'; }
 function bankCell(r){ const c=bidChk(r);
  if(r.t==='TD') return '<b>'+money(r.ref)+'</b>'+c.ar+'<div class="mini">lance inicial público (tax deed)</div>'+c.txt;
- if(r.mp&&r.t==='FC'){ const r0=Object.assign({},r); r0.mp=null; return bankCell(r0)+'<div class="mini c-vio" title="'+esc(mpTxt(r))+'">processo com '+r.mp.n+' imóveis · valor deste item'+(r.mp.tot?' (total '+money(r.mp.tot)+')':'')+'</div>'; }
+ if(r.mp&&r.t==='FC'){ const r0=Object.assign({},r); r0.mp=null; return bankCell(r0)+'<div class="mini" title="'+esc(mpTxt(r))+'">processo com '+r.mp.n+' imóveis · valor deste item'+(r.mp.tot?' (total '+money(r.mp.tot)+')':'')+'</div>'; }
  if(r.t!=='FC') return r.ref?'<b>'+money(r.ref)+'</b><div class="mini c-mut">valor publicado</div>':'<span class="c-mut">—</span>';
  if(r.pmax&&+r.pmax>0) return '<b>'+money(+r.pmax)+'</b>'+c.ar+'<div class="mini">lance máx. do banco publicado</div>'+c.txt;
  if(r.ref){ const k=fjCap(r);
@@ -1705,10 +1705,24 @@ function pzQueue(){ const T=Date.parse(TODAY_ET); return ITEMS.filter(r=>!isLand
 function pzHtml(){ const Q=pzQueue(); if(!Q.length) return '<div class="panel mini" style="margin-bottom:6px">Fila <b>pedir Zillow</b>: nenhuma casa com leilão em até 7 dias sem Zillow.</div>';
  return '<details class="panel" id="pzbox" style="margin-bottom:6px"><summary><b>Pedir Zillow</b> <span class="mini">('+Q.length+' casa'+(Q.length>1?'s':'')+' com leilão em até 7 dias, veredito FLIP/CONSIDER/CONFERIR e sem Zillow – o Zillow bloqueia robô: Fernando/Claude preenchem zillow + zillowDate em data/valuations_manual.json)</span></summary><div class="tblwrap"><table class="tbl"><thead><tr><th>Leilão</th><th>Casa</th><th>Veredito</th><th>Parcela</th><th>Zillow</th></tr></thead><tbody>'+
   Q.map(r=>'<tr data-id="'+r.id+'"><td>'+whenLbl(r.date)+' <span class="mini">'+esc(r.time||'')+'</span></td><td>'+esc(r.addr)+'<div class="mini">'+esc(r.co)+' · '+esc(r.ty)+'</div></td><td>'+vdHtml(r,true)+'</td><td class="mini">'+esc(r.parcel||'')+'</td><td><a href="'+esc(zillowUrl(r))+'" target="_blank" rel="noopener">abrir</a></td></tr>').join('')+'</tbody></table></div></details>'; }
+// 17/11 (Fernando t327u): coluna própria "Dívida / julgamento" na Decisão – só exibição, conta inalterada
+function debtCell(r){
+ if(r.t==='FC'){
+  if(r.ref){ const c=fjCap(r); return '<b>'+money(r.ref)+'</b><div class="mini">julgamento oficial</div>'+(c&&c.i>0?'<div class="mini">+ juros até o leilão: '+money(c.v)+'</div>':'')+(r.mp?'<div class="mini" title="'+esc(mpTxt(r))+'">processo com '+r.mp.n+' imóveis (total '+money(r.mp.tot)+')</div>':''); }
+  if(r.fjPO) return '<span class="c-mut">'+money(r.fjPO)+'</span><div class="mini c-mut">julgamento estimado (PropertyOnion) – não é oficial</div>';
+  return '<span class="c-mut">sem julgamento publicado</span>';
+ }
+ if(r.t==='TD'){
+  const ce=r.ce&&r.ce.amt;
+  return (r.ref?'<b>'+money(r.ref)+'</b>':'<span class="c-mut">—</span>')+'<div class="mini">impostos atrasados / lance inicial</div>'+(ce?'<div class="mini c-red" title="'+esc((r.ce.case||'')+' '+(r.ce.src||''))+'">+ multa de Code Enforcement '+money(ce)+' (sobrevive ao tax deed)</div>':'');
+ }
+ return r.ref?'<b>'+money(r.ref)+'</b><div class="mini">valor publicado</div>':'<span class="c-mut">—</span>';
+}
 const DCOLS=[
  ['Casa',r=>{ const im=firstImg(r); return '<div class="dcasa">'+(im?'<img loading="lazy" referrerpolicy="no-referrer" src="'+esc(im)+'" alt="">':r.lat==null?noLoc(r):'<div class="thx">'+(isLand(r)?r.ty:'sem foto')+'</div>')+'<div><b>'+esc(r.addr)+'</b><div class="mini">'+esc(r.co)+' · '+esc(r.ty)+' · '+TYPES[r.t]+'</div><button class="btn sm" type="button" data-id="'+r.id+'">ver detalhes</button> <button class="star'+(FAV.has(r.id)?' on':'')+'" data-star="'+r.id+'">'+(FAV.has(r.id)?'★':'☆')+'</button></div></div>'; },'addr'],
  ['Data / hora',r=>'<b>'+whenLbl(r.date)+'</b><div class="mini">'+esc(r.time||'')+'</div>'],
  ['Banco vai até',bankCell,'wrap'],
+ ['Dívida / julgamento',debtCell,'wrap'],
  ['Zillow',r=>r.zw&&r.zw.v?'<b>'+money(r.zw.v)+'</b><div class="mini">'+esc(r.zw.d||'')+'</div>':'<span class="c-mut">—</span>'],
  ['Vendas vizinhas',r=>{ const ut=nsTo(r); return (r.ns&&r.ns.n?'<b>'+money(r.ns.med)+'</b><div class="mini">'+r.ns.n+' venda'+(r.ns.n>1?'s':'')+(r.ns.n<3?' (poucas)':'')+'</div>':'<span class="c-mut">—</span>')+(ut?'<div class="mini c-amber" title="O rol de vendas do DOR (Flórida) vai só até este mês: vendas mais recentes não aparecem – conferir no Zillow/Redfin">vendas até '+ut+'</div>':''); }],
  ['Teto',r=>'<b>'+money(r.mb)+'</b><div class="mini">lance máx. '+nf(PR.ret)+'%</div>'],
@@ -2538,7 +2552,7 @@ if(DL && DL.explicit){ S.cat=''; S.kat=''; }
 if(DL && DL.r){ if(DL.explicit) apply(true); openDrawer(DL.r.id); }
 else if(DL && DL.explicit) setTimeout(()=>toast('Imóvel “'+DL.asked+'” não encontrado (leilão já passou ou foi removido)'),300);
 termify(document.body);
-window.__dash={apply, ITEMS, thumb, pzQueue, nsTo, M, plHtml, cfHtml, badges, bankCell, fjCap, plLine, jInt, titleCell, renderDec, salaPrice, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, redfinUrl, redfinFind, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
+window.__dash={apply, ITEMS, thumb, debtCell, pzQueue, nsTo, M, plHtml, cfHtml, badges, bankCell, fjCap, plLine, jInt, titleCell, renderDec, salaPrice, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, redfinUrl, redfinFind, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
 })();
 </script>
 </body>

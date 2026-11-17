@@ -44,8 +44,8 @@ with sync_playwright() as p:
       return {view:d.view, th, rows:document.querySelectorAll('#dtbl tbody tr').length, nfc:fc.length, hid:hid.length, capOk, plOk, withHist:hid.filter(([r,c])=>/costuma/.test(c)).length,
         np:!!np, npGrey:/julgamento estimado \(PropertyOnion\)/.test(npc)&&/c-mut/.test(npc), poWorse, td:/conferido \d\d\/\d\d/.test(tdc), arrows:ar,
         btn:!!document.querySelector('#bfull'), single:fc.every(r=>!/^<b>US\$/.test(d.bankCell(r)))};})()""")
-    check(dv['view'] == 'dec' and len(dv['th']) == 8 and dv['th'][2] == 'Banco vai até' and dv['rows'] > 0 and dv['btn'] and dv['hid'] > 50 and dv['capOk'] and dv['plOk'] and dv['withHist'] > 10 and dv['poWorse'] and dv['td'] and dv['single'] and (dv['npGrey'] or not dv['np']),
-          f'visão Decisão padrão (8 colunas, banco vai até: público+conferência / oculto até julgamento+juros + histórico do autor / julgamento estimado PO em cinza) {dv}')
+    check(dv['view'] == 'dec' and len(dv['th']) == 9 and dv['th'][2] == 'Banco vai até' and dv['th'][3] == 'Dívida / julgamento' and dv['rows'] > 0 and dv['btn'] and dv['hid'] > 50 and dv['capOk'] and dv['plOk'] and dv['withHist'] > 10 and dv['poWorse'] and dv['td'] and dv['single'] and (dv['npGrey'] or not dv['np']),
+          f'visão Decisão padrão (9 colunas, com Dívida / julgamento; banco vai até: público+conferência / oculto até julgamento+juros + histórico do autor / julgamento estimado PO em cinza) {dv}')
     pg.click('#tabs [data-v="table"]'); pg.wait_for_timeout(300)
     check(pg.locator('#tbl tbody tr').count() > 0, 'tabela renderizada')
     heads = pg.evaluate("document.querySelector('#tbl thead').textContent")
@@ -598,6 +598,13 @@ with sync_playwright() as p:
       const T=N.map(r=>window.__dash.thumb(r)); const okT=T.every(h=>/sem localização – conferir no PA/.test(h)); const lnk=N.filter(r=>r.links&&r.links.pa).every((r,i)=>T[N.indexOf(r)].includes('href='));
       return {n:N.length, tot:I.length, act, geo, okT, lnk, plain:rows.filter(t=>/^(sem foto|terreno)$/.test(t)).length, noloc:rows.filter(t=>/sem localização/.test(t)).length};})()""")
     check(nl['n'] <= 0.12 * nl['tot'] and nl['geo'] > 0 and nl['okT'] and nl['lnk'], f'coordenada por Censo/FDOR (nº da parcela); itens sem foto nem coordenada ≤ 12% {nl}')
+    # 17/11 (Fernando t327u): coluna "Dívida / julgamento" na Decisão, logo depois de "Banco vai até" (só exibição)
+    dj = pg.evaluate("""(()=>{const d=window.__dash, I=d.ITEMS; d.setView('dec'); const th=[...document.querySelectorAll('#dtbl th')].map(x=>x.textContent); d.setView('table');
+      const t=r=>{const b=document.createElement('div'); b.innerHTML=d.debtCell(r); return b.textContent;};
+      const fo=I.filter(r=>r.t==='FC'&&r.ref), fp=I.filter(r=>r.t==='FC'&&!r.ref&&r.fjPO), fn=I.filter(r=>r.t==='FC'&&!r.ref&&!r.fjPO), td=I.filter(r=>r.t==='TD'&&r.ref), ce=I.filter(r=>r.t==='TD'&&r.ce);
+      return {pos:th.indexOf('Dívida / julgamento')-th.indexOf('Banco vai até'), fo:fo.every(r=>/julgamento oficial/.test(t(r))), fp:fp.every(r=>/estimado \\(PropertyOnion\\)/.test(t(r))&&!/oficial\\b(?! )/.test('')), fn:fn.every(r=>/sem julgamento publicado/.test(t(r))),
+        td:td.every(r=>/impostos atrasados \\/ lance inicial/.test(t(r))), ce:ce.every(r=>/Code Enforcement/.test(t(r))), mp:I.filter(r=>r.mp&&r.t==='FC'&&r.ref).every(r=>/processo com \\d+ imóveis/.test(t(r))), n:[fo.length,fp.length,fn.length,td.length,ce.length]};})()""")
+    check(dj['pos'] == 1 and dj['fo'] and dj['fp'] and dj['fn'] and dj['td'] and dj['ce'] and dj['mp'], f'Decisão: coluna Dívida / julgamento {dj}')
     ar = pg.evaluate("(()=>{const d=window.__dash; d.setView('cand'); const t=document.body.textContent; const c=document.querySelector('#calib'); d.setView('intel'); const cal=document.querySelectorAll('#calib tbody tr').length; d.setView('table'); return {arch:/Já passaram/.test(t), palifox:/PALIFOX/.test(t)&&/resgatado pelo dono/.test(t), t1517305:/TD1517305/.test(t), cal};})()")
     check(ar['arch'] and ar['palifox'] and ar['t1517305'] and ar['cal'] >= 2, f'arquivo de favoritos com resultado + calibração {ar}')
     fa = pg.evaluate("(()=>{const d=window.__dash; d.setView('fav'); for(let i=0;i<60;i++){ const b=document.querySelector('#cmore'); if(!b||b.style.display==='none') break; b.click(); } const g=document.querySelector('#grid').textContent; d.setView('res'); const rr=document.querySelectorAll('#v-res tbody tr').length; d.setView('table'); return {arch:/Já passaram/.test(g), palifox:/PALIFOX/.test(g), t1517305:/TD1517305/.test(g), resRows:rr};})()")
