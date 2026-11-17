@@ -1020,7 +1020,9 @@ function scTip(r){ if(r.sc==null) return r.scKind||''; const sp=r.sp||{}; const 
 // PROPOSTA 8 (aprovada pelo Fernando 16/11) – trava de título: casa com jr/mtg/surv/code ou execução de associação (hoaPl)
 // nunca fica FLIP/CONSIDERAR; vira CONFERIR TÍTULO até titleOk: true em data/valuations_manual.json (Fernando/Claude)
 const TLOCK_FL=['jr','mtg','surv','code'];
-function titleLock(r){ if(isLand(r)||r.tok) return null; const f=TLOCK_FL.filter(k=>r.fl.includes(k)).map(k=>FL[k]?FL[k].l:k); if(r.hoaPl) f.push('autor é associação (HOA)'); return f.length?f:null; }
+// PROPOSTA 12 (16/11, aprovada): processo de VARA DO CONDADO (nº com CC, CONO ou COCE) = ação de associação/condomínio → a 1ª hipoteca sobrevive
+const isCC = r => r.t==='FC' && !!r.case && /(^|[\d\s\-])CC([\d\s\-]|[A-Z]*$)|^CO(NO|CE)[\s\-]/.test(String(r.case).toUpperCase());
+function titleLock(r){ if(r.tok) return null; const f=isLand(r)?[]:TLOCK_FL.filter(k=>r.fl.includes(k)).map(k=>FL[k]?FL[k].l:k); if(r.hoaPl&&!isLand(r)) f.push('autor é associação (HOA)'); if(isCC(r)) f.push('vara do condado (ação de associação – 1ª hipoteca sobrevive)'); return f.length?f:null; }
 function verdict(r){ let V=verdict0(r);
  if(V.vd==='FLIP' && r.repHi && r.roiHi!=null && r.roiHi<PR.flip/100) V={vd:'CONSIDERAR', why:'obra em faixa '+money(r.rep)+' – '+money(r.repHi)+' (padrão médio/luxo pendente): FLIP no piso, mas com a obra máxima o ROI cai para '+pct(r.roiHi)+' – '+V.why, sub:'obra em faixa', obra:'FLIP'};   // PROPOSTA 11
  if(V.vd==='FLIP' && r.arvSrc==='fraca') V={vd:'CONSIDERAR', why:'estimativa fraca (sem Zillow e sem 3 vendas vizinhas de 12 meses): o ROI daria FLIP – '+V.why, sub:'estimativa fraca – nunca FLIP', weak:'FLIP'};   // PROPOSTA 7
@@ -1552,6 +1554,7 @@ function badges(r){
  const LB={nocomps:['Sem comps','Menos de 3 vendas comparáveis de terreno. Nota limitada a 55.'],big:['Gleba grande','Mais de 5 acres — não é lote residencial de flip. Nota limitada a 55.'],use:['Uso comercial/agrícola','Código de uso não é terreno vago residencial (000). Nota limitada a 55.']};
  (r.lotBadges||[]).forEach(k=>{ const d=LB[k]; if(d) b.push('<span class="bdg amb" title="'+esc(d[1])+'">'+d[0]+'</span>'); });
  if(r.ce) b.push('<span class="bdg red" title="'+esc('Ordem de multa de Code Enforcement do condado '+(r.ce.case||'')+(r.ce.daily?': US$ '+nf(r.ce.daily)+'/dia desde '+fdate(r.ce.since):'')+(r.ce.orders?' (ordens '+r.ce.orders+')':'')+'. Dívida de governo: sobrevive ao tax deed (FS 197.552). '+(r.t==='TD'?'Descontada integralmente do lance máximo.':'Em foreclosure: conferir no processo/título.')+(r.ce.src?' Fonte: '+r.ce.src:''))+'">⚠ Multa Code Enforcement ~'+money(r.ce.amt)+'</span>');
+ if(isCC(r)) b.push('<span class="bdg red" title="Processo de vara do condado ('+esc(r.case)+'): é ação de associação/condomínio, não do banco. A 1ª hipoteca (e o que mais estiver na frente) SOBREVIVE e fica com o arrematante. Nunca FLIP/CONSIDER até titleOk (título conferido).">vara do condado — 1ª hipoteca sobrevive</span>');
  if(r.mp) b.push('<span class="bdg vio" title="'+esc(mpTxt(r))+'">mesmo processo de '+esc(r.mp.oth.map(o=>o.same?'outro item no mesmo endereço':o.addr).join(', '))+'</span>');
  if(r.yr&&r.yr<2000&&!isLand(r)) b.push('<span class="bdg amb" title="Construída em '+r.yr+' (antes de 2000): fica fora das casas sugeridas (PROPOSTA 2) – telhado, elétrica, hidráulica e janelas costumam pesar na obra. Só aviso: não muda nota nem veredito.">antes de 2000 ('+r.yr+')</span>');
  if(r.vd==='FLIP') b.push('<span class="bdg blu">FLIP</span>');

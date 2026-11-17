@@ -571,6 +571,12 @@ with sync_playwright() as p:
       const b=document.createElement('div'); b.innerHTML=d.badges(R); const c=document.createElement('div'); c.innerHTML=d.bankCell(W);
       return {b:/mesmo processo de 210 WELLS/.test(b.textContent), own:R.ref>W.ref, tot:R.mp&&Math.round(R.mp.tot), bank:/processo com 2 imóveis/.test(c.textContent), sym:I.filter(r=>r.mp).every(r=>r.mp.oth.every(o=>{const x=I.find(y=>y.id===o.id); return x&&x.mp;}))};})()""")
     check(mp.get('gone') or (mp['b'] and mp['own'] and mp['tot'] == 919875 and mp['bank'] and mp['sym']), f'processo com vários imóveis: selo + valor por item {mp}')
+    # PROPOSTA 12 (16/11, aprovada): processo de vara do condado (CC/CONO/COCE) – 1ª hipoteca sobrevive; nunca FLIP/CONSIDER até titleOk
+    cc = pg.evaluate("""(()=>{const d=window.__dash, I=d.ITEMS; const re=/(^|[\\d\\s\\-])CC([\\d\\s\\-]|[A-Z]*$)|^CO(NO|CE)[\\s\\-]/; const C=I.filter(r=>r.t==='FC'&&r.case&&re.test(r.case.toUpperCase()));
+      const bad=C.filter(r=>!r.tok&&(r.vd==='FLIP'||r.vd==='CONSIDERAR')).map(r=>r.id); const R=I.find(r=>/150 E ROBINSON ST UNIT 8A-17/i.test(r.addr));
+      const b=document.createElement('div'); b.innerHTML=R?d.badges(R):''; const P=C.filter(r=>r.vd==='PROCESSO'||r.vd==='TITULO');
+      return {n:C.length, bad, lockTxt:P.every(r=>/vara do condado/.test(r.vdWhy)), rob:!R||(/vara do condado/.test(b.textContent)&&/vara do condado/.test(R.vdWhy||'')), notCA:!I.some(r=>r.t==='FC'&&/^\\d{6}CA\\d{6}XXCICI$/.test(r.case||'')&&re.test(r.case))};})()""")
+    check(cc['n'] > 0 and not cc['bad'] and cc['lockTxt'] and cc['rob'] and cc['notCA'], f'vara do condado (CC/CONO/COCE): 1ª hipoteca sobrevive, nunca FLIP/CONSIDER {cc}')
     cf = pg.evaluate("(()=>{const I=window.__dash.ITEMS; const W=I.find(r=>r.id==='TDpox0e3f3dd972d1'), R=I.find(r=>r.id==='FC1528998'); const H=I.filter(r=>['Casa','Townhouse','Mobile','Multifamily'].includes(r.ty)); return {semImg:H.filter(r=>!(r.imgs&&r.imgs.length)&&r.lat==null).length, nH:H.length, W:W?[W.lat,W.lon]:null, R:R?[R.lat,R.lon]:null};})()")
     near = lambda p, q: p and abs(p[0]-q[0]) < 0.0004 and abs(p[1]-q[1]) < 0.0004
     check(cf['semImg'] <= 0.01 * cf['nH'] and (cf['W'] is None or near(cf['W'], (28.825107, -81.580303))) and (cf['R'] is None or near(cf['R'], (26.648677, -81.593795))),
