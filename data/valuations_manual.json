@@ -135,6 +135,494 @@
    },
    "date": "2026-11-16",
    "notes": "Multa de Code Enforcement ainda correndo (~US$ 191 mil em 01/12/2026)."
+  },
+  {
+   "county": "pinellas",
+   "parcel": "01-31-16-77166-001-0120",
+   "addr": "3936 HAINES RD N ST PETERSBURG, FL 33703",
+   "zillow": 270600,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "palmbeach",
+   "parcel": "00-42-44-01-08-002-0200",
+   "addr": "154 CRANE LN WEST PALM BEACH, FL 33415",
+   "zillow": 269000,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "palmbeach",
+   "parcel": "00-41-47-25-02-000-3580",
+   "addr": "10725 SHORE DR BOCA RATON, FL 33428",
+   "zillow": 258800,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "pinellas",
+   "parcel": "20-30-16-33264-000-4380",
+   "addr": "8765 58TH WAY N PINELLAS PARK, FL 33782",
+   "zillow": 312900,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "desoto",
+   "parcel": "363724019600B00100",
+   "addr": "85 TILLIS ST, Arcadia, FL 34266",
+   "zillow": 280700,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "clay",
+   "parcel": "090524-005953-215-00",
+   "addr": "131 HORSETAIL AVE MIDDLEBURG, FL 32068",
+   "zillow": 234800,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "pinellas",
+   "parcel": "26-31-15-78804-009-0100",
+   "addr": "9301 W GULF BLVD TREASURE ISLAND, FL 33706",
+   "zillow": 448100,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "pinellas",
+   "parcel": "32-30-16-20664-000-0880",
+   "addr": "5981 66TH TER N PINELLAS PARK, FL 33781",
+   "zillow": 255900,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "pinellas",
+   "parcel": "20-30-16-82818-033-0290",
+   "addr": "5585 92ND TER N PINELLAS PARK, FL 33782",
+   "zillow": 284300,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "palmbeach",
+   "parcel": "18-42-44-27-28-006-0050",
+   "addr": "4525 OAK TERRACE DR GREENACRES, FL 33463",
+   "zillow": 195000,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "broward",
+   "parcel": "514127060550",
+   "addr": "7845 MERIDIAN ST MIRAMAR, 33023",
+   "zillow": 460100,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "broward",
+   "parcel": "494119180113",
+   "addr": "11116 NW 38 PL SUNRISE, 33351",
+   "zillow": 292900,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "miamidade",
+   "parcel": "30-5029-028-0120",
+   "addr": "15743 FAIRWAY HEIGHTS BLVD MIAMI, FL 33157",
+   "zillow": 578100,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "brevard",
+   "parcel": "2605852",
+   "addr": "6795 S TROPICAL TRL MERRITT ISLAND, FL 32952",
+   "zillow": 420900,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "broward",
+   "parcel": "514227210601",
+   "addr": "23 SW 7 ST #1-2 HALLANDALE BEACH, 33009",
+   "zillow": 625700,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "broward",
+   "parcel": "514215AJ0610",
+   "addr": "1811 JEFFERSON ST 801 HOLLYWOOD, 33020",
+   "zillow": 196100,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "broward",
+   "parcel": "494113111450",
+   "addr": "4712 NW 50 CT TAMARAC, 33319",
+   "zillow": 245900,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "osceola",
+   "parcel": "272518403400011430",
+   "addr": "9188 Carmela Ave Davenport, FL 33897",
+   "zillow": 410600,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "polk",
+   "parcel": "24-29-13-2820-2200-0040",
+   "addr": "5016 HANCOCK LAKE RD LAKELAND, FL 33812",
+   "zillow": 815500,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "polk",
+   "parcel": "23-27-33-0000-0003-3075",
+   "addr": "3703 PUBLIX RD LAKELAND, FL 33810",
+   "zillow": 237000,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "orange",
+   "parcel": "292431230901320",
+   "addr": "13963 ARCLID ST ORLANDO, FL 32832",
+   "zillow": 316300,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "hillsborough",
+   "parcel": "1535800000",
+   "addr": "3905 E ELLICOTT ST TAMPA, FL 33610",
+   "zillow": 164700,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "hillsborough",
+   "parcel": "0731768168",
+   "addr": "2813 ROLLING ACRES PL VALRICO, FL 33596",
+   "zillow": 609200,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "pasco",
+   "parcel": "15-26-19-0120-00100-0280",
+   "addr": "25737 CRIPPEN DRIVE LAND O LAKES, 34639",
+   "zillow": 300100,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "hendry",
+   "parcel": "3 34 43 01 010 0081-110.0",
+   "addr": "313 SAGINAW AVE CLEWISTON, FL 33440",
+   "zillow": 330500,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "orange",
+   "parcel": "272335547000960",
+   "addr": "8842 Herencia Aly Windermere, FL 34786",
+   "zillow": 398500,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "hillsborough",
+   "parcel": "0100730000",
+   "addr": "4703 BESSIE RD TAMPA, FL 33615",
+   "zillow": 324900,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "lee",
+   "parcel": "19-46-26-L2-11000.2560",
+   "addr": "19600 WATERMAN CT FORT MYERS, FL 33913",
+   "zillow": 1583700,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "polk",
+   "parcel": "24-28-10-1787-1100-0405",
+   "addr": "3004 MORGAN COMBEE RD LAKELAND, FL 33801",
+   "zillow": 130000,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "broward",
+   "parcel": "514013AD3720",
+   "addr": "11600 SW 2 ST PEMBROKE PINES, 33025",
+   "zillow": 201500,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "pinellas",
+   "parcel": "163036566100020290",
+   "addr": "6827 10TH ST N ST PETERSBURG, FL 33702",
+   "zillow": 285400,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "polk",
+   "parcel": "25-29-14-3597-0000-0070",
+   "addr": "3295 SOUTH AVE BARTOW, FL 33830",
+   "zillow": 157900,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "broward",
+   "parcel": "484306210520",
+   "addr": "1109 SE 4 CT DEERFIELD BEACH, 33441",
+   "zillow": 957900,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "hillsborough",
+   "parcel": "1846900000",
+   "addr": "411 S ORLEANS AVE TAMPA, FL 33606",
+   "zillow": 397400,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "broward",
+   "parcel": "514114112030",
+   "addr": "630 SW 71 AVE PEMBROKE PINES, 33023",
+   "zillow": 537200,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "broward",
+   "parcel": "494024112160",
+   "addr": "4081 NW 115 TER SUNRISE, 33323",
+   "zillow": 609000,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "broward",
+   "parcel": "514012072750",
+   "addr": "11342 NW 14 CT PEMBROKE PINES, 33026",
+   "zillow": 439800,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "broward",
+   "parcel": "484136220550",
+   "addr": "6016 NW 3 ST MARGATE, 33063",
+   "zillow": 280400,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "broward",
+   "parcel": "514219-01-2631",
+   "addr": "4520 SW 23 ST WEST PARK, FL 33023",
+   "zillow": 395100,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "broward",
+   "parcel": "484235-32-0510",
+   "addr": "227 NW 11 STREET POMPANO BEACH, FL 33060",
+   "zillow": 382500,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "broward",
+   "parcel": "494128-13-0550",
+   "addr": "2641 NW 87 AVE SUNRISE, FL 33322",
+   "zillow": 483400,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "broward",
+   "parcel": "504001-68-0010",
+   "addr": "11230 SW 1 ST PLANTATION, FL 33324",
+   "zillow": 1161100,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "palmbeach",
+   "parcel": "00424442030000270",
+   "addr": "9106 PINEVILLE DR LAKE WORTH, FL 33467",
+   "zillow": 972500,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "broward",
+   "parcel": "494229-07-0300",
+   "addr": "2751 NW 25 STREET FORT LAUDERDALE, FL 33311",
+   "zillow": 373200,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "broward",
+   "parcel": "484305-10-0390",
+   "addr": "1278 SE 7 COURT DEERFIELD BEACH, FL 33441",
+   "zillow": 735400,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "broward",
+   "parcel": "514226-RX-0130",
+   "addr": "580 EGRET DR UNIT 113 HALLANDALE BEACH, FL 33009",
+   "zillow": 116800,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "broward",
+   "parcel": "494102-07-1270",
+   "addr": "7207 SW 4 CT NORTH LAUDERDALE, FL 33068",
+   "zillow": 298600,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "manatee",
+   "parcel": "7054400002",
+   "addr": "322 HARDIN AVE ANNA MARIA, FL 34216",
+   "zillow": 1512100,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "orange",
+   "parcel": "302323945001000",
+   "addr": "7978 ELMSTONE CIR ORLANDO, 32822",
+   "zillow": 367800,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "miamidade",
+   "parcel": "01-3124-019-0810",
+   "addr": "431 NW 44 ST MIAMI, FL 33127",
+   "zillow": 546900,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "broward",
+   "parcel": "494205-AH-0170",
+   "addr": "4017 N CYPRESS DR #105 POMPANO BEACH, FL 33069",
+   "zillow": 217400,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "palmbeach",
+   "parcel": "18424415200000473",
+   "addr": "2196 WHITE PINE CIR C GREENACRES, FL 33415",
+   "zillow": 238200,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "broward",
+   "parcel": "484201-03-0820",
+   "addr": "178 SW 3 ST DEERFIELD BEACH, FL 33441",
+   "zillow": 267400,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "miamidade",
+   "parcel": "14-2235-032-0070",
+   "addr": "9156 COLLINS AVE 202 SURFSIDE, FL 33154",
+   "zillow": 330000,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "miamidade",
+   "parcel": "07-2207-030-0510",
+   "addr": "225 NE 175 ST NORTH MIAMI BEACH, FL 33162",
+   "zillow": 733900,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "miamidade",
+   "parcel": "30-7828-000-1460",
+   "addr": "34950 SW 212 AVE HOMESTEAD, FL 33034",
+   "zillow": 678400,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "broward",
+   "parcel": "514226-CG-1060",
+   "addr": "1865 S OCEAN DRIVE #10A HALLANDALE BEACH, FL 33009",
+   "zillow": 340700,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "palmbeach",
+   "parcel": "68434217310002030",
+   "addr": "316 SOUTHWIND CT 203 NORTH PALM BEACH, FL 33408",
+   "zillow": 318000,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "lake",
+   "parcel": "251921010000003200",
+   "addr": "8080 Cherrystone St Leesburg, FL 34748",
+   "zillow": 450600,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "walton",
+   "parcel": "25-2S-21-42620-00A-0100",
+   "addr": "121 RIVERCREST CIR SANTA ROSA BEACH, FL 32459",
+   "zillow": 413300,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
+  },
+  {
+   "county": "miamidade",
+   "parcel": "30-4004-038-1330",
+   "addr": "9420 W FLAGLER ST 207 MIAMI, FL 33174",
+   "zillow": 285300,
+   "zillowDate": "2026-11-17",
+   "zillowBy": "LEILÃO (Zillow, navegador, conferido endereço)"
   }
  ],
  "subdivisions": [
