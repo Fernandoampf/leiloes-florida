@@ -566,6 +566,11 @@ with sync_playwright() as p:
     base_it = dict(ty='Casa', vd='FLIP', t='TD', lcN=5, fl=[], wetPct=0, sfhaPct=0, mb=100000, multi=False)
     check(y2['n'] > 0 and y2['ok'] and y2['neg'] and favtrack.house_qualifies({**base_it, 'yr': 2005}) and not favtrack.house_qualifies({**base_it, 'yr': 1985}),
           f'casa antes de 2000: fora das sugeridas + selo {y2}')
+    # PROPOSTA 5 (14/11, aprovada 16/11): processo com vários imóveis – selo "mesmo processo de X" e valores por item (25-CA-005628 Lee)
+    mp = pg.evaluate("""(()=>{const d=window.__dash, I=d.ITEMS; const R=I.find(r=>r.id==='FC1528998'), W=I.find(r=>r.id==='FC1523508'); if(!R||!W) return {gone:true};
+      const b=document.createElement('div'); b.innerHTML=d.badges(R); const c=document.createElement('div'); c.innerHTML=d.bankCell(W);
+      return {b:/mesmo processo de 210 WELLS/.test(b.textContent), own:R.ref>W.ref, tot:R.mp&&Math.round(R.mp.tot), bank:/processo com 2 imóveis/.test(c.textContent), sym:I.filter(r=>r.mp).every(r=>r.mp.oth.every(o=>{const x=I.find(y=>y.id===o.id); return x&&x.mp;}))};})()""")
+    check(mp.get('gone') or (mp['b'] and mp['own'] and mp['tot'] == 919875 and mp['bank'] and mp['sym']), f'processo com vários imóveis: selo + valor por item {mp}')
     cf = pg.evaluate("(()=>{const I=window.__dash.ITEMS; const W=I.find(r=>r.id==='TDpox0e3f3dd972d1'), R=I.find(r=>r.id==='FC1528998'); const H=I.filter(r=>['Casa','Townhouse','Mobile','Multifamily'].includes(r.ty)); return {semImg:H.filter(r=>!(r.imgs&&r.imgs.length)&&r.lat==null).length, nH:H.length, W:W?[W.lat,W.lon]:null, R:R?[R.lat,R.lon]:null};})()")
     near = lambda p, q: p and abs(p[0]-q[0]) < 0.0004 and abs(p[1]-q[1]) < 0.0004
     check(cf['semImg'] <= 0.01 * cf['nH'] and (cf['W'] is None or near(cf['W'], (28.825107, -81.580303))) and (cf['R'] is None or near(cf['R'], (26.648677, -81.593795))),

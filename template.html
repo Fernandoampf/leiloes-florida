@@ -548,6 +548,12 @@ const TODAY_ET = (()=>{ try{ return new Intl.DateTimeFormat('en-CA',{timeZone:'A
 const CUT_DAY = (DB.meta.dataDate > TODAY_ET) ? DB.meta.dataDate : TODAY_ET;
 const PAST = DB.items.filter(r=>r.date && r.date < CUT_DAY);
 const M = DB.meta, ITEMS = DB.items.filter(r=>!(r.date && r.date < CUT_DAY)), P = M.params, Z = M.zips || {}, MS = M.mktSrc || {}, ARES = M.ares || {};
+// PROPOSTA 5 (14/11, aprovada 16/11): processo com vários imóveis (mesmo nº de caso no mesmo condado) – selo "mesmo processo de X";
+// julgamento e lance máx. do autor ficam POR ITEM (RealAuction publica um valor por parcela; a soma = julgamento total do processo)
+{ const caseK=r=>r.case?(r.co+'|'+String(r.case).toUpperCase().replace(/[^0-9A-Z]/g,'')):null, G={};
+  ITEMS.forEach(r=>{ const k=caseK(r); if(k) (G[k]=G[k]||[]).push(r); });
+  Object.values(G).forEach(g=>{ if(g.length<2) return; const tot=g.reduce((a,x)=>a+(+x.ref||0),0);
+   g.forEach(r=>{ r.mp={n:g.length, tot:g.every(x=>x.ref)?tot:null, oth:g.filter(x=>x!==r).map(x=>({id:x.id, addr:(x.addr||'').replace(/,.*$/,''), ref:x.ref||null, pmax:(x.pmax&&+x.pmax>0)?+x.pmax:null, date:x.date, same:(x.addr||'')===(r.addr||'')}))}; }); }); }
 const $ = s=>document.querySelector(s), $$ = s=>[...document.querySelectorAll(s)];
 const esc = s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const NF = new Intl.NumberFormat('pt-BR',{maximumFractionDigits:0});
@@ -1546,6 +1552,7 @@ function badges(r){
  const LB={nocomps:['Sem comps','Menos de 3 vendas comparáveis de terreno. Nota limitada a 55.'],big:['Gleba grande','Mais de 5 acres — não é lote residencial de flip. Nota limitada a 55.'],use:['Uso comercial/agrícola','Código de uso não é terreno vago residencial (000). Nota limitada a 55.']};
  (r.lotBadges||[]).forEach(k=>{ const d=LB[k]; if(d) b.push('<span class="bdg amb" title="'+esc(d[1])+'">'+d[0]+'</span>'); });
  if(r.ce) b.push('<span class="bdg red" title="'+esc('Ordem de multa de Code Enforcement do condado '+(r.ce.case||'')+(r.ce.daily?': US$ '+nf(r.ce.daily)+'/dia desde '+fdate(r.ce.since):'')+(r.ce.orders?' (ordens '+r.ce.orders+')':'')+'. Dívida de governo: sobrevive ao tax deed (FS 197.552). '+(r.t==='TD'?'Descontada integralmente do lance máximo.':'Em foreclosure: conferir no processo/título.')+(r.ce.src?' Fonte: '+r.ce.src:''))+'">⚠ Multa Code Enforcement ~'+money(r.ce.amt)+'</span>');
+ if(r.mp) b.push('<span class="bdg vio" title="'+esc(mpTxt(r))+'">mesmo processo de '+esc(r.mp.oth.map(o=>o.same?'outro item no mesmo endereço':o.addr).join(', '))+'</span>');
  if(r.yr&&r.yr<2000&&!isLand(r)) b.push('<span class="bdg amb" title="Construída em '+r.yr+' (antes de 2000): fica fora das casas sugeridas (PROPOSTA 2) – telhado, elétrica, hidráulica e janelas costumam pesar na obra. Só aviso: não muda nota nem veredito.">antes de 2000 ('+r.yr+')</span>');
  if(r.vd==='FLIP') b.push('<span class="bdg blu">FLIP</span>');
  r.fl.forEach(f=>{ if(f==='flood') return; if(f==='mtg'&&r.fl.includes('surv')) return; const d=FL[f]; if(!d) return;
@@ -1642,8 +1649,13 @@ function bidChk(r){ const last=r.bhl||r.scan; const h=r.bh||[]; let ar='';
  if(h.length>=2){ const a=h[h.length-2][1], b=h[h.length-1][1]; if(b>a+0.5) ar=' <b class="c-red" title="subiu desde a conferência anterior ('+money(a)+')">↑</b>'; else if(b<a-0.5) ar=' <b class="c-green" title="caiu desde a conferência anterior ('+money(a)+')">↓</b>'; }
  const tip='Conferências do valor publicado: '+(h.length?h.map(e=>dmy(e[0])+' '+money(e[1])).join(' → '):'—')+(r.bhn?' ('+r.bhn+' leituras)':'');
  return {ar, txt:'<span class="mini c-mut" title="'+esc(tip)+'">conferido '+dmy(last)+(h.length>=2?' · hist.':'')+'</span>'}; }
+function mpTxt(r){ if(!r.mp) return ''; const one=v=>v?money(v):'?';
+ return 'Processo '+(r.case||'')+' com '+r.mp.n+' imóveis (um item por parcela). Este item: julgamento '+one(r.ref)+', lance máx. do autor '+((r.pmax&&+r.pmax>0)?money(+r.pmax):r.t==='FC'?'oculto':'—')+'. '
+  +r.mp.oth.map(o=>(o.same?'Outro item no mesmo endereço':o.addr)+' ('+fdate(o.date)+'): julgamento '+one(o.ref)+', lance máx. do autor '+(o.pmax?money(o.pmax):r.t==='FC'?'oculto':'—')).join(' · ')
+  +(r.mp.tot?' · Soma dos julgamentos do processo: '+money(r.mp.tot)+'.':'')+' O mesmo credor executa todos: conferir no processo como o julgamento foi repartido e se a venda de um item abate o outro.'; }
 function bankCell(r){ const c=bidChk(r);
  if(r.t==='TD') return '<b>'+money(r.ref)+'</b>'+c.ar+'<div class="mini">lance inicial público (tax deed)</div>'+c.txt;
+ if(r.mp&&r.t==='FC'){ const r0=Object.assign({},r); r0.mp=null; return bankCell(r0)+'<div class="mini c-vio" title="'+esc(mpTxt(r))+'">processo com '+r.mp.n+' imóveis · valor deste item'+(r.mp.tot?' (total '+money(r.mp.tot)+')':'')+'</div>'; }
  if(r.t!=='FC') return r.ref?'<b>'+money(r.ref)+'</b><div class="mini c-mut">valor publicado</div>':'<span class="c-mut">—</span>';
  if(r.pmax&&+r.pmax>0) return '<b>'+money(+r.pmax)+'</b>'+c.ar+'<div class="mini">lance máx. do banco publicado</div>'+c.txt;
  if(r.ref){ const k=fjCap(r);
