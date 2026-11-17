@@ -1,8 +1,58 @@
 {
  "_doc": "PROPOSTA 13 (16/11): processos de foreclosure ABERTOS, dentro do git, SÓ com campos sem nome de pessoa – o Claude/Fernando destravam com commit. Um item por processo: county (minúsculas sem espaço: orange, lee, stlucie, palmbeach, miamidade...), case (como no clerk/RealAuction) e só estes campos: opened (AAAA-MM-DD, obrigatório para destravar o CONFERIR PROCESSO), firstMortgage (true/false: a hipoteca executada é a 1ª?; false = trava de título), fed (true = EUA/HUD/VA/SBA entre os réus, resgate de 1 ano), hoa (true = associação entre os réus), fjAmount (US$ do Final Judgment, OFICIAL – substitui o julgamento da lista e qualquer estimativa; em processo com vários imóveis deixe vazio: o RealAuction já publica o valor de cada parcela), fjDate (AAAA-MM-DD, juros contam daqui), cancelMotion (true/false), bankruptcy (true/false ou [{case, date}]), rejected (true = descartada pelo Fernando → PASSAR), titleOk (true = título conferido, tira a trava de título). Qualquer outro campo é ignorado pelo build. Nomes (autor, advogado, réus) só em /workspace/auc/statewide/cases/cases_manual.json, fora do git.",
  "items": [
-  {"county": "orange", "case": "2023-CA-016496-O", "opened": "2026-11-16", "titleOk": true},
-  {"county": "orange", "case": "2025-CA-010620-O", "opened": "2026-11-16", "rejected": true},
-  {"county": "lee", "case": "25-CA-005628", "opened": "2026-11-16", "fed": false, "hoa": false, "fjDate": "2026-09-30", "cancelMotion": false}
+  {
+   "county": "orange",
+   "case": "2023-CA-016496-O",
+   "opened": "2026-11-16",
+   "firstMortgage": true,
+   "fed": true,
+   "fjAmount": 189470.64,
+   "fjDate": "2026-01-20",
+   "titleOk": true
+  },
+  {
+   "county": "orange",
+   "case": "2026-CA-001387-O",
+   "opened": "2026-11-16",
+   "fed": true,
+   "fjDate": "2026-06-23",
+   "bankruptcy": [
+    {
+     "case": "6:26-bk-06014",
+     "date": null
+    }
+   ]
+  },
+  {
+   "county": "orange",
+   "case": "2025-CA-011591-O",
+   "opened": "2026-11-16",
+   "cancelMotion": true
+  },
+  {
+   "county": "orange",
+   "case": "2025-CA-011892-O",
+   "opened": "2026-11-16",
+   "firstMortgage": true,
+   "fjAmount": 512466.29,
+   "fjDate": "2026-09-22",
+   "cancelMotion": true
+  },
+  {
+   "county": "orange",
+   "case": "2025-CA-010620-O",
+   "opened": "2026-11-16",
+   "rejected": true
+  },
+  {
+   "county": "lee",
+   "case": "25-CA-005628",
+   "opened": "2026-11-16",
+   "fed": false,
+   "hoa": false,
+   "fjDate": "2026-09-30",
+   "cancelMotion": false
+  }
  ]
 }
