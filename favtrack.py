@@ -158,6 +158,7 @@ def _pct(a, b):
 HOUSE_TY = ('Casa', 'Townhouse', 'Condo')
 DEBT_FL = {'mtg', 'jr', 'surv', 'avoid', 'code', 'mlot'}      # dívida que sobrevive / vários lotes no processo
 SUG_MAX = 250000
+YR_MIN = 2000      # PROPOSTA 2: ano de construção mínimo para 'casas sugeridas' (sem ano conhecido: não exclui)
 
 def house_qualifies(it):
     """Regra de sugestão de casa para favoritos (DIARIO 02/11, pedido Fernando). Só leitura do snapshot; não muda conta.
@@ -167,7 +168,8 @@ def house_qualifies(it):
     return (it.get('ty') in HOUSE_TY and it.get('vd') == 'FLIP' and it.get('t') in ('TD', 'FC')
             and (it.get('lcN') or 0) >= 3 and not (fl & DEBT_FL) and 'flood' not in fl
             and (it.get('wetPct') or 0) < 10 and (it.get('sfhaPct') or 0) < 10
-            and mb is not None and mb <= SUG_MAX and not it.get('multi'))
+            and mb is not None and mb <= SUG_MAX and not it.get('multi')
+            and not (it.get('yr') and it['yr'] < YR_MIN))   # PROPOSTA 2 (aprovada 16/11): casa construída antes de 2000 fora das sugeridas
 
 def house_suggestions(cur, favs, today):
     """Casas que passam na regra e ainda não são favoritas. new = não estava na sugestão do arquivo anterior. NÃO adiciona sozinho:
@@ -181,7 +183,7 @@ def house_suggestions(cur, favs, today):
     for i, it in cur.items():
         if i in favs or not house_qualifies(it) or (it.get('date') or '') < today: continue
         out.append(dict(id=i, addr=it.get('addr'), county=it.get('county'), ty=it.get('ty'), t=it.get('t'), sale_date=it.get('date'),
-                        score=it.get('score'), maxBid17=round(it.get('maxBid17') or it.get('mb')), val=it.get('val'), lcN=it.get('lcN'),
+                        yr=it.get('yr'), score=it.get('score'), maxBid17=round(it.get('maxBid17') or it.get('mb')), val=it.get('val'), lcN=it.get('lcN'),
                         fl=it.get('fl'), new=i not in prev))
     return sorted(out, key=lambda e: (e['sale_date'] or '', -(e['score'] or 0)))
 

@@ -558,6 +558,14 @@ with sync_playwright() as p:
       const w=old[0]; let lab=''; if(w&&d.badges){ const b=document.createElement('div'); b.innerHTML=d.badges(w); lab=b.textContent; }
       return {n:O.length, old:old.length, ok, lab:/lista com \d+ dias/.test(lab)||!old.length};})()""")
     check(st['n'] > 0 and st['ok'] and st['lab'], f'lista presencial parada: selo "lista com N dias" {st}')
+    # PROPOSTA 2 (14/11, aprovada 16/11): casa antes de 2000 fora das casas sugeridas (favtrack) e com selo nas vistas
+    y2 = pg.evaluate("""(()=>{const d=window.__dash, I=d.ITEMS; const O=I.filter(r=>r.yr&&r.yr<2000&&['Casa','Townhouse','Condo','Mobile','Multifamily'].includes(r.ty)).slice(0,40);
+      const b=document.createElement('div'); const ok=O.every(r=>{ b.innerHTML=d.badges(r); return /antes de 2000/.test(b.textContent); });
+      const N=I.find(r=>r.yr>=2000&&r.ty==='Casa'); b.innerHTML=N?d.badges(N):''; return {n:O.length, ok, neg:!/antes de 2000/.test(b.textContent)};})()""")
+    import favtrack
+    base_it = dict(ty='Casa', vd='FLIP', t='TD', lcN=5, fl=[], wetPct=0, sfhaPct=0, mb=100000, multi=False)
+    check(y2['n'] > 0 and y2['ok'] and y2['neg'] and favtrack.house_qualifies({**base_it, 'yr': 2005}) and not favtrack.house_qualifies({**base_it, 'yr': 1985}),
+          f'casa antes de 2000: fora das sugeridas + selo {y2}')
     cf = pg.evaluate("(()=>{const I=window.__dash.ITEMS; const W=I.find(r=>r.id==='TDpox0e3f3dd972d1'), R=I.find(r=>r.id==='FC1528998'); const H=I.filter(r=>['Casa','Townhouse','Mobile','Multifamily'].includes(r.ty)); return {semImg:H.filter(r=>!(r.imgs&&r.imgs.length)&&r.lat==null).length, nH:H.length, W:W?[W.lat,W.lon]:null, R:R?[R.lat,R.lon]:null};})()")
     near = lambda p, q: p and abs(p[0]-q[0]) < 0.0004 and abs(p[1]-q[1]) < 0.0004
     check(cf['semImg'] <= 0.01 * cf['nH'] and (cf['W'] is None or near(cf['W'], (28.825107, -81.580303))) and (cf['R'] is None or near(cf['R'], (26.648677, -81.593795))),
