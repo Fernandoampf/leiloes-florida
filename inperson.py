@@ -464,6 +464,8 @@ def td_items(offline=False, today=None):
     return items, st
 
 
+LIST_DATE = {}
+
 def load(offline=False, today=None):
     ref = dt.date.fromisoformat(today) if today else dt.date.today()
     res = {}
@@ -475,6 +477,8 @@ def load(offline=False, today=None):
         rows = [r for r in rows if 'TIMESHARE' not in r['plaintiff'].upper()]   # timeshares are excluded site-wide
         for r in rows: r['ptype'] = ptype(r['plaintiff'])
         res[co] = dict(rows=rows, file=os.path.basename(p), updated=upd)
+        m_ = re.search(r'_(\d{4}-\d{2}-\d{2})\.', os.path.basename(p))
+        LIST_DATE[co] = dict(file=m_.group(1) if m_ else None, upd=upd)   # PROPOSTA 3: idade da lista oficial (selo "lista com N dias")
     return res
 
 
@@ -485,7 +489,8 @@ def tag(x, row, co):
     if row.get('plaintiff') and not x.get('plaintiff'): x['plaintiff'] = row['plaintiff']
     x['inperson'] = dict(co=co, city=i.get('city'), kind='FC', where=i['where'], time=row.get('time') or i['time'], pay=i['pay'], docket=i['docket'],
                          dname=i['dname'], list=i['list'], detail=row.get('detail'), plaintiff=row.get('plaintiff'),
-                         defendant=row.get('defendant'), ptype=row.get('ptype'), room=row.get('room'), case=row.get('case'))
+                         defendant=row.get('defendant'), ptype=row.get('ptype'), room=row.get('room'), case=row.get('case'),
+                         listDate=(LIST_DATE.get(co) or {}).get('file'), listUpd=(LIST_DATE.get(co) or {}).get('upd'))
 
 
 def merge(items, offline=False, today=None):

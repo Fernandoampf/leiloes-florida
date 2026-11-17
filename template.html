@@ -1144,6 +1144,7 @@ function evaluate(r){
  // selo gleba ≥ 5 ac (29/10, só exibição): área do polígono da parcela (geo.ac), senão r.ac
  // selo lista com N dias (02/11, só exibição): lista RealAuction lida há > 7 dias
  r.fl=r.fl.filter(f=>f!=='stale'); r.scanAge=null; if(r.scan&&!r.ip){ const ag=Math.round((Date.parse(TODAY_ET)-Date.parse(r.scan))/864e5); if(ag>7){ r.scanAge=ag; r.fl.push('stale'); } }
+ else if(r.ip&&r.ip.listDate){ const ag=Math.round((Date.parse(TODAY_ET)-Date.parse(r.ip.listDate))/864e5); if(ag>3){ r.scanAge=ag; r.fl.push('stale'); } }   // PROPOSTA 3: lista oficial do leilão presencial (Osceola parada) – o clerk publica em dias úteis
  r.fl=r.fl.filter(f=>f!=='gleba'); { const gac=(r.geo&&r.geo.ac!=null)?r.geo.ac:r.ac; if(r.ty==='Terreno'&&gac!=null&&gac>=5) r.fl.push('gleba'); }
  const lot=lotLimits(r);
  r.lotBadges=lot?lot.badges:[];
@@ -1549,6 +1550,7 @@ function badges(r){
  r.fl.forEach(f=>{ if(f==='flood') return; if(f==='mtg'&&r.fl.includes('surv')) return; const d=FL[f]; if(!d) return;
   let lab=d.l; if(f==='surv'&&r.survAmt) lab+=' ~'+money(r.survAmt); if(f==='stale'&&r.scanAge) lab='lista com '+r.scanAge+' dias'; if(f==='bldA'&&r.bld) lab='🏗 Construtoras ativas: '+r.bld.n+' compras 12m'; if(f==='ipres'&&r.ip) lab='Leilão presencial — Fórum de '+(r.ip.city||(r.ip.co==='lake'?'Tavares':'Kissimmee'))+', 11h';
   if(f==='ipres'&&r.ip){ b.push('<span class="bdg '+d.c+'" title="'+esc(r.ip.where+'. '+r.ip.pay+' Conferir o Final Judgment em '+r.ip.dname+'.')+'">'+lab+'</span>'); return; }
+  if(f==='stale'&&r.ip&&r.ip.listDate){ b.push('<span class="bdg '+d.c+'" title="'+esc('Lista oficial do leilão presencial ('+(r.ip.dname||r.ip.co)+') baixada em '+fdate(r.ip.listDate)+(r.ip.listUpd?' (atualizada pelo clerk em '+r.ip.listUpd+')':'')+': o site do clerk recusa a conexão automática desde então. Data, cancelamento e julgamento podem ter mudado – conferir a lista no dia. Só exibição: não muda nota nem veredito.')+'">'+lab+'</span>'); return; }
   b.push('<span class="bdg '+d.c+'" title="'+esc(r.survWhy||d.d)+'">'+lab+'</span>'); });
  if((r.olA>0||r.m1) && !r.fl.includes('surv')) b.push('<span class="bdg red" title="Hipotecas/liens em aberto segundo PropertyOnion: '+esc(money(r.olA||r.m1))+(r.olN?' ('+r.olN+')':'')+'. Em tax deed normalmente são extintas; em foreclosure, confirmar se sobrevivem.">LIEN</span>');
  if(r.fz) b.push('<span class="bdg '+(/^(A|V)/.test(r.fz)?'red':'cool')+'" title="Zona FEMA '+esc(r.fz)+'">Flood Zone '+esc(r.fz)+'</span>');

@@ -552,6 +552,12 @@ with sync_playwright() as p:
       const C=I.filter(r=>r.ce&&r.t==='TD'); const b=document.createElement('div'); b.innerHTML=d.badges?d.badges(W):''; 
       return {vd:W.vd, ce:W.ce&&W.ce.amt, mb:W.mb, n:C.length, bdg:/Multa Code Enforcement/.test(b.textContent)||!d.badges, noflip:C.every(r=>r.vd!=='FLIP'&&r.vd!=='CONSIDERAR'||r.mb<=Math.max(0,(r.val||0)-r.ce.amt))};})()""")
     check(ce.get('gone') or (ce['vd'] == 'PASSAR' and (ce['ce'] or 0) >= 185000 and ce['bdg'] and ce['noflip']), f'multa de Code Enforcement: Wolfs Trl PASSAR, selo vermelho, desconto no lance {ce}')
+    # PROPOSTA 3 (14/11, aprovada 16/11): lista presencial parada (Osceola) → selo "lista com N dias"
+    st = pg.evaluate("""(()=>{const d=window.__dash, I=d.ITEMS; const O=I.filter(r=>r.ip&&r.ip.listDate); const T=Date.parse(new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'}));
+      const old=O.filter(r=>(T-Date.parse(r.ip.listDate))/864e5>3.5); const ok=old.every(r=>r.fl.includes('stale')&&r.scanAge>3);
+      const w=old[0]; let lab=''; if(w&&d.badges){ const b=document.createElement('div'); b.innerHTML=d.badges(w); lab=b.textContent; }
+      return {n:O.length, old:old.length, ok, lab:/lista com \d+ dias/.test(lab)||!old.length};})()""")
+    check(st['n'] > 0 and st['ok'] and st['lab'], f'lista presencial parada: selo "lista com N dias" {st}')
     cf = pg.evaluate("(()=>{const I=window.__dash.ITEMS; const W=I.find(r=>r.id==='TDpox0e3f3dd972d1'), R=I.find(r=>r.id==='FC1528998'); const H=I.filter(r=>['Casa','Townhouse','Mobile','Multifamily'].includes(r.ty)); return {semImg:H.filter(r=>!(r.imgs&&r.imgs.length)&&r.lat==null).length, nH:H.length, W:W?[W.lat,W.lon]:null, R:R?[R.lat,R.lon]:null};})()")
     near = lambda p, q: p and abs(p[0]-q[0]) < 0.0004 and abs(p[1]-q[1]) < 0.0004
     check(cf['semImg'] <= 0.01 * cf['nH'] and (cf['W'] is None or near(cf['W'], (28.825107, -81.580303))) and (cf['R'] is None or near(cf['R'], (26.648677, -81.593795))),
