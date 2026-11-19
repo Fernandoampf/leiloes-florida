@@ -703,6 +703,10 @@ def build_items(args):
     seen = jload(os.path.join(CACHE, 'seen_v4.json'), {})
     # 16/11 PROPOSTA 9: histórico das conferências do lance publicado (fora do git: cache/)
     bidh = jload(os.path.join(CACHE, 'bid_checks.json'), {})
+    # 17/11 PROPOSTA 20: leituras do lance do banco + resultado por item (fora do git) -> leitura do dia (bd) e estatística por autor
+    global BBH, bankbid_log   # usados também em render() (estatística por autor)
+    try: import bankbid_log; BBH = bankbid_log.update()
+    except Exception as ex: print('bankbid_log falhou:', ex, flush=True); BBH = {}
     casesM = load_cases_manual()
     for k_, v_ in load_cases_git().items():          # git (sem nomes) por cima do manual de fora do git, campo a campo
         m_ = dict(casesM.get(k_) or {}); m_.update(v_)
@@ -1222,7 +1226,7 @@ def build_items(args):
             plat=('Presencial' if x.get('inperson') else 'PropertyOnion' if it.get('po_only') else x.get('platform')),
             ip=x.get('inperson'), addrSrc=x.get('addr_src'), addr0=x.get('addr0'), scan=x.get('scan'), cver=x.get('cver'),
             pmax=x.get('pmax') if x.get('pmax') not in (None, 'Hidden') else None,
-            pmaxH=(src == 'FC' and x.get('pmax') == 'Hidden') or None, fjd=fjd, pk=pk, fjPO=fj_po, cf=cf, cfWhy=cf_why, cfP=cf_p, bh=([e for i, e in enumerate(bh) if i == 0 or abs(e[1] - bh[i - 1][1]) > 0.5][-6:] if bh else None), bhl=(bh[-1][0] if bh else None), bhn=(len(bh) if bh else None),
+            pmaxH=(src == 'FC' and x.get('pmax') == 'Hidden') or None, fjd=fjd, pk=pk, bd=(bankbid_log.day_read(BBH, x.get('aid'), today) if src == 'FC' and BBH else None), fjPO=fj_po, cf=cf, cfWhy=cf_why, cfP=cf_p, bh=([e for i, e in enumerate(bh) if i == 0 or abs(e[1] - bh[i - 1][1]) > 0.5][-6:] if bh else None), bhl=(bh[-1][0] if bh else None), bhn=(len(bh) if bh else None),
             new=first == today, first=first if first != '0000-00-00' else None, muni=dictval(P0.get('municipality')),
         )
         # ---- type conflict: DOR says vacant land, other sources say something is built there
@@ -1549,6 +1553,12 @@ def render(items, stats, dropped, args):
         print('histórico por autor:', len(pho), 'resultados com autor,', len(plh), 'autores com casa na lista', flush=True)
     except Exception as ex:
         print('histórico por autor falhou:', ex, flush=True); plh = {}
+    try:
+        bbs = bankbid_log.plaintiff_stats(BBH, bankbid_log.pk_map(BBH)) if BBH else {}
+        bbs = {k: v for k, v in bbs.items() if k in {r.get('pk') for r in items if r.get('pk')}}
+        print('lance do banco por autor:', len(bbs), 'autores', flush=True)
+    except Exception as ex:
+        print('lance do banco por autor falhou:', ex, flush=True); bbs = {}
     # 16/11 PROPOSTA 10: backtest (resultados × snapshot do painel) -> tabela em ⚙ Premissas + recalibra o preço esperado
     bt = None
     try:
@@ -1564,7 +1574,7 @@ def render(items, stats, dropped, args):
         print('backtest:', bt['n'], 'resultados ligados ao painel |', nrep, 'grupos de calibração substituídos', flush=True)
     except Exception as ex:
         print('backtest falhou:', ex, flush=True)
-    meta = dict(plh=plh, jint=JINT, bt=bt, dataDate=args.data_date, built=time.strftime('%Y-%m-%d %H:%M'), params=P, zips=zips, mktSrc=mk.get('_src', {}),
+    meta = dict(plh=plh, bbs=bbs, jint=JINT, bt=bt, dataDate=args.data_date, built=time.strftime('%Y-%m-%d %H:%M'), params=P, zips=zips, mktSrc=mk.get('_src', {}),
                 rehabTiers=REHAB_TIERS, rehabUnknown=REHAB_UNKNOWN, rehabPool=REHAB_POOL, stats=stats, dropped=dropped, orlando=ORLANDO,
                 events=load_events(args.data_date), ares=ares, recent=recent, rmeta=rmeta, types=TYPES, version='v4',
                 builders=getattr(build_items, '_bld', None), favs=favs, valerr=getattr(build_items, '_valerr', None), arch=farch, mbh=fmbh, calib=fcal)

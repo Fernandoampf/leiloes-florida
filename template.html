@@ -970,10 +970,16 @@ function lotLiq(r){ const x=(r.lc&&r.lc.ctx)||{}, a=x.r05||x.sec05||null, ab=x.a
  if(s12==null||!nv) return {p:4, why:'sem dado de vendas de lote'};
  const rate=s12/nv, sp=s12===0?0:rate>=0.15?10:rate>=0.08?8:rate>=0.04?5:rate>=0.02?3:1, bp=bld==null?0:bld>=3?4:bld>=1?2:0;
  return {p:sp+bp, s12:s12, nv:nv, bld:bld, why:s12+' vendas de lote em 12 m de '+nv+' vagos'+(bld!=null?' · '+bld+' compras de construtora':'')}; }
+// PROPOSTA 20 (Fernando, 17/11 – REGRA DO FERNANDO): o lance do banco (público ou oculto = até o julgamento + juros) é só
+// INFORMATIVO até o dia do leilão – no dia eles baixam ou tiram. Antes do dia não entra em teto, nota, veredito, preço
+// esperado, filtro nem ordenação. No dia: lance do banco lido hoje (r.bd, releitura da manhã) ou, oculto, o julgamento.
+const isAucDay = r=> !!r.date && daysLeft(r.date)===0;
+function bankRef(r){ if(r.t!=='FC') return r.ref; if(!isAucDay(r)) return null; if(r.bd&&r.bd.v>0) return +r.bd.v; return r.ref; }
 function realisticBid(r,o){
  r.belowJ=false;
  const optimistic = PR.tdxp===0 && (r.t==='TD' || r.nobid);
- let x = r.ref!=null ? +r.ref : 0;
+ const RF = bankRef(r);   // PROPOSTA 20: FC antes do dia = sem lance do banco
+ let x = RF!=null ? +RF : 0;
  if(!optimistic){
   const fmb = XBID_MB[r.t]!=null ? XBID_MB[r.t] : 0.55;
   const far = XBID_ARV[r.t]!=null ? XBID_ARV[r.t] : 0.28;
@@ -990,10 +996,10 @@ function realisticBid(r,o){
    const bankNet = 0.85*o.arv-(o.rehab||0);
    const alts = [hist, r70>0?r70:null].filter(v=>v!=null);
    const low = alts.length ? Math.min.apply(null,alts) : null;
-   if(r.ref==null) x = low!=null ? low : 0;
-   else if(+r.ref <= bankNet || low==null) x = Math.max(+r.ref, hist||0);
-   else x = Math.min(+r.ref * (r.rj && r.rj.r<1 ? r.rj.r : 1), low);
-   r.belowJ = r.ref!=null && x < +r.ref;
+   if(RF==null) x = low!=null ? low : 0;
+   else if(+RF <= bankNet || low==null) x = Math.max(+RF, hist||0);
+   else x = Math.min(+RF * (r.rj && r.rj.r<1 ? r.rj.r : 1), low);
+   r.belowJ = RF!=null && x < +RF;
   } else if(r.xp && r.xp.v){
    // historical county price = (sold ÷ auction assessed value) × this item's assessed value. That ratio comes from a
    // handful of sales of every type, so on lots (assessed ≪ just value) it can exceed the property's own value
@@ -1027,7 +1033,7 @@ function titleLock(r){ if(r.tok) return null; const f=isLand(r)?[]:TLOCK_FL.filt
 function verdict(r){ let V=verdict0(r);
  if(V.vd==='FLIP' && r.repHi && r.roiHi!=null && r.roiHi<PR.flip/100) V={vd:'CONSIDERAR', why:'obra em faixa '+money(r.rep)+' – '+money(r.repHi)+' (padrão médio/luxo pendente): FLIP no piso, mas com a obra máxima o ROI cai para '+pct(r.roiHi)+' – '+V.why, sub:'obra em faixa', obra:'FLIP'};   // PROPOSTA 11
  if(V.vd==='FLIP' && r.arvSrc==='fraca') V={vd:'CONSIDERAR', why:'estimativa fraca (sem Zillow e sem 3 vendas vizinhas de 12 meses): o ROI daria FLIP – '+V.why, sub:'estimativa fraca – nunca FLIP', weak:'FLIP'};   // PROPOSTA 7
- if((V.vd==='FLIP'||V.vd==='CONSIDERAR') && r.t==='FC' && r.ref==null && r.fjPO && r.mb>0 && r.fjPO>r.mb+1) V={vd:'DISPUTADO', why:'julgamento estimado (PropertyOnion: POV − equity) '+money(r.fjPO)+' acima do lance máx. '+money(r.mb)+' – estimativa só piora, nunca melhora; conferir o julgamento oficial', sub:'julg. estimado (PO) acima do máx.', poJ:1};   // PROPOSTA 9
+ if(isAucDay(r) && (V.vd==='FLIP'||V.vd==='CONSIDERAR') && r.t==='FC' && r.ref==null && r.fjPO && r.mb>0 && r.fjPO>r.mb+1) V={vd:'DISPUTADO', why:'julgamento estimado (PropertyOnion: POV − equity) '+money(r.fjPO)+' acima do lance máx. '+money(r.mb)+' – estimativa só piora, nunca melhora; conferir o julgamento oficial', sub:'julg. estimado (PO) acima do máx.', poJ:1};   // PROPOSTA 9
  // Fernando t318u (16/11): foreclosure só vira FLIP/CONSIDER depois de aberto o processo no clerk (réus, julgamento oficial, falência, 1ª hipoteca)
  if((V.vd==='FLIP'||V.vd==='CONSIDERAR') && r.t==='FC' && !(r.cf&&r.cf.opened)){ const tl=titleLock(r); return {vd:'PROCESSO', why:'processo não aberto'+(r.cfWhy?' ('+r.cfWhy+')':'')+': o veredito seria '+VDL[V.vd]+(tl?' e ainda tem trava de título ('+tl.join(', ')+')':'')+' – '+V.why+'. Abrir o processo no clerk: autor/advogado, réus (EUA/HUD/VA/SBA = resgate federal de 1 ano; HOA; outros credores), data e valor do Final Judgment, falência, remarcações, e se a hipoteca executada é a 1ª', sub:'seria '+VDL[V.vd]+(tl?' · + título':''), was:V.vd, cfLock:1}; }
  if(V.vd==='FLIP'||V.vd==='CONSIDERAR'){ const tl=titleLock(r); if(tl) return {vd:'TITULO', why:'trava de título ('+tl.join(', ')+'): o veredito seria '+VDL[V.vd]+' – '+V.why+'. Conferir título/registro e marcar titleOk no valuations_manual.json', sub:'seria '+VDL[V.vd], was:V.vd}; } return V; }
@@ -1041,7 +1047,7 @@ function verdict0(r){
  if(!(r.mb>0)) return {vd:'PASSAR', why:'nenhum lance atende: '+(r.mbWhy||nf(PR.ret)+'%')};
  if(r.fl.includes('mlot') && r.t==='FC') return {vd:'DISPUTADO', why:'processo com vários lotes'+(r.mlot&&r.mlot.n?' ('+r.mlot.n+')':'')+': julgamento '+(r.mlot&&r.mlot.fj?money(r.mlot.fj):'do processo')+' vale para o processo inteiro – não é FLIP de um lote só', sub:'vários lotes'};
  if(r.t!=='FC' && r.ref!=null && r.ref>r.mb+1) return {vd:'PASSAR', why:'lance inicial '+money(r.ref)+' acima do lance máx. '+money(r.mb)};
- if(r.t==='FC' && r.ref!=null && r.ref>r.mb+1) return {vd:'DISPUTADO', why:'julgamento '+money(r.ref)+' acima do lance máx. – banco pode aceitar menos que o julgamento', sub:'banco pode aceitar menos'};
+ if(r.t==='FC' && bankRef(r)!=null && bankRef(r)>r.mb+1) return {vd:'DISPUTADO', why:(r.bd&&r.bd.v>0?'lance do banco hoje '+money(bankRef(r)):'julgamento '+money(r.ref))+' acima do lance máx. – banco pode aceitar menos (leilão hoje)', sub:'banco pode aceitar menos'};   // PROPOSTA 20: só no dia
  if(r.xbid!=null && r.xbid>r.mb+1) return {vd:'DISPUTADO', why:'preço esperado '+money(r.xbid)+' acima do lance máx. – há espaço até '+money(r.mb)+', mas é provável perder na disputa'};
  if(r.sala && r.sala.comps3 && r.sala.v>r.mb+1 && r.sala.v>(r.xbid||0)) return {vd:'DISPUTADO', why:'preço provável pela sala '+money(r.sala.v)+' ('+nf(r.sala.idx,2)+' × valor, '+r.sala.lvl+') acima do lance máx. – há espaço até '+money(r.mb)+', mas a sala tende a pagar mais', sub:'pela sala'};
  // a cheaper expected price can land in a stricter rung of the lot ladder (e.g. under US$ 15k all-in: 40% and US$ 3k NET)
@@ -1086,7 +1092,7 @@ function evaluate(r){
   r.roiHi = (r.repHi && r.xbid!=null) ? pnl(r,r.xbid,{...o, rehab:r.repHi}).roi : null;   // PROPOSTA 11: ROI com a obra no topo da faixa
   if(r.ref!=null){ const p0=pnl(r,r.ref,o); r.roi0=p0.roi; r.net0=p0.net; } else r.roi0=r.net0=null;
   r.roiXp=(r.xp&&r.xp.v)?pnl(r,r.xp.v,o).roi:null;
-  r.jmax = r.ref!=null && r.ref>r.r70;
+  r.jmax = bankRef(r)!=null && bankRef(r)>r.r70;   // PROPOSTA 20: FC só no dia
   r.cush = r.xbid!=null ? (r.floor-r.xbid)/arv : null;
   r.refPct = r.ref!=null ? r.ref/arv : null;
   r.xPct = r.xbid!=null ? r.xbid/arv : null;
@@ -1610,7 +1616,7 @@ const COLS=[
  ['val','ARV (Resale Value)',r=>r.val==null?'<span class="c-mut">sem valor</span><div class="mini">'+esc(noValWhy(r))+'</div>':money(r.val)+'<div class="mini" title="'+esc(r.vsrc||'')+'">'+esc(vsrcShort(r))+'</div>'+(r.ppsf?'<div class="mini">'+money(r.ppsf)+'/sqft'+(r.ppsfVs!=null?' · <span class="'+(r.ppsfVs>0.15?'c-amber':r.ppsfVs<-0.15?'c-green':'')+'">'+sgn(r.ppsfVs,0)+' vs ZIP</span>':'')+'</div>':''),'arv',1,'num'],
  ['pov','POV',r=>r.pov?money(r.pov)+'<div class="mini">conf. '+(r.povConf!=null?r.povConf:'—')+(r.povAsArv?' · <span class="c-green">ARV</span>':'')+'</div>':'—','pov',1,'num'],
  ['ref','Final Judgment / Opening Bid',r=>'<span class="'+(r.jmax?'c-red':'')+'">'+money(r.ref)+'</span>'+(r.refPct!=null?'<div class="mini '+(r.refPct>0.7?'c-red':'')+'">'+sgn(r.refPct-1,0)+' vs valor</div>':''),'refPct',1,'num'],
- ['mb',()=>'Max Bid ('+nf(PR.ret)+'%)',r=>'<b>'+money(r.mb)+'</b>'+(r.man&&r.man.ceiling!=null?'<div class="mini c-gold">teto manual</div>':'')+'<div class="mini">Deposit '+money(r.dep)+'</div>','mb',1,'num'],
+ ['mb',()=>'Max Bid ('+nf(PR.ret)+'%)',r=>'<b>'+money(r.mb)+'</b>'+(r.man&&r.man.ceiling!=null?'<div class="mini c-gold">teto manual</div>':'')+'<div class="mini">Deposit '+money(r.dep)+'</div>'+(r.t==='FC'&&isAucDay(r)?'<div>'+bankToday(r)+'</div>':''),'mb',1,'num'],
  ['net','NET',r=>'<b class="'+(r.net>=0?'c-green':'c-red')+'" title="No lance realista '+esc(money(r.xbid))+'">'+money(r.net)+'</b>','net',1,'num'],
  ['roi','ROI',r=>'<span class="'+(r.roi>=PR.flip/100?'c-green':r.roi>=PR.ret/100?'c-amber':'c-red')+'" title="Lance realista '+esc(money(r.xbid))+'">'+pct(r.roi)+'</span>'+roiNote(r),'roi',1,'num'],
  ['roiA','ROI/ano',r=>'<span title="ROI no lance realista ÷ '+nf(r.ttf)+' meses de posse × 12 (simples)">'+pct(r.roiA)+'</span><div class="mini">'+(r.ttf!=null?nf(r.ttf)+' meses':'')+'</div>','roiA',1,'num'],
@@ -1656,7 +1662,7 @@ const dmy=s=>s?s.slice(8,10)+'/'+s.slice(5,7):'—';
 function bidChk(r){ const last=r.bhl||r.scan; const h=r.bh||[]; let ar='';
  if(h.length>=2){ const a=h[h.length-2][1], b=h[h.length-1][1]; if(b>a+0.5) ar=' <b class="c-red" title="subiu desde a conferência anterior ('+money(a)+')">↑</b>'; else if(b<a-0.5) ar=' <b class="c-green" title="caiu desde a conferência anterior ('+money(a)+')">↓</b>'; }
  const tip='Conferências do valor publicado: '+(h.length?h.map(e=>dmy(e[0])+' '+money(e[1])).join(' → '):'—')+(r.bhn?' ('+r.bhn+' leituras)':'');
- return {ar, txt:'<span class="mini c-mut" title="'+esc(tip)+'">conferido '+dmy(last)+(h.length>=2?' · hist.':'')+'</span>'}; }
+ return {ar, txt:'<span class="mini c-mut" title="'+esc(tip)+'">'+(r.t==='FC'&&r.pmaxH?'lista relida '+dmy(last)+' (lance veio oculto)':'conferido '+dmy(last))+(h.length>=2?' · hist.':'')+'</span>'}; }
 function mpTxt(r){ if(!r.mp) return ''; const one=v=>v?money(v):'?';
  return 'Processo '+(r.case||'')+' com '+r.mp.n+' imóveis (um item por parcela). Este item: julgamento '+one(r.ref)+', lance máx. do autor '+((r.pmax&&+r.pmax>0)?money(+r.pmax):r.t==='FC'?'oculto':'—')+'. '
   +r.mp.oth.map(o=>(o.same?'Outro item no mesmo endereço':o.addr)+' ('+fdate(o.date)+'): julgamento '+one(o.ref)+', lance máx. do autor '+(o.pmax?money(o.pmax):r.t==='FC'?'oculto':'—')).join(' · ')
@@ -1665,6 +1671,12 @@ function bankCell(r){ const c=bidChk(r);
  if(r.t==='TD') return '<b>'+money(r.ref)+'</b>'+c.ar+'<div class="mini">lance inicial público (tax deed)</div>'+c.txt;
  if(r.mp&&r.t==='FC'){ const r0=Object.assign({},r); r0.mp=null; return bankCell(r0)+'<div class="mini" title="'+esc(mpTxt(r))+'">processo com '+r.mp.n+' imóveis · valor deste item'+(r.mp.tot?' (total '+money(r.mp.tot)+')':'')+'</div>'; }
  if(r.t!=='FC') return r.ref?'<b>'+money(r.ref)+'</b><div class="mini c-mut">valor publicado</div>':'<span class="c-mut">—</span>';
+ if(!isAucDay(r)) return '<span class="bdg" title="PROPOSTA 20 (regra do Fernando): o lance do banco, público ou oculto, é só informativo até o dia do leilão – no dia eles baixam ou tiram. Não entra em teto, nota, veredito, preço esperado, filtro nem ordenação antes do dia.">informativo – reler no dia</span> <span class="mini c-mut">lido '+dmy(r.scan)+'</span><div>'+bankCell0(r)+'</div>';
+ return bankToday(r)+'<div>'+bankCell0(r)+'</div>'; }
+// PROPOSTA 20: no dia do leilão – "lance do banco hoje" (releitura do RealAuction de manhã / ~1 h antes)
+function bankToday(r){ const b=r.bd; if(!b) return '<span class="bdg amb">lance do banco hoje: ainda não relido</span>';
+ return '<span class="bdg grn" title="Releitura do RealAuction '+esc(b.at||'')+'">lance do banco hoje: '+(b.v>0?money(b.v):(b.h?'oculto':'—'))+'</span> <span class="mini c-mut">'+esc((b.at||'').slice(11,16))+'</span>'; }
+function bankCell0(r){ const c=bidChk(r);
  if(r.pmax&&+r.pmax>0) return '<b>'+money(+r.pmax)+'</b>'+c.ar+'<div class="mini">lance máx. do banco publicado</div>'+c.txt;
  if(r.ref){ const k=fjCap(r);
   return '<span class="bdg amb" title="O lance máximo do banco é oculto: pode ficar sem disputa no lance de abertura (~US$ 100) ou ir até o julgamento + juros">lance oculto — conferir no dia</span><div><b>oculto · até '+money(k.v)+'</b>'+c.ar+'</div><div class="mini">faixa: ~'+money(100)+' (sem disputa) → '+money(k.v)+'</div>'+'<div class="mini" title="Julgamento oficial '+money(r.ref)+' + juros de '+(k.from?dmy(k.from)+' (data do julgamento aprox.: 1ª data de leilão − 30 dias)':'?')+' até o leilão, taxa da Flórida s. 55.03 por trimestre">julgamento '+money(r.ref)+' + juros '+money(k.i)+'</div><div class="mini c-amber">'+esc(plLine(r))+'</div>'+c.txt; }
@@ -1675,6 +1687,9 @@ function plHtml(r){ if(r.t!=='FC') return ''; const h=plHist(r), nm=r.pk||'autor
  let x='<div class="survbox" id="plh" style="border-color:#a78bfa"><b>Lance oculto — conferir no dia</b> <span class="mini">('+esc(nm)+')</span>';
  const k=fjCap(r);
  x+='<p class="mini">Pontas: <b>~'+money(100)+'</b> (banco fica sem disputa no lance de abertura) até <b>'+(k?money(k.v)+'</b> (julgamento '+money(r.ref)+' + juros)':(r.fjPO?money(r.fjPO)+'</b> <span class="c-mut">(julgamento estimado PropertyOnion – não oficial)</span>':'?</b> (sem julgamento publicado)'))+'. Lance máximo abaixo do julgamento <b>não</b> descarta a casa: o banco pode soltar por menos.</p>';
+ const bb=r.pk&&M.bbs?M.bbs[r.pk]:null;   // PROPOSTA 20: leituras do lance do banco × resultado (bankbid_history)
+ if(bb&&bb.n) x+='<p class="mini">Leituras do lance do banco × resultado ('+bb.n+' leilões deste autor com resultado): banco <b>tirou</b> (cancelado) '+bb.pulled+' · banco ficou com lance <b>abaixo do julgamento</b> '+bb.drop+' de '+bb.bank+' · vendidos a terceiros '+bb.third+(bb.pubLow?' · lance publicado abaixo do julgamento '+bb.pubLow:'')+'.</p>';
+ x+='<p class="mini c-amber">'+(isAucDay(r)?bankToday(r):'Lance do banco: <b>informativo – reler no dia</b> (regra do Fernando, PROPOSTA 20); não entra no teto, nota nem veredito antes do dia.')+'</p>';
  if(!h||!h.n) return x+'<p class="mini c-amber">Sem histórico deste autor nos resultados do RealAuction.</p></div>';
  x+='<div class="tblwrap"><table class="itbl"><thead><tr><th>Resultado nos leilões passados</th><th class="n">vezes</th><th class="n">preço ÷ julgamento</th><th class="n">preço ÷ valor do condado</th><th>leitura</th></tr></thead><tbody>'+
   '<tr><td>banco ficou (acima do lance de abertura)</td><td class="n">'+h.kept+'</td><td class="n">'+p(h.keptJ)+'</td><td class="n">'+p(h.keptA)+'</td><td class="mini">máximo oculto ≥ esse preço</td></tr>'+
@@ -1725,7 +1740,7 @@ const DCOLS=[
  ['Dívida / julgamento',debtCell,'wrap'],
  ['Zillow',r=>r.zw&&r.zw.v?'<b>'+money(r.zw.v)+'</b><div class="mini">'+esc(r.zw.d||'')+'</div>':'<span class="c-mut">—</span>'],
  ['Vendas vizinhas',r=>{ const ut=nsTo(r); return (r.ns&&r.ns.n?'<b>'+money(r.ns.med)+'</b><div class="mini">'+r.ns.n+' venda'+(r.ns.n>1?'s':'')+(r.ns.n<3?' (poucas)':'')+'</div>':'<span class="c-mut">—</span>')+(ut?'<div class="mini c-amber" title="O rol de vendas do DOR (Flórida) vai só até este mês: vendas mais recentes não aparecem – conferir no Zillow/Redfin">vendas até '+ut+'</div>':''); }],
- ['Teto',r=>'<b>'+money(r.mb)+'</b><div class="mini">lance máx. '+nf(PR.ret)+'%</div>'],
+ ['Teto',r=>'<b>'+money(r.mb)+'</b><div class="mini">lance máx. '+nf(PR.ret)+'%</div>'+(r.t==='FC'&&isAucDay(r)?'<div>'+bankToday(r)+'</div>':'')],
  ['Título',titleCell],
  ['Veredito',r=>vdHtml(r,true)+(valMis(r)?'<div><span class="bdg amb">⚠ valores não batem</span></div>':'')+(r.arvSrc==='fraca'?'<div><span class="bdg">estimativa fraca</span></div>':'')+(r.repHi?'<div><span class="bdg amb" title="'+esc(r.repw||'')+'">obra '+money(r.rep)+' – '+money(r.repHi)+'</span></div>':''),'wrap']];
 let dShown=0;
@@ -2552,7 +2567,7 @@ if(DL && DL.explicit){ S.cat=''; S.kat=''; }
 if(DL && DL.r){ if(DL.explicit) apply(true); openDrawer(DL.r.id); }
 else if(DL && DL.explicit) setTimeout(()=>toast('Imóvel “'+DL.asked+'” não encontrado (leilão já passou ou foi removido)'),300);
 termify(document.body);
-window.__dash={apply, ITEMS, thumb, debtCell, valMis, pzQueue, nsTo, M, plHtml, cfHtml, badges, bankCell, fjCap, plLine, jInt, titleCell, renderDec, salaPrice, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, redfinUrl, redfinFind, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
+window.__dash={bankRef, isAucDay, bankToday, apply, ITEMS, thumb, debtCell, valMis, pzQueue, nsTo, M, plHtml, cfHtml, badges, bankCell, fjCap, plLine, jInt, titleCell, renderDec, salaPrice, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, redfinUrl, redfinFind, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
 })();
 </script>
 </body>
