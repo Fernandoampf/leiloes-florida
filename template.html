@@ -585,6 +585,11 @@ function toast(t){const e=$('#toast');e.textContent=t;e.style.display='block';cl
 const numv = v=> v===''||v==null ? NaN : parseFloat(String(v).replace(',','.'));
 const median = a=>{ const v=a.filter(x=>x!=null&&isFinite(x)).sort((x,y)=>x-y); if(!v.length) return null; const m=Math.floor(v.length/2); return v.length%2?v[m]:(v[m-1]+v[m])/2; };
 const isLand = r=> r.ty==='Lote'||r.ty==='Terreno';
+// PROPOSTA 21 – fontes do dossiê (definidas cedo: o veredito usa o dossiê na 1ª avaliação)
+const DOS_SRC=['RealAuction','Processo no clerk','Registro de imóveis','Property Appraiser','Impostos','Code Enforcement','PACE','FEMA'];
+const OR_BLOCK={orange:'Comptroller de Orange proíbe ferramenta automática', lee:'registro de Lee bloqueia robô'};
+const CLERK_LINK={orange:'https://myeclerk.myorangeclerk.com/', lee:'https://www.leeclerk.org/', broward:'https://www.browardclerk.org/', stjohns:'https://www.stjohnsclerk.com/', polk:'https://www.polkcountyclerk.net/', hillsborough:'https://www.hillsclerk.com/'};
+const OR_LINK={orange:'https://selfservice.or.occompt.com/ssweb/', lee:'https://www.leeclerk.org/'};
 
 const FL = {
  avoid:{l:'EVITAR',c:'red',d:'Revisão anterior identificou problema grave (ex.: execução de hipoteca júnior/HOA – hipoteca sênior sobrevive). Desconta a dívida estimada e tira 15 pontos da nota (não é mais PASSAR automático).'},
@@ -1161,7 +1166,7 @@ function evaluate(r){
   r.scKind='lote: curva de ROI/NET (não satura em 40% / US$ 50 mil)';
  } else { r.sc=r.scR; r.sp=r.spR; r.scKind='radar do Fernando'; }
  // surviving liens: deducted in the P&L (estimated balance) + warning + moderate score penalty – no automatic PASS
- const V=verdict(r); r.vd=V.vd; r.vdWhy=V.why; r.vdSub=V.sub||null; r.vdMan=!!V.man; r.vdWas=V.was||null;
+ const V=verdict(r); r.vd=V.vd; r.vdWhy=V.why; if(r.vd==='FLIP'||r.vd==='CONSIDERAR'){ const DS=dossier(r); if(DS.n<DS.m) r.vdWhy+=' · Dossiê '+DS.n+' de '+DS.m+' fontes – falta: '+DS.miss.join(', ')+' (PROPOSTA 21)'; } r.vdSub=V.sub||null; r.vdMan=!!V.man; r.vdWas=V.was||null;
  r.kat = r.roi==null ? 'SEM DADOS' : r.vd==='PASSAR' ? 'NO ROOM' : r.vd==='DISPUTADO' ? 'CONTESTED' : r.vd==='TITULO' ? 'CONFERIR TÍTULO' : r.vd==='PROCESSO' ? 'CONFERIR PROCESSO' : r.jmax ? 'J>MAX' : r.net<PR.lownet ? 'LUCRO BAIXO' : 'VIÁVEL';
  r.katk = r.roi==null ? 'semdados' : r.vd==='PASSAR' ? 'abaixo' : r.vd==='DISPUTADO' ? 'disp' : r.vd==='TITULO' ? 'titulo' : r.vd==='PROCESSO' ? 'processo' : r.jmax ? 'jmax' : r.net<PR.lownet ? 'lucro' : 'viavel';
  r.clean = !r.fl.some(f=>HI.includes(f)||MD.includes(f)||f==='junk') && !r.suspect;
@@ -1561,7 +1566,7 @@ function val3Html(r){ if(isLand(r)) return ''; const z=r.zw, n=r.ns, mis=valMis(
  if(n&&n.l&&n.l.length) h+='<table class="mini" style="width:100%;margin-top:6px"><tr><th style="text-align:left">Endereço</th><th>Data</th><th>Preço</th><th>pé²</th><th>dist.</th></tr>'+n.l.map(c=>'<tr><td>'+esc(c[0])+'</td><td>'+esc(c[1])+'</td><td>'+money(c[2])+'</td><td>'+nf(c[3])+'</td><td>'+(c[4]==null?'—':nf(c[4],1)+' mi')+'</td></tr>').join('')+'</table><span class="mini">Vendas qualificadas do cadastro estadual (DOR NAL) – janela de 12 meses até o fim do rol de vendas; pé² do imóvel '+(n.size?nf(n.size):'—')+' ±20%.</span>';
  return h+'</div>'; }
 function badges(r){
- const b=[lcBadge(r)];
+ const b=[lcBadge(r), dosBadge(r)];   // PROPOSTA 21
  if(r.repHi) b.push('<span class="bdg amb" title="'+esc(r.repw||'')+'">obra em faixa '+money(r.rep)+' – '+money(r.repHi)+'</span>');
  if(valMis(r)) b.push('<span class="bdg amb" title="'+esc(valMis(r))+'">⚠ valores não batem</span>');
  if(r.arvSrc==='fraca') b.push('<span class="bdg amb" title="Sem Zillow e sem 3 vendas vizinhas de 12 meses – nunca FLIP">estimativa fraca</span>');
@@ -1728,6 +1733,39 @@ function pzQueue(){ const T=Date.parse(TODAY_ET); return ITEMS.filter(r=>!isLand
 function pzHtml(){ const Q=pzQueue(); if(!Q.length) return '<div class="panel mini" style="margin-bottom:6px">Fila <b>pedir Zillow</b>: nenhuma casa com leilão em até 7 dias sem Zillow.</div>';
  return '<details class="panel" id="pzbox" style="margin-bottom:6px"><summary><b>Pedir Zillow</b> <span class="mini">('+Q.length+' casa'+(Q.length>1?'s':'')+' com leilão em até 7 dias, veredito FLIP/CONSIDER/CONFERIR e sem Zillow – o Zillow bloqueia robô: Fernando/Claude preenchem zillow + zillowDate em data/valuations_manual.json)</span></summary><div class="tblwrap"><table class="tbl"><thead><tr><th>Leilão</th><th>Casa</th><th>Veredito</th><th>Parcela</th><th>Zillow</th></tr></thead><tbody>'+
   Q.map(r=>'<tr data-id="'+r.id+'"><td>'+whenLbl(r.date)+' <span class="mini">'+esc(r.time||'')+'</span></td><td>'+esc(r.addr)+'<div class="mini">'+esc(r.co)+' · '+esc(r.ty)+'</div></td><td>'+vdHtml(r,true)+'</td><td class="mini">'+esc(r.parcel||'')+'</td><td><a href="'+esc(zillowUrl(r))+'" target="_blank" rel="noopener">abrir</a></td></tr>').join('')+'</tbody></table></div></details>'; }
+// PROPOSTA 21 (regra do Fernando, 17/11): dossiê por item com as fontes públicas e sem captcha que a rotina já lê sozinha.
+// Cada fonte: ok (fonte + data) · falta (por quê) · bloq (captcha/robô/proibido → fila "abrir com o Fernando", nunca contornar).
+function dossier(r){ if(r._dos) return r._dos; const cs=r.cs||'', CB=(M.clerkBlock||{}), S={};
+ const ok=(k,src,d)=>S[k]={st:'ok',src:src,d:d||null}, falta=(k,why)=>S[k]={st:'falta',why:why}, bloq=(k,why,link)=>S[k]={st:'bloq',why:why,link:link||(r.links&&r.links.auc)||null};
+ const ra=r.links&&r.links.auc&&/realforeclose|realtaxdeed/.test(r.links.auc);
+ if(ra&&r.case&&(r.ref!=null||r.pmax||r.pmaxH)) ok('RealAuction','lista pública do RealAuction: processo '+r.case+(r.t==='FC'?', julgamento, lance do autor':', lance inicial')+(r.bhn?', '+r.bhn+' leituras':''),r.bhl||r.scan); else falta('RealAuction',ra?'lista sem processo/valor':'item fora do RealAuction ('+(r.plat||'outra fonte')+')');
+ if(r.t==='FC'){ if(r.cf&&r.cf.opened) ok('Processo no clerk','processo aberto'+(r.cf.by?' por '+r.cf.by:'')+' (cases_open / cases_manual)',r.cf.opened);
+   else if(CB[cs]&&!/não sondado/.test(CB[cs])) bloq('Processo no clerk','clerk: '+CB[cs],CLERK_LINK[cs]); else if(CB[cs]) falta('Processo no clerk','clerk: '+CB[cs]); else falta('Processo no clerk','clerk não sondado/automatizado'); }
+ else if(r.t==='TD'){ if(['citrus','hernando'].includes(cs)) ok('Processo no clerk','status do tax deed no clerk (TaxSmart)',r.scan); else falta('Processo no clerk','status no clerk não automatizado (vale o status do RealAuction)'); }
+ else falta('Processo no clerk','sem processo');
+ if(r.tok) ok('Registro de imóveis','título conferido à mão (titleOk)',(r.man&&r.man.titleDate)||null);
+ else if(OR_BLOCK[cs]) bloq('Registro de imóveis',OR_BLOCK[cs],OR_LINK[cs]); else falta('Registro de imóveis','busca no registro (hipotecas, liens, escritura, lis pendens) ainda não automatizada');
+ if(r.nalm||r.yr||r.sqft||r.jv) ok('Property Appraiser','rol do Property Appraiser (FDOR NAL)'+(r.yr?': ano '+r.yr:'')+(r.hm?', homestead':''),null); else falta('Property Appraiser','parcela sem cadastro no rol');
+ if(r.t==='TD'&&r.ref!=null) ok('Impostos','impostos atrasados = lance inicial '+money(r.ref)+(r.tax?' · imposto do ano '+money(r.tax):''),r.scan);
+ else if(r.tax) ok('Impostos','imposto do ano '+money(r.tax)+' (atrasados: não lidos)',null); else falta('Impostos','Tax Collector não automatizado');
+ if(r.ce&&r.ce.amt) ok('Code Enforcement','multa '+money(r.ce.amt)+(r.ce.src?' ('+r.ce.src+')':''),r.ce.since||null); else falta('Code Enforcement','sem fonte automática de Code Enforcement neste condado');
+ falta('PACE','sem fonte automática (non-ad valorem no Tax Collector)');
+ if(r.geo&&r.geo.poly) ok('FEMA','FEMA NFHL + USFWS NWI no polígono da parcela'+(r.geo.sfhaPct!=null?': '+nf(r.geo.sfhaPct)+'% em zona de inundação':''),r.geo.at||null);
+ else if(r.fz) ok('FEMA','zona '+r.fz+' (PropertyOnion – sem polígono)',null); else falta('FEMA','sem coordenada/parcela para o FEMA');
+ const n=DOS_SRC.filter(k=>S[k].st==='ok').length, miss=DOS_SRC.filter(k=>S[k].st!=='ok'), bl=DOS_SRC.filter(k=>S[k].st==='bloq');
+ const ds=DOS_SRC.map(k=>S[k].d).filter(Boolean).map(String).sort(); return r._dos={S:S,n:n,m:DOS_SRC.length,miss:miss,bl:bl,last:ds.length?ds[ds.length-1].slice(0,10):null}; }
+function dosBadge(r){ const D=dossier(r); return '<span class="bdg'+(D.n===D.m?' grn':D.bl.length?' amb':'')+'" title="'+esc('Falta: '+(D.miss.map(k=>k+(D.S[k].st==='bloq'?' (abrir com o Fernando)':'')).join(', ')||'nada'))+'">dossiê conferido'+(D.last?' '+dmy(D.last):'')+' – '+D.n+' de '+D.m+' fontes</span>'; }
+function dosHtml(r){ const D=dossier(r);
+ return '<div class="survbox" id="dosbox" style="border-color:#94a3b8"><b>Dossiê</b> <span class="mini">('+D.n+' de '+D.m+' fontes – PROPOSTA 21; captcha/robô nunca é contornado)</span><div class="tblwrap"><table class="itbl"><tbody>'+
+  DOS_SRC.map(k=>{ const s=D.S[k]; return '<tr><td>'+k+'</td><td class="'+(s.st==='ok'?'c-green':s.st==='bloq'?'c-amber':'c-mut')+'">'+(s.st==='ok'?'✓ '+esc(s.src)+(s.d?' <span class="mini">('+esc(String(s.d).slice(0,10))+')</span>':''):s.st==='bloq'?'abrir com o Fernando – '+esc(s.why)+(s.link?' · <a href="'+esc(s.link)+'" target="_blank" rel="noopener">abrir</a>':''):'falta – '+esc(s.why))+'</td></tr>'; }).join('')+'</tbody></table></div></div>'; }
+// fila "abrir com o Fernando": itens com fonte bloqueada (captcha/robô/proibido), na ordem da P21
+function dosPri(r){ const T=Date.parse(TODAY_ET), dd=r.date?(Date.parse(r.date)-T)/864e5:999, house=PZ_TY.includes(r.ty), fema=!!(r.geo&&r.geo.poly&&(r.geo.sfhaPct||0)>=10)||/^(A|AE|AH|AO|V|VE)$/.test(r.fz||'');
+ return house&&r.yr>=2000&&!fema&&dd<=14?0:house?1:2; }
+function dosQueue(){ return ITEMS.filter(r=>r.vd!=='PASSAR'&&dossier(r).bl.length).sort((a,b)=>dosPri(a)-dosPri(b)||(a.date||'').localeCompare(b.date||'')||(b.sc||0)-(a.sc||0)); }
+function dosQHtml(){ const Q=dosQueue(); if(!Q.length) return '';
+ const c=[0,1,2].map(p=>Q.filter(r=>dosPri(r)===p).length);
+ return '<details class="panel" id="dosq" style="margin-bottom:6px"><summary><b>Abrir com o Fernando</b> <span class="mini">('+Q.length+' itens fora de PASSAR com fonte que tem captcha, bloqueia robô ou proíbe automação – nunca contornado · casas 2000+ fora de FEMA em até 14 dias: '+c[0]+' · outras casas: '+c[1]+' · lotes/outros: '+c[2]+')</span></summary><div class="tblwrap"><table class="tbl"><thead><tr><th>Leilão</th><th>Imóvel</th><th>Veredito</th><th>Abrir</th></tr></thead><tbody>'+
+  Q.slice(0,300).map(r=>{ const D=dossier(r); return '<tr data-id="'+r.id+'"><td>'+whenLbl(r.date)+'</td><td>'+esc(r.addr)+'<div class="mini">'+esc(r.co)+' · '+esc(r.ty)+(r.yr?' '+r.yr:'')+' · '+esc(r.case||'')+'</div></td><td>'+vdHtml(r,true)+'</td><td class="mini">'+D.bl.map(k=>esc(k)+': '+esc(D.S[k].why)+(D.S[k].link?' · <a href="'+esc(D.S[k].link)+'" target="_blank" rel="noopener">abrir</a>':'')).join('<br>')+'</td></tr>'; }).join('')+'</tbody></table></div>'+(Q.length>300?'<p class="mini">+ '+(Q.length-300)+' itens (lista completa no export do DIARIO).</p>':'')+'</details>'; }
 // 17/11 (Fernando t327u): coluna própria "Dívida / julgamento" na Decisão – só exibição, conta inalterada
 function debtCell(r){
  if(r.t==='FC'){
@@ -1753,7 +1791,7 @@ const DCOLS=[
  ['Veredito',r=>vdHtml(r,true)+(valMis(r)?'<div><span class="bdg amb">⚠ valores não batem</span></div>':'')+(r.arvSrc==='fraca'?'<div><span class="bdg">estimativa fraca</span></div>':'')+(r.repHi?'<div><span class="bdg amb" title="'+esc(r.repw||'')+'">obra '+money(r.rep)+' – '+money(r.repHi)+'</span></div>':''),'wrap']];
 let dShown=0;
 function renderDec(reset){
- if(reset&&$('#pzq')) $('#pzq').innerHTML=pzHtml();
+ if(reset&&$('#pzq')) $('#pzq').innerHTML=pzHtml()+dosQHtml();
  if(reset){ dShown=0; $('#dtbl').innerHTML='<thead><tr>'+DCOLS.map(c=>'<th>'+c[0]+'</th>').join('')+'</tr></thead><tbody></tbody>'; }
  const tb=$('#dtbl tbody');
  if(!CUR.length){ tb.innerHTML='<tr><td colspan="8" style="text-align:center;padding:30px" class="c-mut">Nenhum imóvel com esses filtros.</td></tr>'; $('#dmore').style.display='none'; return; }
@@ -2308,7 +2346,7 @@ function openDrawer(id){
   '<div><span title="'+CASH_TIP+'">Cash to Close (Realistic Bid)</span><b>'+money(r.cash)+'</b><span class="mini">lance '+money(r.xbid)+' · depósito '+money(r.xbid!=null?r.xbid*PR.dep/100:null)+'</span></div>'+
   '<div><span>Orlando</span><b>'+distLbl(r)+'</b></div>'+
   '<div><span title="ROI no lance que a gente assume que ganha o leilão">ROI realista</span><b class="'+(r.roi>=PR.flip/100?'c-green':r.roi>=PR.ret/100?'c-amber':'c-red')+'">'+pct(r.roi)+'</b><span class="mini">'+money(r.net)+(r.roi0!=null&&Math.abs((r.xbid||0)-(r.ref||0))>1?' · inicial '+pct(r.roi0):'')+'</span></div></div>'+
-  galHtml(r)+val3Html(r)+plHtml(r)+cfHtml(r)+
+  galHtml(r)+val3Html(r)+plHtml(r)+cfHtml(r)+dosHtml(r)+
   '<div class="dlinks"><a class="btn gold" id="dzil" href="'+esc(zillowUrl(r))+'" target="_blank" rel="noopener">🏠 Zillow</a><a class="btn gold" id="drea" href="'+esc(redfinUrl(r))+'" target="_blank" rel="noopener">🏠 Redfin</a><a class="btn" href="'+esc(gmapsUrl(r))+'" target="_blank" rel="noopener">📍 Google Maps</a><a class="btn" href="'+esc(svUrl(r))+'" target="_blank" rel="noopener">🚶 Street View</a>'+(L.pa?'<a class="btn" href="'+esc(L.pa)+'" target="_blank" rel="noopener">🏛 Property Appraiser</a>':'')+(L.auc||L.list?'<a class="btn" href="'+esc(L.auc||L.list)+'" target="_blank" rel="noopener">⚖ Clerk / Leilão</a>':'')+(L.po?'<a class="btn" href="'+esc(L.po)+'" target="_blank" rel="noopener">PropertyOnion</a>':'')+'<button class="btn gold" id="dshare" title="Link que abre o site direto neste imóvel (depois da senha), ignorando filtros">🔗 Copiar link do imóvel</button><button class="btn '+(CAND[r.id]?'':'gold')+'" id="dcand">'+(CAND[r.id]?'✓ Candidato':'＋ Candidato')+'</button></div>'+
   (r.tconf?'<div class="survbox" id="tconfbox"><b>⚠ Lote? pode ter construção — verificar</b> As fontes não concordam sobre o tipo:<ul class="lcx">'+r.tconf.map(t=>'<li>'+esc(t)+'</li>').join('')+'</ul><span class="mini">O painel mantém o tipo do DOR, mas não usa comps de lote como ARV. Confira fotos, Street View e o Property Appraiser.</span></div>':'')+
   ((r.fl.includes('surv')||r.survAmt)?('<div class="survbox" id="survbox"><b>⚠ Hipoteca pode sobreviver</b>'+(r.survAmt?' – est. <b>'+money(r.survAmt)+'</b>':'')+'. '+esc(r.survWhy||FL.surv.d)+' <span class="mini">ESTIMATIVA – confirmar com title search. Toggle no P&L para deduzir/omitir.</span></div>'):'')+
@@ -2575,7 +2613,7 @@ if(DL && DL.explicit){ S.cat=''; S.kat=''; }
 if(DL && DL.r){ if(DL.explicit) apply(true); openDrawer(DL.r.id); }
 else if(DL && DL.explicit) setTimeout(()=>toast('Imóvel “'+DL.asked+'” não encontrado (leilão já passou ou foi removido)'),300);
 termify(document.body);
-window.__dash={pre2000, zwHigh, bankRef, isAucDay, bankToday, apply, ITEMS, thumb, debtCell, valMis, pzQueue, nsTo, M, plHtml, cfHtml, badges, bankCell, fjCap, plLine, jInt, titleCell, renderDec, salaPrice, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, redfinUrl, redfinFind, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
+window.__dash={dossier, dosQueue, dosPri, dosBadge, pre2000, zwHigh, bankRef, isAucDay, bankToday, apply, ITEMS, thumb, debtCell, valMis, pzQueue, nsTo, M, plHtml, cfHtml, badges, bankCell, fjCap, plLine, jInt, titleCell, renderDec, salaPrice, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, redfinUrl, redfinFind, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
 })();
 </script>
 </body>

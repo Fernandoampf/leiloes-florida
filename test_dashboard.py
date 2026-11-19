@@ -84,6 +84,10 @@ with sync_playwright() as p:
     check(not p18, f'PROPOSTA 18: casa antes de 2000 sempre PASSAR {p18}')
     p19 = pg.evaluate(D + ".ITEMS.filter(r=>window.__dash.zwHigh(r)&&r.vd==='FLIP').map(r=>r.addr).slice(0,5)")
     check(not p19, f'PROPOSTA 19: Zillow > 25% acima das vendas nunca FLIP {p19}')
+    p21 = pg.evaluate("""(()=>{const d=window.__dash, I=d.ITEMS; const Ds=I.map(r=>d.dossier(r));
+      const fc=I.filter(r=>(r.vd==='FLIP'||r.vd==='CONSIDERAR')&&d.dossier(r).n<d.dossier(r).m&&!/Dossiê \\d+ de \\d+ fontes – falta/.test(r.vdWhy||''));
+      const q=d.dosQueue(); return {n:I.length, all:Ds.every(x=>x.m===8&&x.n>=0&&x.n<=8), gaps:fc.length, q:q.length, ord:q.every((r,i)=>i===0||d.dosPri(q[i-1])<=d.dosPri(r)), badge:/dossiê conferido/.test(d.dosBadge(I[0]))};})()""")
+    check(p21['all'] and p21['gaps'] == 0 and p21['ord'] and p21['badge'], f'PROPOSTA 21: dossiê N de 8 em todo item, FLIP/CONSIDERAR com o que falta escrito, fila abrir com o Fernando ordenada {p21}')
     check(not bad, f'veredito por espaço de lance: SEM ESPAÇO / DISPUTADO / FLIP ≥ 25% / CONSIDERAR {bad}')
     check(pg.evaluate(D + '.ITEMS.filter(r=>r.t==="FC"&&r.vd==="PASSAR"&&!window.__dash.pre2000(r)&&r.mb>0&&r.ref>r.mb+1&&!(r.geo&&r.geo.poly!==false&&((r.geo.wetPct||0)>=10||(r.geo.sfhaPct||0)>=10))).length') == 0, 'foreclosure com julgamento acima do lance máx. é DISPUTADO, não SEM ESPAÇO')
     kats = pg.evaluate(D + '.ITEMS.map(r=>r.kat).join()'); check('NO ROOM' in kats and 'CONTESTED' in kats, 'categorias “NO ROOM” e “CONTESTED”')

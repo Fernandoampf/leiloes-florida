@@ -1574,7 +1574,7 @@ def render(items, stats, dropped, args):
         print('backtest:', bt['n'], 'resultados ligados ao painel |', nrep, 'grupos de calibração substituídos', flush=True)
     except Exception as ex:
         print('backtest falhou:', ex, flush=True)
-    meta = dict(plh=plh, bbs=bbs, jint=JINT, bt=bt, dataDate=args.data_date, built=time.strftime('%Y-%m-%d %H:%M'), params=P, zips=zips, mktSrc=mk.get('_src', {}),
+    meta = dict(clerkBlock=CLERK_BLOCK, plh=plh, bbs=bbs, jint=JINT, bt=bt, dataDate=args.data_date, built=time.strftime('%Y-%m-%d %H:%M'), params=P, zips=zips, mktSrc=mk.get('_src', {}),
                 rehabTiers=REHAB_TIERS, rehabUnknown=REHAB_UNKNOWN, rehabPool=REHAB_POOL, stats=stats, dropped=dropped, orlando=ORLANDO,
                 events=load_events(args.data_date), ares=ares, recent=recent, rmeta=rmeta, types=TYPES, version='v4',
                 builders=getattr(build_items, '_bld', None), favs=favs, valerr=getattr(build_items, '_valerr', None), arch=farch, mbh=fmbh, calib=fcal)
