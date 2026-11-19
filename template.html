@@ -1030,7 +1030,15 @@ const TLOCK_FL=['jr','mtg','surv','code'];
 // PROPOSTA 12 (16/11, aprovada): processo de VARA DO CONDADO (nº com CC, CONO ou COCE) = ação de associação/condomínio → a 1ª hipoteca sobrevive
 const isCC = r => r.t==='FC' && !!r.case && /(^|[\d\s\-])CC([\d\s\-]|[A-Z]*$)|^CO(NO|CE)[\s\-]/.test(String(r.case).toUpperCase());
 function titleLock(r){ if(r.tok) return null; const f=isLand(r)?[]:TLOCK_FL.filter(k=>r.fl.includes(k)).map(k=>FL[k]?FL[k].l:k); if(r.hoaPl&&!isLand(r)) f.push('autor é associação (HOA)'); if(isCC(r)) f.push('vara do condado (ação de associação – 1ª hipoteca sobrevive)'); if(r.cf&&r.cf.opened&&r.cf.firstMtg===false) f.push('processo: hipoteca executada não é a 1ª'); return f.length?f:null; }
+// PROPOSTA 18 (Fernando, 17/11 – aprovada): casa (não lote) construída antes de 2000 → PASSAR "regra do Fernando", nunca FLIP
+const RES_TY=['Casa','Townhouse','Condo','Mobile','Multifamily'];
+const pre2000 = r=> RES_TY.includes(r.ty) && r.yr>1800 && r.yr<2000;
+// PROPOSTA 19 (Fernando, 17/11 – aprovada): Zillow > 25% acima da mediana das vendas vizinhas (≥ 3 vendas, 12 meses) → no máximo CONSIDERAR até o Fernando confirmar (zillowOk no valuations_manual.json)
+function zwHigh(r){ const z=r.zw&&r.zw.v, s=r.ns&&r.ns.n>=3?r.ns.med:null; if(!z||!s||r.zw.ok||r.arvSrc!=='zillow') return null; const x=z/s-1; return x>0.25?{z:z,s:s,n:r.ns.n,x:x}:null; }
 function verdict(r){ let V=verdict0(r);
+ if(pre2000(r)) return {vd:'PASSAR', why:'regra do Fernando: casa construída em '+r.yr+' (antes de 2000) – nunca FLIP (pela conta seria '+VDL[V.vd]+')', sub:'regra do Fernando · antes de 2000', was:V.vd, p2000:1};
+ const zh=zwHigh(r);
+ if(V.vd==='FLIP' && zh) V={vd:'CONSIDERAR', why:'Zillow '+money(zh.z)+' está '+nf(zh.x*100)+'% acima da mediana de '+zh.n+' vendas vizinhas ('+money(zh.s)+'): no máximo CONSIDERAR até o Fernando confirmar o Zillow (zillowOk) – pela conta seria FLIP – '+V.why, sub:'Zillow acima das vendas – conferir', zwHi:'FLIP'};
  if(V.vd==='FLIP' && r.repHi && r.roiHi!=null && r.roiHi<PR.flip/100) V={vd:'CONSIDERAR', why:'obra em faixa '+money(r.rep)+' – '+money(r.repHi)+' (padrão médio/luxo pendente): FLIP no piso, mas com a obra máxima o ROI cai para '+pct(r.roiHi)+' – '+V.why, sub:'obra em faixa', obra:'FLIP'};   // PROPOSTA 11
  if(V.vd==='FLIP' && r.arvSrc==='fraca') V={vd:'CONSIDERAR', why:'estimativa fraca (sem Zillow e sem 3 vendas vizinhas de 12 meses): o ROI daria FLIP – '+V.why, sub:'estimativa fraca – nunca FLIP', weak:'FLIP'};   // PROPOSTA 7
  if(isAucDay(r) && (V.vd==='FLIP'||V.vd==='CONSIDERAR') && r.t==='FC' && r.ref==null && r.fjPO && r.mb>0 && r.fjPO>r.mb+1) V={vd:'DISPUTADO', why:'julgamento estimado (PropertyOnion: POV − equity) '+money(r.fjPO)+' acima do lance máx. '+money(r.mb)+' – estimativa só piora, nunca melhora; conferir o julgamento oficial', sub:'julg. estimado (PO) acima do máx.', poJ:1};   // PROPOSTA 9
@@ -2567,7 +2575,7 @@ if(DL && DL.explicit){ S.cat=''; S.kat=''; }
 if(DL && DL.r){ if(DL.explicit) apply(true); openDrawer(DL.r.id); }
 else if(DL && DL.explicit) setTimeout(()=>toast('Imóvel “'+DL.asked+'” não encontrado (leilão já passou ou foi removido)'),300);
 termify(document.body);
-window.__dash={bankRef, isAucDay, bankToday, apply, ITEMS, thumb, debtCell, valMis, pzQueue, nsTo, M, plHtml, cfHtml, badges, bankCell, fjCap, plLine, jInt, titleCell, renderDec, salaPrice, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, redfinUrl, redfinFind, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
+window.__dash={pre2000, zwHigh, bankRef, isAucDay, bankToday, apply, ITEMS, thumb, debtCell, valMis, pzQueue, nsTo, M, plHtml, cfHtml, badges, bankCell, fjCap, plLine, jInt, titleCell, renderDec, salaPrice, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, redfinUrl, redfinFind, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
 })();
 </script>
 </body>

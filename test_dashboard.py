@@ -74,14 +74,18 @@ with sync_playwright() as p:
     vds = set(pg.evaluate(D + '.ITEMS.map(r=>r.vd)')); check(vds <= {'FLIP', 'CONSIDERAR', 'DISPUTADO', 'PASSAR', 'TITULO', 'PROCESSO'} and {'FLIP','DISPUTADO','PASSAR'} <= vds, f'vereditos {vds}')
     bad = pg.evaluate(D + '''.ITEMS.filter(r=>r.roi!=null&&r.mb!=null&&!(r.geo&&r.geo.poly!==false&&((r.geo.wetPct||0)>=10||(r.geo.sfhaPct||0)>=10))).filter(r=>{
         const room = r.mb>0, BR = window.__dash.bankRef(r), over = BR!=null && BR>r.mb+1;   // PROPOSTA 20: lance do banco (FC) só conta no dia do leilão
-        if(r.vd==='FLIP'||r.vd==='CONSIDERAR') return !(room && !over && !(r.xbid>r.mb+1) && (r.vd==='FLIP'?r.roi>=0.25&&r.arvSrc!=='fraca'&&!(r.repHi&&r.roiHi<0.25):(r.roi<0.25||r.arvSrc==='fraca'||(r.repHi&&r.roiHi<0.25))));
-        if(r.vd==='TITULO') return !(room && !over && !(r.xbid>r.mb+1) && (r.vdWas==='FLIP'?r.roi>=0.25:(r.roi<0.25||r.arvSrc==='fraca'||(r.repHi&&r.roiHi<0.25))));   // PROPOSTA 8 (+ PROPOSTA 11: obra em faixa): mesma regra, travado por título
+        if(r.vd==='FLIP'||r.vd==='CONSIDERAR') return !(room && !over && !(r.xbid>r.mb+1) && (r.vd==='FLIP'?r.roi>=0.25&&r.arvSrc!=='fraca'&&!(r.repHi&&r.roiHi<0.25)&&!window.__dash.zwHigh(r):(r.roi<0.25||r.arvSrc==='fraca'||(r.repHi&&r.roiHi<0.25)||!!window.__dash.zwHigh(r))));   // PROPOSTA 19
+        if(r.vd==='TITULO') return !(room && !over && !(r.xbid>r.mb+1) && (r.vdWas==='FLIP'?r.roi>=0.25:(r.roi<0.25||r.arvSrc==='fraca'||(r.repHi&&r.roiHi<0.25)||!!window.__dash.zwHigh(r))));   // PROPOSTA 8 (+ PROPOSTA 11: obra em faixa): mesma regra, travado por título
         if(r.vd==='PROCESSO') return !(r.t==='FC' && !(r.cf&&r.cf.opened) && room && !over && !(r.xbid>r.mb+1) && (r.vdWas==='FLIP'?r.roi>=0.25:true));   // Fernando t318u: processo não aberto
-        if(r.vd==='PASSAR') return !( !room || (r.t!=='FC' && over) || /^lote barato/.test(r.vdWhy||'') || /descartada pelo Fernando/.test(r.vdWhy||'') );   // PROPOSTA 13: processo descartado
+        if(r.vd==='PASSAR') return !( !room || (r.t!=='FC' && over) || /^lote barato/.test(r.vdWhy||'') || /descartada pelo Fernando/.test(r.vdWhy||'') || /^regra do Fernando: casa construída/.test(r.vdWhy||'') );   // PROPOSTA 18   // PROPOSTA 13: processo descartado
         if(r.vd==='DISPUTADO') return !( room && ((r.t==='FC' && over) || (r.t==='FC' && r.ref==null && window.__dash.isAucDay(r) && r.fjPO>r.mb+1) || r.xbid>r.mb+1 || (r.sala&&r.sala.comps3&&r.sala.v>r.mb+1)) );
         return true; }).map(r=>r.addr+' '+r.vd).slice(0,5)''')
+    p18 = pg.evaluate(D + ".ITEMS.filter(r=>window.__dash.pre2000(r)&&r.vd!=='PASSAR').map(r=>r.addr+' '+r.vd).slice(0,5)")
+    check(not p18, f'PROPOSTA 18: casa antes de 2000 sempre PASSAR {p18}')
+    p19 = pg.evaluate(D + ".ITEMS.filter(r=>window.__dash.zwHigh(r)&&r.vd==='FLIP').map(r=>r.addr).slice(0,5)")
+    check(not p19, f'PROPOSTA 19: Zillow > 25% acima das vendas nunca FLIP {p19}')
     check(not bad, f'veredito por espaço de lance: SEM ESPAÇO / DISPUTADO / FLIP ≥ 25% / CONSIDERAR {bad}')
-    check(pg.evaluate(D + '.ITEMS.filter(r=>r.t==="FC"&&r.vd==="PASSAR"&&r.mb>0&&r.ref>r.mb+1&&!(r.geo&&r.geo.poly!==false&&((r.geo.wetPct||0)>=10||(r.geo.sfhaPct||0)>=10))).length') == 0, 'foreclosure com julgamento acima do lance máx. é DISPUTADO, não SEM ESPAÇO')
+    check(pg.evaluate(D + '.ITEMS.filter(r=>r.t==="FC"&&r.vd==="PASSAR"&&!window.__dash.pre2000(r)&&r.mb>0&&r.ref>r.mb+1&&!(r.geo&&r.geo.poly!==false&&((r.geo.wetPct||0)>=10||(r.geo.sfhaPct||0)>=10))).length') == 0, 'foreclosure com julgamento acima do lance máx. é DISPUTADO, não SEM ESPAÇO')
     kats = pg.evaluate(D + '.ITEMS.map(r=>r.kat).join()'); check('NO ROOM' in kats and 'CONTESTED' in kats, 'categorias “NO ROOM” e “CONTESTED”')
     check(pg.evaluate(D + '.ITEMS.filter(r=>r.fl.includes("mtg")&&r.roi!=null&&r.mb>0&&!(r.ref>r.mb)&&!(r.xbid>r.mb+1)).every(r=>r.vd!=="PASSAR")'), 'hipoteca que sobrevive não é PASSAR automático')
     check(pg.evaluate(D + '.ITEMS.filter(r=>r.survOrig).every(r=>(r.survAmt||0)<=r.survOrig)'), 'dívida que sobrevive = saldo estimado (≤ valor original)')
@@ -537,7 +541,7 @@ with sync_playwright() as p:
       const both=H.every(r=>{const c=d.bankCell(r); return /lance oculto — conferir no dia/.test(c)&&/faixa: ~US\\$ 100 \\(sem disputa\\)/.test(c);});
       const w=H.find(r=>r.pk&&d.M.plh&&d.M.plh[r.pk]&&d.M.plh[r.pk].released>0); let t='';
       if(w){ d.openDrawer(w.id); t=(document.querySelector('#plh')||{}).textContent||''; d.closeDrawer(); }
-      const below=I.filter(r=>r.t==='FC'&&r.ref!=null&&r.mb>0&&r.ref>r.mb+1&&r.vd==='PASSAR'&&!(r.geo&&r.geo.poly!==false&&((r.geo.wetPct||0)>=10||(r.geo.sfhaPct||0)>=10))).length;
+      const below=I.filter(r=>r.t==='FC'&&r.ref!=null&&r.mb>0&&r.ref>r.mb+1&&r.vd==='PASSAR'&&!d.pre2000(r)&&!(r.geo&&r.geo.poly!==false&&((r.geo.wetPct||0)>=10||(r.geo.sfhaPct||0)>=10))).length;
       return {n:H.length, both, drawer:/banco ficou/.test(t)&&/soltou para terceiro/.test(t)&&/preço ÷ julgamento/.test(t)&&/preço ÷ valor do condado/.test(t)&&/não<\\/b> descarta|não descarta/.test(t.replace(/\\s+/g,' ')), below, band:/57\\s*[–-]\\s*94\\s*%/.test(document.body.innerText+t)};})()""")
     check(p6['n'] > 50 and p6['both'] and p6['drawer'] and p6['below'] == 0 and not p6['band'], f'lance oculto: 2 pontas + selo "conferir no dia" + histórico do autor (ficou/soltou, % julgamento e % condado); máx. < julgamento não descarta {p6}')
     # Fernando t318u (16/11): processo do foreclosure – sem processo aberto nunca FLIP/CONSIDER (CONFERIR PROCESSO), clerks com captcha não contornados

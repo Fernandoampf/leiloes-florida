@@ -927,7 +927,7 @@ def build_items(args):
         arv_src = nsal = zw = None
         if ty in ('Casa', 'Townhouse', 'Condo', 'Mobile', 'Multifamily'):
             mz = manual.get((cs, nal.npid(x.get('parcel') or ''))) or {}
-            if num(mz.get('zillow')): zw = dict(v=round(num(mz['zillow'])), d=mz.get('zillowDate'), by=mz.get('zillowBy'))
+            if num(mz.get('zillow')): zw = dict(v=round(num(mz['zillow'])), d=mz.get('zillowDate'), by=mz.get('zillowBy'), ok=(True if mz.get('zillowOk') is True else None))   # PROPOSTA 19: zillowOk = Fernando confirmou o Zillow
             if nf and nf.get('pid') and lcd.get(cs):
                 try: nsal = local_comps.nearby_sales(lcd[cs], nal.npid(nf['pid']), today)
                 except Exception: nsal = None
