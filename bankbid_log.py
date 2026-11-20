@@ -12,7 +12,7 @@ money = lambda v: (lambda s: float(s) if re.fullmatch(r'[\d.]+', s) else None)(s
 def update():
     try: H = json.load(open(OUT))
     except Exception: H = {}
-    for f in glob.glob(os.path.join(SW, 'fc', '*.json')):
+    for f in glob.glob(os.path.join(SW, 'fc', '*.json')) + glob.glob(os.path.join(SW, 'fc_upd', '*.json')):   # fc_upd: Orange FC (orange_upd.py)
         base = os.path.basename(f)[:-5]; county, d = base.rsplit('_', 1); d = d[6:] + '-' + d[:2] + '-' + d[3:5]
         at = time.strftime('%Y-%m-%d %H:%M', time.localtime(os.path.getmtime(f)))
         try: rows = json.load(open(f))
@@ -21,7 +21,11 @@ def update():
             if 'AID' not in r or 'Case #' not in r: continue
             e = H.setdefault(str(r['AID']), {'c': county, 'd': d, 'r': []}); e['d'] = d; e['cs'] = r.get('Case #')
             u = r.get('upd') or {}; pm = r.get('Plaintiff Max Bid'); pmv = money(pm)
+            # P15 (20/11): arquivo antigo (sem 'P' no upd) = leitor quebrado; o 'Hidden' do HTML é fixo, não é leitura
+            if 'P' not in u: pm, pmv = None, None
+            elif pmv is None and str(u.get('P') or '').strip() not in ('', 'A'): pm = str(u.get('P'))
             st = u.get('A') or r.get('area')
+            at = r.get('pmaxAt') or at
             row = [at, money(r.get('Final Judgment Amount')), pmv if pmv is not None else pm, st]
             if not e['r'] or e['r'][-1][0] < at: e['r'].append(row); del e['r'][:-20]
             if r.get('area') == 'C':
@@ -31,8 +35,39 @@ def update():
                 elif re.search(r'cancel', txt, re.I): res['st'] = 'canceled'
                 else: res['st'] = (u.get('A') or 'closed')
                 e['res'] = res
+    fix_old(H); backfill_results(H)
     json.dump(H, open(OUT + '.tmp', 'w')); os.replace(OUT + '.tmp', OUT)
     return H
+
+FIX_AT = '2026-11-20 09:20'   # P15 corrigido: antes disso todo FC saía 'Hidden' (o valor vem do campo P do UPDATE, não do HTML)
+def fix_old(H):
+    for e in H.values():
+        for x in e['r']:
+            if x[2] == 'Hidden' and x[0] < FIX_AT and len(x) < 5: x[2] = None; x.append('p15')
+
+def backfill_results(H):
+    """Resultados já baixados (results/*.json, runs/fin_*/): o campo P do UPDATE é o lance máx. do autor no leilão."""
+    fs = glob.glob(os.path.join(SW, 'results', '*.json')) + glob.glob(os.path.join(SW, 'runs', 'fin_*', '*.json'))
+    for f in fs:
+        if 'realforeclose' not in f: continue
+        base = os.path.basename(f)[:-5]; host, d = base.rsplit('_', 1); d = d[6:] + '-' + d[:2] + '-' + d[3:5]
+        county = host.split('.')[0].replace('-', ''); county = {'saintjohns': 'stjohns'}.get(county, county)
+        at = time.strftime('%Y-%m-%d %H:%M', time.localtime(os.path.getmtime(f)))
+        try: rows = json.load(open(f))
+        except Exception: continue
+        for r in rows:
+            u = r.get('res') or {}; pv = money(u.get('P'))
+            if 'AID' not in r or 'P' not in u: continue
+            e = H.setdefault(str(r['AID']), {'c': county, 'd': d, 'r': []}); e.setdefault('cs', r.get('Case #'))
+            if any(len(x) > 4 and x[4] == 'res' for x in e['r']): continue
+            e['r'].append([at, money(r.get('Final Judgment Amount')), pv if pv is not None else 'Hidden', u.get('A'), 'res'])
+            e['r'].sort(key=lambda x: x[0]); del e['r'][:-20]
+            if 'res' not in e:
+                txt = ' '.join(str(u.get(k) or '') for k in ('A', 'B', 'C', 'D', 'SL', 'ST')).strip(); res = {'txt': txt[:120]}
+                if u.get('A') == 'Auction Sold': res.update(st='sold', amt=money(u.get('D')), to=u.get('ST'))
+                elif re.search(r'cancel', txt, re.I): res['st'] = 'canceled'
+                else: res['st'] = (u.get('A') or 'closed')
+                e['res'] = res
 
 def day_read(H, aid, today):
     """Leitura do lance do banco feita HOJE (dia do leilão) -> {at, v, h} ou None."""

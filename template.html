@@ -1688,7 +1688,7 @@ function bankCell(r){ const c=bidChk(r);
  return bankToday(r)+'<div>'+bankCell0(r)+'</div>'; }
 // PROPOSTA 20: no dia do leilão – "lance do banco hoje" (releitura do RealAuction de manhã / ~1 h antes)
 function bankToday(r){ const b=r.bd; if(!b) return '<span class="bdg amb">lance do banco hoje: ainda não relido</span>';
- return '<span class="bdg grn" title="Releitura do RealAuction '+esc(b.at||'')+'">lance do banco hoje: '+(b.v>0?money(b.v):(b.h?'oculto':'—'))+'</span> <span class="mini c-mut">'+esc((b.at||'').slice(11,16))+'</span>'; }
+ return '<span class="bdg grn" title="Releitura do RealAuction '+esc(b.at||'')+'">'+(b.v>0?'lance do banco hoje · banco vai até '+money(b.v):'lance do banco hoje: '+(b.h?'oculto':'—'))+'</span> <span class="mini c-mut">'+esc((b.at||'').slice(11,16))+'</span>'; }
 function bankCell0(r){ const c=bidChk(r);
  if(r.pmax&&+r.pmax>0) return '<b>'+money(+r.pmax)+'</b>'+c.ar+'<div class="mini">lance máx. do banco publicado</div>'+c.txt;
  if(r.ref){ const k=fjCap(r);

@@ -32,6 +32,9 @@ def norm(raw, county, host, date, kind):
         d['ob'] = money(raw.get('Opening Bid')); d['cert'] = raw.get('Certificate #')
     else:
         d['fj'] = money(raw.get('Final Judgment Amount')); d['pmax'] = raw.get('Plaintiff Max Bid') or raw.get('Plaintiff max bid')
+        # P15 (20/11): o "Hidden" do HTML é fixo; só vale como oculto se a lista foi lida com o campo P do UPDATE
+        if d['pmax'] == 'Hidden' and not raw.get('pmaxSrc'): d['pmax'] = None
+        if raw.get('pmaxAt'): d['pmaxAt'] = raw['pmaxAt']
     return d
 
 def collect():
@@ -71,9 +74,14 @@ def collect():
         h = evh.get((x['county'], x['date']))
         if h and h != x['host']:
             x['url'] = x['url'].replace(x['host'], h); x['detail'] = x['detail'].replace(x['host'], h); x['host'] = h
+    try: OUPD = json.load(open(os.path.join(SW, 'fco_upd.json')))   # P15: lance do autor do Orange FC (orange_upd.py)
+    except Exception: OUPD = {}
     for x in json.load(open(os.path.join(SW, 'fc_all.json'))):
         if x['county'] == 'myorangeclerk' and ('FC', x['aid']) not in seen:
-            seen.add(('FC', x['aid'])); out.append(('FC', dict(x)))
+            seen.add(('FC', x['aid'])); y = dict(x); u = OUPD.get(str(x['aid']))
+            if y.get('pmax') == 'Hidden': y['pmax'] = None            # P15: leitura antiga (HTML), não é "oculto"
+            if u: y['pmax'] = u['P'] if str(u['P']).startswith('$') else 'Hidden'; y['pmaxAt'] = u['at']
+            out.append(('FC', y))
     for f in sorted(glob.glob(os.path.join(SW, 'extra_*.json'))):
         for x in json.load(open(f)):
             out.append((x.get('src', 'OT'), x))
