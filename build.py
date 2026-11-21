@@ -315,11 +315,13 @@ JINT = [['2024-01-01', 9.09], ['2024-04-01', 9.34], ['2024-07-01', 9.46], ['2024
 #   "plaintiff": "...", "attorney": "...", "defendants": [...], "fed": false, "hoa": false, "creditors": [...], "fjDate": "...",
 #   "fjAmount": 123456.78, "bankruptcy": [{"case": "...", "date": "..."}], "resched": [...], "cancelMotion": false, "firstMtg": true, "notes": "..."}}
 CLERK_BLOCK = {
-    'orange': 'myeClerk com reCAPTCHA', 'polk': 'PRO com bloqueio de robô', 'lee': 'matrix recusa conexão automática',
-    'hillsborough': 'HOVER recusa conexão automática', 'brevard': 'exige aceitar termos (formulário)', 'seminole': '403 Cloudflare',
-    'osceola': 'Benchmark recusa conexão automática', 'lake': 'ShowCase com captcha', 'duval': 'CORE com reCAPTCHA', 'pinellas': '403 Cloudflare',
-    'broward': 'reCAPTCHA/Turnstile', 'volusia': 'CCMS exige aceitar termos (formulário)', 'palmbeach': 'eCaseView (endereço mudou; não sondado)',
+    'orange': 'myeClerk com reCAPTCHA', 'polk': 'termos de uso do clerk proíbem acesso automatizado (só manual)', 'lee': 'matrix recusa conexão automática',
+    'hillsborough': 'HOVER barra o navegador como robô (PerimeterX)', 'brevard': 'exige aceitar termos; sem proibição de automação – abrir pelo navegador (não sondado)', 'seminole': 'bloqueio de robô (403)',
+    'osceola': 'Benchmark recusa conexão automática', 'lake': 'ShowCase legível pelo navegador – processo ainda não aberto (não sondado)', 'duval': 'CORE exige cadastro/login', 'pinellas': '403 Cloudflare',
+    'broward': 'reCAPTCHA/Turnstile', 'volusia': 'CCMS legível pelo navegador – processo ainda não aberto (não sondado)', 'palmbeach': 'eCaseView (endereço mudou; não sondado)',
     'miamidade': 'exige cadastro/login', }
+# 20/11: termos e testes por condado em /workspace/auc/statewide/dossie_browser/clerk_terms.json (Polk proíbe automação nos termos; Hillsborough/Seminole barram robô;
+# Duval/Miami-Dade exigem cadastro; Lake/Volusia legíveis pelo navegador). "não sondado" no texto = falta (a rotina ainda abre); o resto = fila "abrir com o Fernando".
 CASES_MANUAL = os.path.join('/workspace/auc', 'statewide', 'cases', 'cases_manual.json')
 FED_RE = re.compile(r'UNITED STATES|SECRETARY OF (HOUSING|VETERANS)|\bHUD\b|SMALL BUSINESS ADMIN|INTERNAL REVENUE|DEPARTMENT OF (HOUSING|VETERANS|THE TREASURY|TREASURY|AGRICULTURE)|\bU\.?S\.?A\b|RURAL (HOUSING|DEVELOPMENT)', re.I)
 HOA_RE = re.compile(r'ASSOCIATION|\bHOA\b|CONDOMINIUM|HOMEOWNERS|COMMUNITY DEVELOPMENT DISTRICT', re.I)
@@ -357,6 +359,107 @@ def load_cases_git():
         extra = sorted(k for k in e if k not in CASES_GIT_KEYS + ('county', 'case'))
         if extra: print(f'cases_open.json: campos ignorados em {nk}: {extra} (só campos sem nome de pessoa)', flush=True)
         out[nk] = {k: e[k] for k in CASES_GIT_KEYS if k in e and e[k] is not None}
+    return out
+
+# PROPOSTA 21 (20/11, Fernando autorizou abrir os processos pelo navegador): leituras do clerk feitas pelo navegador em
+# /workspace/auc/statewide/dossie_browser/batch*.json (fora do git; um item por processo com case, county, source_url, read_at,
+# plaintiff, status, fj_date, fj_amount, loan_type, defendant_types[], bankruptcy, cancel_motion, sale_date_docket, occupancy,
+# surviving_liens_notes). Daqui só saem campos sem nome de pessoa (autor = empresa/órgão) e selos derivados, com fonte e data.
+DOSSIE_DIR = os.path.join(SW, 'dossie_browser')
+_DT = lambda s: (lambda m: f"{m.group(3)}-{int(m.group(1)):02d}-{int(m.group(2)):02d}" if m else None)(re.search(r'(\d{1,2})/(\d{1,2})/(\d{4})', str(s or '')))
+
+def browser_case(x):
+    """item de batch*.json -> campos do processo aberto (sem nomes de pessoas)."""
+    T = lambda k: str(x.get(k) or '')
+    dfs = [str(d) for d in (x.get('defendant_types') or [])]; D = ' | '.join(dfs)
+    allt = re.sub(r'contested then consented', 'consented', ' | '.join([D, T('status'), T('bankruptcy'), T('cancel_motion'), T('occupancy'), T('surviving_liens_notes'), T('loan_type'), T('fj_amount')]), flags=re.I)
+    at = (re.match(r'\d{4}-\d{2}-\d{2}', T('read_at')) or [None])[0]
+    o = dict(opened=at, by='navegador (clerk de ' + T('county') + ')', src=x.get('source_url'), at=T('read_at') or None)
+    m = re.search(r'\$\s*([\d,]+\.\d{2})', T('fj_amount'))
+    if m: o['fjAmount'] = float(m.group(1).replace(',', ''))
+    if _DT(T('fj_date')): o['fjDate'] = _DT(T('fj_date'))
+    pl = re.sub(r'\s*\(.*?\)\s*', ' ', T('plaintiff')).strip()
+    if pl: o['plaintiff'] = pl[:120]      # autor = banco/empresa (nunca pessoa física nos lotes lidos)
+    lt = T('loan_type').lower()
+    if '1st mortgage' in lt: o['firstMtg'] = True
+    elif re.search(r'2nd|second|junior', lt): o['firstMtg'] = False
+    hud = re.search(r'\bHUD\b|Housing and Urban', D, re.I); fedo = re.search(r'\bIRS\b|Internal Revenue|\bSBA\b|Small Business|Veterans|\bVA\b|Rural (Housing|Development)|Treasury', D, re.I)
+    usa = re.search(r'\bUSA\b|United States|\bUS\b on behalf', D, re.I)
+    if hud or fedo or usa:
+        o['fed'] = True; o['fedDays'] = 365 if fedo else 120      # 28 USC 2410(c): 1 ano; 120 dias para crédito da National Housing Act (HUD/FHA)
+        if hud and re.search(r'disclaim', D, re.I): o['fedDisclaimer'] = True
+    if re.search(r'\bHOA\b|Association|Homeowners|Condominium', D, re.I):
+        o['hoa'] = True
+        if re.search(r'(HOA|Association)[^|]*answer', D, re.I): o['hoaAns'] = True
+    if any(re.search(r'City of|Town of|Village of|County Commission|Board of County|code enforcement', d_, re.I) and not re.search(r'clerk', d_, re.I) for d_ in dfs): o['muni'] = True
+    if re.search(r'Dep(artmen)?t\.? of Revenue|\bDOR\b', D, re.I): o['dor'] = True
+    if re.search(r'GoodLeap|solar|Aqua Finance|Dividend Solar|PACE|Ygrene|Renew Financial', D, re.I): o['solar'] = True
+    bk = T('bankruptcy')
+    if re.match(r'\s*yes', bk, re.I):
+        cs = re.findall(r'\d:\d{2}-bk-\d{4,6}', bk)
+        o['bankruptcy'] = [{'case': c, 'date': None} for c in cs] or True
+        o['bkSerial'] = len(cs) >= 3 or bool(re.search(r'serial|repeated|multiple', bk, re.I))
+        o['bkActive'] = bool(re.search(r'no order lifting', bk, re.I))   # só quando o processo mostra suspensão sem ordem de levantamento
+    elif re.search(r'none', bk, re.I): o['bankruptcy'] = False
+    cm, sd = T('cancel_motion'), T('sale_date_docket')
+    if re.match(r'\s*yes', cm, re.I): o['cancelMotion'] = True
+    elif re.search(r'none seen|no motion to cancel|^\s*no\b', cm, re.I): o['cancelMotion'] = False
+    if re.search(r'\bCANCEL+ED\b', sd) or re.search(r'sale[^.;]*cancel+ed', T('status'), re.I):
+        o['saleCancelled'] = True; g = re.search(r'granted\s+(\d{1,2}/\d{1,2}/\d{4})', cm, re.I); o['saleCancelledAt'] = _DT(g.group(1)) if g else None
+    MO = {m: i + 1 for i, m in enumerate(['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'])}
+    ap = re.search(r"appears to be '?([A-Za-z]{3})[a-z]*\.? (\d{1,2}), (\d{4})", sd)
+    hw = re.search(r'handwritten:?\s*([A-Z][a-z]+)\.? (\d{1,2}), (\d{4})', sd)
+    lead = re.match(r'\s*(\d{1,2}/\d{1,2}/\d{4})', sd)
+    if lead and not re.search(r'not legible|illegible|verify|\?', sd, re.I): o['saleDate'] = _DT(lead.group(1))
+    elif hw and hw.group(1)[:3].lower() in MO: o['saleDateQ'] = f"{hw.group(3)}-{MO[hw.group(1)[:3].lower()]:02d}-{int(hw.group(2)):02d}"
+    elif ap and ap.group(1).lower() in MO: o['saleDateQ'] = f"{ap.group(3)}-{MO[ap.group(1).lower()]:02d}-{int(ap.group(2)):02d}"
+    elif re.search(r'on/after|no sooner', sd, re.I) and _DT(sd): o['saleDateQ'] = _DT(sd)
+    if re.search(r'REOPEN', T('status')) and re.search(r'PENDING', T('status')): o['reopen'] = True
+    # ação de associação (condomínio/HOA) sem banco entre os réus: a 1ª hipoteca sobrevive
+    if re.match(r'\s*(HOA|condo)', T('loan_type'), re.I) or re.search(r'FIRST MORTGAGE[^.]*SURVIVES', T('surviving_liens_notes')):
+        o['survMtg'] = True; o['firstMtg'] = False
+    if re.search(r'deceased|suggestion of death|estate|personal representative', D + ' ' + T('surviving_liens_notes'), re.I): o['heirs'] = True
+    pp = re.search(r'prepayment penalty\s*\$?\s*([\d,]+\.\d{2})', T('fj_amount'), re.I)
+    if pp: o['prepay'] = float(pp.group(1).replace(',', ''))
+    if re.search(r'forgery', allt, re.I): o['forgery'] = True
+    if re.search(r'counterclaim|contested|motion to strike|appeal', allt, re.I): o['contested'] = True
+    if re.search(r'HECM|reverse mortgage', T('loan_type'), re.I): o['reverse'] = True
+    oc = T('occupancy').lower()
+    o['occ'] = ('ocupado (inquilino no processo)' if re.search(r'occupied by tenant|tenant filed', oc) else
+                'possivelmente vago (cartas devolvidas)' if 'vacant' in oc else
+                'provável dono/herdeiro no imóvel' if re.search(r'owner-occupant|borrower-occupied|family occupant', oc) else
+                'possível inquilino' if re.search(r'occupancy possible|in possession apparently|not dropped', oc) else 'desconhecida')
+    o['docs'] = ', '.join(str(d).split(' saved')[0] for d in (x.get('docs_seen') or []))[:160] or None
+    return {k: v for k, v in o.items() if v is not None}
+
+def load_cases_browser():
+    """-> {case_norm: campos} de todos os dossie_browser/batch*.json (+ caso-teste do clerk_terms.json). Leitura mais recente vence."""
+    import glob as _g
+    rows = []
+    for f in sorted(_g.glob(os.path.join(DOSSIE_DIR, 'batch*.json'))):
+        try: rows += [x for x in json.load(open(f)) if isinstance(x, dict)]
+        except Exception as e: print('dossie_browser: falhou', f, e, flush=True)
+    try:
+        for t in json.load(open(os.path.join(DOSSIE_DIR, 'clerk_terms.json'))):
+            tc = t.get('test_case_result')
+            if not isinstance(tc, dict) or not tc.get('case'): continue
+            fjt = str(tc.get('final_judgment') or '')
+            rows.append(dict(case=tc['case'], county=t['county'], source_url=t.get('search_url'), read_at='2026-11-20 (teste de termos)',
+                             plaintiff=tc.get('plaintiff'), status=tc.get('status'), fj_date=fjt, fj_amount=fjt if '$' in fjt else None,
+                             loan_type=tc.get('loan_type'), defendant_types=tc.get('defendant_types'), bankruptcy=tc.get('bankruptcy'),
+                             cancel_motion=tc.get('motion_cancel_reschedule'), sale_date_docket=tc.get('status'), occupancy=tc.get('occupancy'),
+                             docs_seen=[tc.get('docs_seen')], _test=1))
+    except Exception: pass
+    out = {}
+    for x in rows:
+        if x.get('blocked_reason') and not (x.get('fj_amount') or x.get('status')): continue
+        nk = case_norm(str(x.get('county', '')).strip().lower().replace(' ', '').replace('-', ''), x.get('case'))
+        if not nk: continue
+        c = browser_case(x)
+        if not c.get('opened'): continue
+        if nk in out and (out[nk].get('at') or '') > (c.get('at') or '') and not x.get('_test'): continue
+        if nk in out and x.get('_test'): continue
+        out[nk] = c
     return out
 
 def load_results():
@@ -708,6 +811,11 @@ def build_items(args):
     try: import bankbid_log; BBH = bankbid_log.update()
     except Exception as ex: print('bankbid_log falhou:', ex, flush=True); BBH = {}
     casesM = load_cases_manual()
+    try: CB_ = load_cases_browser()
+    except Exception as ex: print('dossie_browser falhou:', ex, flush=True); CB_ = {}
+    for k_, v_ in CB_.items():                        # navegador (fora do git) por cima do manual; o git (abaixo) ainda vence
+        m_ = dict(casesM.get(k_) or {}); m_.update(v_); casesM[k_] = m_
+    print(f'dossie_browser: {len(CB_)} processos abertos pelo navegador', flush=True)
     for k_, v_ in load_cases_git().items():          # git (sem nomes) por cima do manual de fora do git, campo a campo
         m_ = dict(casesM.get(k_) or {}); m_.update(v_)
         if m_.get('firstMortgage') is not None and m_.get('firstMtg') is None: m_['firstMtg'] = m_['firstMortgage']

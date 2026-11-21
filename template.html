@@ -1034,7 +1034,30 @@ function scTip(r){ if(r.sc==null) return r.scKind||''; const sp=r.sp||{}; const 
 const TLOCK_FL=['jr','mtg','surv','code'];
 // PROPOSTA 12 (16/11, aprovada): processo de VARA DO CONDADO (nº com CC, CONO ou COCE) = ação de associação/condomínio → a 1ª hipoteca sobrevive
 const isCC = r => r.t==='FC' && !!r.case && /(^|[\d\s\-])CC([\d\s\-]|[A-Z]*$)|^CO(NO|CE)[\s\-]/.test(String(r.case).toUpperCase());
-function titleLock(r){ if(r.tok) return null; const f=isLand(r)?[]:TLOCK_FL.filter(k=>r.fl.includes(k)).map(k=>FL[k]?FL[k].l:k); if(r.hoaPl&&!isLand(r)) f.push('autor é associação (HOA)'); if(isCC(r)) f.push('vara do condado (ação de associação – 1ª hipoteca sobrevive)'); if(r.cf&&r.cf.opened&&r.cf.firstMtg===false) f.push('processo: hipoteca executada não é a 1ª'); return f.length?f:null; }
+// PROPOSTA 21 (20/11): selos do processo aberto pelo navegador (dossie_browser) – fatos do processo, com fonte e data
+function cfSeals(r){ const c=r.cf; if(!c||!c.opened) return []; const S=[], d=x=>x?String(x).slice(8,10)+'/'+String(x).slice(5,7):'?';
+ if(c.saleCancelled) S.push(['red','leilão cancelado no processo','Pedido de cancelamento deferido'+(c.saleCancelledAt?' em '+d(c.saleCancelledAt):'')+' – o leilão de '+d(c.saleDate||r.date)+' não acontece']);
+ if(c.bkActive) S.push(['red','falência ativa','Falência de devedor com suspensão (stay) sem ordem de levantamento vista no processo: venda durante a suspensão é nula – conferir no PACER antes do lance']);
+ if(c.bkSerial) S.push(['red','falência em série','Devedor com '+(Array.isArray(c.bankruptcy)?c.bankruptcy.length:'várias')+' falências seguidas: o leilão pode cair de novo e a venda pode ser anulada se houver nova falência antes']);
+ if(c.fed) S.push(['red',(c.fedDays===120?'120 dias':'1 ano')+' de resgate federal','Réu federal (EUA/HUD/IRS/SBA) no processo: 28 USC 2410(c) – os EUA podem resgatar o imóvel '+(c.fedDays===120?'por 120 dias (crédito HUD/FHA)':'por 1 ano')+' depois da venda'+(c.fedDisclaimer?' (HUD apresentou renúncia de interesse – conferir)':'')]);
+ if(c.heirs) S.push(['red','devedor falecido – herdeiros','Devedor falecido/espólio/herdeiros no processo: risco de título (citação de herdeiros, contestação depois da venda)']);
+ if(c.forgery) S.push(['red','alegação de falsificação','Réu apresentou declaração de falsificação no processo: risco de anulação/litígio']);
+ if(c.contested&&!c.forgery) S.push(['amb','processo contestado','Processo com contestação/reconvenção/recurso: risco de anulação ou atraso']);
+ else if(c.contested) S.push(['red','reconvenção pendente','Reconvenção/contestação ainda pendente no processo']);
+ if(c.reverse) S.push(['amb','possível hipoteca reversa (HECM)','Hipoteca reversa segurada pelo HUD: julgamento inclui MIP e juros acumulados; ocupante costuma ser dono/herdeiro']);
+ if(c.prepay) S.push(['amb','multa de pré-pagamento '+money(c.prepay)+' no julgamento','O julgamento inclui multa de pré-pagamento de '+money(c.prepay)+': infla o julgamento (o banco pode dar lance alto com crédito)']);
+ if(c.muni) S.push(['amb','lien municipal','Município (cidade/condado) é réu: possível lien de código/utilidades – conferir se sobrevive (s. 45.0315)']);
+ if(c.hoaAns) S.push(['amb','associação contestou','Associação (HOA) contestou o processo: conferir prioridade e cotas atrasadas que sobrevivem (720.3085/718.116)']);
+ if(c.solar) S.push(['amb','financiamento solar/obra no processo','Credor de energia solar/obra (GoodLeap/Aqua/PACE) citado: conferir se o lien foi extinto ou se é PACE (sobrevive)']);
+ if(c.survMtg) S.push(['red','hipoteca sobrevive','Execução da associação (condomínio/HOA) sem banco entre os réus: a 1ª hipoteca do imóvel provavelmente SOBREVIVE e fica com o arrematante – conferir título/hipoteca antes do lance']);
+ else if(c.firstMtg===false) S.push(['red','hipoteca executada não é a 1ª','A hipoteca executada não é a 1ª: a 1ª sobrevive']);
+ if(c.reopen) S.push(['amb','processo reaberto','Processo reaberto depois do julgamento (pedido pendente): o leilão pode ser suspenso ou cancelado']);
+ if(c.saleDate&&r.date&&c.saleDate!==r.date&&!c.saleCancelled) S.push(['amb','data no processo '+d(c.saleDate),'Data do leilão no processo ('+d(c.saleDate)+') diferente da lista ('+d(r.date)+')']);
+ if(c.occ&&c.occ!=='desconhecida') S.push(['blu','ocupação: '+c.occ,'Ocupação segundo o processo: '+c.occ]);
+ return S; }
+function titleLock(r){ if(r.tok) return null; const f=isLand(r)?[]:TLOCK_FL.filter(k=>r.fl.includes(k)).map(k=>FL[k]?FL[k].l:k); if(r.hoaPl&&!isLand(r)) f.push('autor é associação (HOA)'); if(isCC(r)) f.push('vara do condado (ação de associação – 1ª hipoteca sobrevive)'); if(r.cf&&r.cf.opened&&r.cf.firstMtg===false) f.push(r.cf.survMtg?'processo: ação da associação – 1ª hipoteca sobrevive':'processo: hipoteca executada não é a 1ª');
+ if(r.cf&&r.cf.opened){ const c=r.cf; if(c.heirs) f.push('processo: devedor falecido/herdeiros'); if(c.forgery) f.push('processo: alegação de falsificação'); else if(c.contested) f.push('processo contestado'); if(c.bkActive) f.push('processo: falência ativa'); else if(c.bkSerial) f.push('processo: falência em série'); }
+ return f.length?f:null; }
 // PROPOSTA 18 (Fernando, 17/11 – aprovada): casa (não lote) construída antes de 2000 → PASSAR "regra do Fernando", nunca FLIP
 const RES_TY=['Casa','Townhouse','Condo','Mobile','Multifamily'];
 const pre2000 = r=> RES_TY.includes(r.ty) && r.yr>1800 && r.yr<2000;
@@ -1051,6 +1074,7 @@ function verdict(r){ let V=verdict0(r);
  if((V.vd==='FLIP'||V.vd==='CONSIDERAR') && r.t==='FC' && !(r.cf&&r.cf.opened)){ const tl=titleLock(r); return {vd:'PROCESSO', why:'processo não aberto'+(r.cfWhy?' ('+r.cfWhy+')':'')+': o veredito seria '+VDL[V.vd]+(tl?' e ainda tem trava de título ('+tl.join(', ')+')':'')+' – '+V.why+'. Abrir o processo no clerk: autor/advogado, réus (EUA/HUD/VA/SBA = resgate federal de 1 ano; HOA; outros credores), data e valor do Final Judgment, falência, remarcações, e se a hipoteca executada é a 1ª', sub:'seria '+VDL[V.vd]+(tl?' · + título':''), was:V.vd, cfLock:1}; }
  if(V.vd==='FLIP'||V.vd==='CONSIDERAR'){ const tl=titleLock(r); if(tl) return {vd:'TITULO', why:'trava de título ('+tl.join(', ')+'): o veredito seria '+VDL[V.vd]+' – '+V.why+'. Conferir título/registro e marcar titleOk no valuations_manual.json', sub:'seria '+VDL[V.vd], was:V.vd}; } return V; }
 function verdict0(r){
+ if(r.cf && r.cf.opened && r.cf.saleCancelled) return {vd:'PASSAR', why:'leilão cancelado no processo'+(r.cf.saleCancelledAt?' (pedido deferido em '+r.cf.saleCancelledAt.slice(8,10)+'/'+r.cf.saleCancelledAt.slice(5,7)+')':'')+' – fonte: '+(r.cf.by||'processo')+' '+(r.cf.at||''), man:1, cancel:1};   // PROPOSTA 21 (20/11)
  if(r.cf && r.cf.opened && r.cf.rejected) return {vd:'PASSAR', why:'descartada pelo Fernando depois de aberto o processo', man:1};   // PROPOSTA 13
  if(r.man && r.man.pass) return {vd:'PASSAR', why:'avaliação manual: passar ('+(r.man.notes||'')+')', man:1};
  if(r.geo&&r.geo.poly!==false){ const wm=PR.wetMax??10, fm=PR.floodMat??10;
@@ -1567,6 +1591,7 @@ function val3Html(r){ if(isLand(r)) return ''; const z=r.zw, n=r.ns, mis=valMis(
  return h+'</div>'; }
 function badges(r){
  const b=[lcBadge(r), dosBadge(r)];   // PROPOSTA 21
+ cfSeals(r).forEach(x=>b.push('<span class="bdg '+x[0]+'" title="'+esc(x[2]+(r.cf.at?' · processo lido em '+r.cf.at:''))+'">'+esc(x[1])+'</span>'));
  if(r.repHi) b.push('<span class="bdg amb" title="'+esc(r.repw||'')+'">obra em faixa '+money(r.rep)+' – '+money(r.repHi)+'</span>');
  if(valMis(r)) b.push('<span class="bdg amb" title="'+esc(valMis(r))+'">⚠ valores não batem</span>');
  if(r.arvSrc==='fraca') b.push('<span class="bdg amb" title="Sem Zillow e sem 3 vendas vizinhas de 12 meses – nunca FLIP">estimativa fraca</span>');
@@ -1715,8 +1740,9 @@ function cfHtml(r){ if(r.t!=='FC') return ''; const c=r.cf, P=r.cfP;
  let x='<div class="survbox" id="cfbox" style="border-color:#38bdf8"><b>Processo '+esc(r.case||'')+'</b> ';
  if(c&&c.opened){ const L=(k,v)=>v?'<div><span class="mini">'+k+'</span> '+v+'</div>':'';
   if(c.rejected) x+='<div class="c-red"><b>Descartada pelo Fernando</b> (processo aberto)</div>';
-  x+='<span class="mini c-green">aberto em '+esc(c.opened)+(c.by?' por '+esc(c.by):'')+'</span>'+L('Autor / advogado',esc((c.plaintiff||'—')+' / '+(c.attorney||'—')))+L('Réus',esc((c.defendants||[]).join('; ')))+
-   (c.fed?'<div class="c-red"><b>Réu federal (EUA/HUD/VA/SBA): resgate de 1 ano</b></div>':'')+(c.hoa?'<div class="c-amber">Associação (HOA) entre os réus</div>':'')+L('Outros credores',esc((c.creditors||[]).join('; ')))+
+  x+='<span class="mini c-green">aberto em '+esc(c.opened)+(c.by?' por '+esc(c.by):'')+(c.at?' · lido '+esc(c.at):'')+(c.src?' · <a href="'+esc(c.src)+'" target="_blank" rel="noopener">fonte</a>':'')+'</span>'+L('Autor / advogado',esc((c.plaintiff||'—')+' / '+(c.attorney||'—')))+L('Réus',esc((c.defendants||[]).join('; ')))+
+   (cfSeals(r).length?'<div>'+cfSeals(r).map(z=>'<span class="bdg '+z[0]+'" title="'+esc(z[2])+'">'+esc(z[1])+'</span>').join(' ')+'</div>':'')+L('Data do leilão no processo',c.saleDate?dmy(c.saleDate):c.saleDateQ?dmy(c.saleDateQ)+' (manuscrito – conferir)':'')+L('Documentos lidos',esc(c.docs||''))+
+   (c.fed?'<div class="c-red"><b>Réu federal (EUA/HUD/VA/SBA): resgate de '+(c.fedDays===120?'120 dias (HUD/FHA)':'1 ano')+'</b></div>':'')+(c.hoa?'<div class="c-amber">Associação (HOA) entre os réus</div>':'')+L('Outros credores',esc((c.creditors||[]).join('; ')))+
    L('Final Judgment',(c.fjDate?esc(c.fjDate)+' · ':'')+(c.fjAmount?money(+c.fjAmount)+' (oficial)':''))+L('Falência',Array.isArray(c.bankruptcy)?esc(c.bankruptcy.map(b=>typeof b==='object'?(b.case||'')+' '+(b.date||''):String(b)).join('; ')):c.bankruptcy===true?'<b class="c-red">sim</b>':c.bankruptcy===false?'não':'')+L('Remarcações',esc((c.resched||[]).join('; ')))+
    (c.cancelMotion?'<div class="c-amber">Pedido de cancelamento no processo</div>':'')+L('Hipoteca executada é a 1ª?',c.firstMtg===true?'sim':c.firstMtg===false?'<b class="c-red">não</b>':'?')+L('Notas',esc(c.notes||''));
  } else {
@@ -1739,7 +1765,7 @@ function dossier(r){ if(r._dos) return r._dos; const cs=r.cs||'', CB=(M.clerkBlo
  const ok=(k,src,d)=>S[k]={st:'ok',src:src,d:d||null}, falta=(k,why)=>S[k]={st:'falta',why:why}, bloq=(k,why,link)=>S[k]={st:'bloq',why:why,link:link||(r.links&&r.links.auc)||null};
  const ra=r.links&&r.links.auc&&/realforeclose|realtaxdeed/.test(r.links.auc);
  if(ra&&r.case&&(r.ref!=null||r.pmax||r.pmaxH)) ok('RealAuction','lista pública do RealAuction: processo '+r.case+(r.t==='FC'?', julgamento, lance do autor':', lance inicial')+(r.bhn?', '+r.bhn+' leituras':''),r.bhl||r.scan); else falta('RealAuction',ra?'lista sem processo/valor':'item fora do RealAuction ('+(r.plat||'outra fonte')+')');
- if(r.t==='FC'){ if(r.cf&&r.cf.opened) ok('Processo no clerk','processo aberto'+(r.cf.by?' por '+r.cf.by:'')+' (cases_open / cases_manual)',r.cf.opened);
+ if(r.t==='FC'){ if(r.cf&&r.cf.opened) ok('Processo no clerk','processo aberto'+(r.cf.by?' por '+r.cf.by:'')+(r.cf.src?'':' (cases_open / cases_manual)'),r.cf.at||r.cf.opened);
    else if(CB[cs]&&!/não sondado/.test(CB[cs])) bloq('Processo no clerk','clerk: '+CB[cs],CLERK_LINK[cs]); else if(CB[cs]) falta('Processo no clerk','clerk: '+CB[cs]); else falta('Processo no clerk','clerk não sondado/automatizado'); }
  else if(r.t==='TD'){ if(['citrus','hernando'].includes(cs)) ok('Processo no clerk','status do tax deed no clerk (TaxSmart)',r.scan); else falta('Processo no clerk','status no clerk não automatizado (vale o status do RealAuction)'); }
  else falta('Processo no clerk','sem processo');
@@ -1756,7 +1782,7 @@ function dossier(r){ if(r._dos) return r._dos; const cs=r.cs||'', CB=(M.clerkBlo
  const ds=DOS_SRC.map(k=>S[k].d).filter(Boolean).map(String).sort(); return r._dos={S:S,n:n,m:DOS_SRC.length,miss:miss,bl:bl,last:ds.length?ds[ds.length-1].slice(0,10):null}; }
 function dosBadge(r){ const D=dossier(r); return '<span class="bdg'+(D.n===D.m?' grn':D.bl.length?' amb':'')+'" title="'+esc('Falta: '+(D.miss.map(k=>k+(D.S[k].st==='bloq'?' (abrir com o Fernando)':'')).join(', ')||'nada'))+'">dossiê conferido'+(D.last?' '+dmy(D.last):'')+' – '+D.n+' de '+D.m+' fontes</span>'; }
 function dosHtml(r){ const D=dossier(r);
- return '<div class="survbox" id="dosbox" style="border-color:#94a3b8"><b>Dossiê</b> <span class="mini">('+D.n+' de '+D.m+' fontes – PROPOSTA 21; captcha/robô nunca é contornado)</span><div class="tblwrap"><table class="itbl"><tbody>'+
+ return '<div class="survbox" id="dosbox" style="border-color:#94a3b8"><b>Dossiê</b> <span class="mini">('+D.n+' de '+D.m+' fontes – PROPOSTA 21; site que proíbe automação, barra robô ou exige cadastro → abrir com o Fernando)</span><div class="tblwrap"><table class="itbl"><tbody>'+
   DOS_SRC.map(k=>{ const s=D.S[k]; return '<tr><td>'+k+'</td><td class="'+(s.st==='ok'?'c-green':s.st==='bloq'?'c-amber':'c-mut')+'">'+(s.st==='ok'?'✓ '+esc(s.src)+(s.d?' <span class="mini">('+esc(String(s.d).slice(0,10))+')</span>':''):s.st==='bloq'?'abrir com o Fernando – '+esc(s.why)+(s.link?' · <a href="'+esc(s.link)+'" target="_blank" rel="noopener">abrir</a>':''):'falta – '+esc(s.why))+'</td></tr>'; }).join('')+'</tbody></table></div></div>'; }
 // fila "abrir com o Fernando": itens com fonte bloqueada (captcha/robô/proibido), na ordem da P21
 function dosPri(r){ const T=Date.parse(TODAY_ET), dd=r.date?(Date.parse(r.date)-T)/864e5:999, house=PZ_TY.includes(r.ty), fema=!!(r.geo&&r.geo.poly&&(r.geo.sfhaPct||0)>=10)||/^(A|AE|AH|AO|V|VE)$/.test(r.fz||'');
@@ -1769,7 +1795,7 @@ function dosQHtml(){ const Q=dosQueue(); if(!Q.length) return '';
 // 17/11 (Fernando t327u): coluna própria "Dívida / julgamento" na Decisão – só exibição, conta inalterada
 function debtCell(r){
  if(r.t==='FC'){
-  if(r.ref){ const c=fjCap(r); return '<b>'+money(r.ref)+'</b><div class="mini">julgamento oficial</div>'+(c&&c.i>0?'<div class="mini">+ juros até o leilão: '+money(c.v)+'</div>':'')+(r.mp?'<div class="mini" title="'+esc(mpTxt(r))+'">processo com '+r.mp.n+' imóveis (total '+money(r.mp.tot)+')</div>':''); }
+  if(r.ref){ const c=fjCap(r), pc=r.cf&&r.cf.opened&&r.cf.fjAmount; return '<b>'+money(r.ref)+'</b><div class="mini">julgamento oficial'+(pc?' (Final Judgment no processo'+(r.cf.fjDate?' de '+dmy(r.cf.fjDate):'')+')':'')+'</div>'+(r.cf&&r.cf.prepay?'<div class="mini c-amber">inclui multa de pré-pagamento '+money(r.cf.prepay)+'</div>':'')+(c&&c.i>0?'<div class="mini">+ juros até o leilão: '+money(c.v)+'</div>':'')+(r.mp?'<div class="mini" title="'+esc(mpTxt(r))+'">processo com '+r.mp.n+' imóveis (total '+money(r.mp.tot)+')</div>':''); }
   if(r.fjPO) return '<span class="c-mut">'+money(r.fjPO)+'</span><div class="mini c-mut">julgamento estimado (PropertyOnion) – não é oficial</div>';
   return '<span class="c-mut">sem julgamento publicado</span>';
  }
@@ -2613,7 +2639,7 @@ if(DL && DL.explicit){ S.cat=''; S.kat=''; }
 if(DL && DL.r){ if(DL.explicit) apply(true); openDrawer(DL.r.id); }
 else if(DL && DL.explicit) setTimeout(()=>toast('Imóvel “'+DL.asked+'” não encontrado (leilão já passou ou foi removido)'),300);
 termify(document.body);
-window.__dash={dossier, dosQueue, dosPri, dosBadge, pre2000, zwHigh, bankRef, isAucDay, bankToday, apply, ITEMS, thumb, debtCell, valMis, pzQueue, nsTo, M, plHtml, cfHtml, badges, bankCell, fjCap, plLine, jInt, titleCell, renderDec, salaPrice, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, redfinUrl, redfinFind, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
+window.__dash={cfSeals, titleLock, dossier, dosQueue, dosPri, dosBadge, pre2000, zwHigh, bankRef, isAucDay, bankToday, apply, ITEMS, thumb, debtCell, valMis, pzQueue, nsTo, M, plHtml, cfHtml, badges, bankCell, fjCap, plLine, jInt, titleCell, renderDec, salaPrice, get CUR(){return CUR;}, setView, get PR(){return PR;}, PDEF, applyPrem, pnl, bidAt, base, openDrawer, closeDrawer, zillowUrl, realtorUrl, redfinUrl, redfinFind, gmapsUrl, S, readF, FL, get view(){return view;}, CAND, candAdd, candRem, candToggle, renderCand, getCAND:()=>CAND};
 })();
 </script>
 </body>

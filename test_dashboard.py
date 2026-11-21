@@ -77,7 +77,7 @@ with sync_playwright() as p:
         if(r.vd==='FLIP'||r.vd==='CONSIDERAR') return !(room && !over && !(r.xbid>r.mb+1) && (r.vd==='FLIP'?r.roi>=0.25&&r.arvSrc!=='fraca'&&!(r.repHi&&r.roiHi<0.25)&&!window.__dash.zwHigh(r):(r.roi<0.25||r.arvSrc==='fraca'||(r.repHi&&r.roiHi<0.25)||!!window.__dash.zwHigh(r))));   // PROPOSTA 19
         if(r.vd==='TITULO') return !(room && !over && !(r.xbid>r.mb+1) && (r.vdWas==='FLIP'?r.roi>=0.25:(r.roi<0.25||r.arvSrc==='fraca'||(r.repHi&&r.roiHi<0.25)||!!window.__dash.zwHigh(r))));   // PROPOSTA 8 (+ PROPOSTA 11: obra em faixa): mesma regra, travado por título
         if(r.vd==='PROCESSO') return !(r.t==='FC' && !(r.cf&&r.cf.opened) && room && !over && !(r.xbid>r.mb+1) && (r.vdWas==='FLIP'?r.roi>=0.25:true));   // Fernando t318u: processo não aberto
-        if(r.vd==='PASSAR') return !( !room || (r.t!=='FC' && over) || /^lote barato/.test(r.vdWhy||'') || /descartada pelo Fernando/.test(r.vdWhy||'') || /^regra do Fernando: casa construída/.test(r.vdWhy||'') );   // PROPOSTA 18   // PROPOSTA 13: processo descartado
+        if(r.vd==='PASSAR') return !( !room || (r.t!=='FC' && over) || /^lote barato/.test(r.vdWhy||'') || /descartada pelo Fernando/.test(r.vdWhy||'') || /^regra do Fernando: casa construída/.test(r.vdWhy||'') || /^leilão cancelado no processo/.test(r.vdWhy||'') );   // PROPOSTA 18 · P21: leilão cancelado no processo   // PROPOSTA 13: processo descartado
         if(r.vd==='DISPUTADO') return !( room && ((r.t==='FC' && over) || (r.t==='FC' && r.ref==null && window.__dash.isAucDay(r) && r.fjPO>r.mb+1) || r.xbid>r.mb+1 || (r.sala&&r.sala.comps3&&r.sala.v>r.mb+1)) );
         return true; }).map(r=>r.addr+' '+r.vd).slice(0,5)''')
     p18 = pg.evaluate(D + ".ITEMS.filter(r=>window.__dash.pre2000(r)&&r.vd!=='PASSAR').map(r=>r.addr+' '+r.vd).slice(0,5)")
@@ -89,7 +89,7 @@ with sync_playwright() as p:
       const q=d.dosQueue(); return {n:I.length, all:Ds.every(x=>x.m===8&&x.n>=0&&x.n<=8), gaps:fc.length, q:q.length, ord:q.every((r,i)=>i===0||d.dosPri(q[i-1])<=d.dosPri(r)), badge:/dossiê conferido/.test(d.dosBadge(I[0]))};})()""")
     check(p21['all'] and p21['gaps'] == 0 and p21['ord'] and p21['badge'], f'PROPOSTA 21: dossiê N de 8 em todo item, FLIP/CONSIDERAR com o que falta escrito, fila abrir com o Fernando ordenada {p21}')
     check(not bad, f'veredito por espaço de lance: SEM ESPAÇO / DISPUTADO / FLIP ≥ 25% / CONSIDERAR {bad}')
-    check(pg.evaluate(D + '.ITEMS.filter(r=>r.t==="FC"&&r.vd==="PASSAR"&&!window.__dash.pre2000(r)&&r.mb>0&&r.ref>r.mb+1&&!(r.geo&&r.geo.poly!==false&&((r.geo.wetPct||0)>=10||(r.geo.sfhaPct||0)>=10))).length') == 0, 'foreclosure com julgamento acima do lance máx. é DISPUTADO, não SEM ESPAÇO')
+    check(pg.evaluate(D + '.ITEMS.filter(r=>r.t==="FC"&&r.vd==="PASSAR"&&!window.__dash.pre2000(r)&&!(r.cf&&r.cf.saleCancelled)&&r.mb>0&&r.ref>r.mb+1&&!(r.geo&&r.geo.poly!==false&&((r.geo.wetPct||0)>=10||(r.geo.sfhaPct||0)>=10))).length') == 0, 'foreclosure com julgamento acima do lance máx. é DISPUTADO, não SEM ESPAÇO')
     kats = pg.evaluate(D + '.ITEMS.map(r=>r.kat).join()'); check('NO ROOM' in kats and 'CONTESTED' in kats, 'categorias “NO ROOM” e “CONTESTED”')
     check(pg.evaluate(D + '.ITEMS.filter(r=>r.fl.includes("mtg")&&r.roi!=null&&r.mb>0&&!(r.ref>r.mb)&&!(r.xbid>r.mb+1)).every(r=>r.vd!=="PASSAR")'), 'hipoteca que sobrevive não é PASSAR automático')
     check(pg.evaluate(D + '.ITEMS.filter(r=>r.survOrig).every(r=>(r.survAmt||0)<=r.survOrig)'), 'dívida que sobrevive = saldo estimado (≤ valor original)')
@@ -545,7 +545,7 @@ with sync_playwright() as p:
       const both=H.every(r=>{const c=d.bankCell(r); return /lance oculto — conferir no dia/.test(c)&&/faixa: ~US\\$ 100 \\(sem disputa\\)/.test(c);});
       const w=H.find(r=>r.pk&&d.M.plh&&d.M.plh[r.pk]&&d.M.plh[r.pk].released>0); let t='';
       if(w){ d.openDrawer(w.id); t=(document.querySelector('#plh')||{}).textContent||''; d.closeDrawer(); }
-      const below=I.filter(r=>r.t==='FC'&&r.ref!=null&&r.mb>0&&r.ref>r.mb+1&&r.vd==='PASSAR'&&!d.pre2000(r)&&!(r.geo&&r.geo.poly!==false&&((r.geo.wetPct||0)>=10||(r.geo.sfhaPct||0)>=10))).length;
+      const below=I.filter(r=>r.t==='FC'&&r.ref!=null&&r.mb>0&&r.ref>r.mb+1&&r.vd==='PASSAR'&&!d.pre2000(r)&&!(r.cf&&r.cf.saleCancelled)&&!(r.geo&&r.geo.poly!==false&&((r.geo.wetPct||0)>=10||(r.geo.sfhaPct||0)>=10))).length;
       return {n:H.length, both, drawer:/banco ficou/.test(t)&&/soltou para terceiro/.test(t)&&/preço ÷ julgamento/.test(t)&&/preço ÷ valor do condado/.test(t)&&/não<\\/b> descarta|não descarta/.test(t.replace(/\\s+/g,' ')), below, band:/57\\s*[–-]\\s*94\\s*%/.test(document.body.innerText+t)};})()""")
     check(p6['n'] > 50 and p6['both'] and p6['drawer'] and p6['below'] == 0 and not p6['band'], f'lance oculto: 2 pontas + selo "conferir no dia" + histórico do autor (ficou/soltou, % julgamento e % condado); máx. < julgamento não descarta {p6}')
     # Fernando t318u (16/11): processo do foreclosure – sem processo aberto nunca FLIP/CONSIDER (CONFERIR PROCESSO), clerks com captcha não contornados
@@ -589,6 +589,13 @@ with sync_playwright() as p:
     co = pg.evaluate("""(()=>{const I=window.__dash.ITEMS; const P=I.find(r=>/1760 Portofino Meadows/i.test(r.addr)), C=I.find(r=>/14421 CONGRESS ST/i.test(r.addr)), R=I.find(r=>r.id==='FC1528998');
       return {p:!P||(P.cf&&P.cf.opened&&P.tok&&P.vd!=='PROCESSO'&&P.vd!=='TITULO'), c:!C||(C.vd==='PASSAR'&&/descartada/.test(C.vdWhy)), r:!R||(R.cf&&R.cf.opened&&R.fjd==='2026-09-30'&&R.ref>700000), pv:P&&P.vd, cv:C&&C.vd};})()""")
     check(co['p'] and co['c'] and co['r'], f'processo aberto no git (cases_open.json): Portofino destravada, Congress descartada, Roosevelt aberto {co}')
+    # PROPOSTA 21 (20/11): processos abertos pelo navegador (dossie_browser/batch*.json, fora do git)
+    db_ = pg.evaluate("""(()=>{const D=window.__dash, I=D.ITEMS; const B=I.filter(r=>r.cf&&r.cf.opened&&/navegador/.test(r.cf.by||''));
+      const T=I.find(r=>/39227 Treeline/i.test(r.addr)), K=I.find(r=>/3733 Cardinal/i.test(r.addr));
+      return {n:B.length, proc:B.filter(r=>r.vd==='PROCESSO').length, dos:B.every(r=>D.dossier(r).S['Processo no clerk'].st==='ok'),
+        fj:B.filter(r=>r.cf.fjAmount).every(r=>Math.abs(r.ref-r.cf.fjAmount)<1), t:!T||(T.vd==='PASSAR'&&/cancelado/.test(T.vdWhy)),
+        k:!K||(D.titleLock(K)||[]).some(x=>/sobrevive/.test(x)), seals:B.every(r=>Array.isArray(D.cfSeals(r)))};})()""")
+    check(db_['n'] > 0 and db_['proc'] == 0 and db_['dos'] and db_['fj'] and db_['t'] and db_['k'] and db_['seals'], f'processo aberto pelo navegador: sai do CONFERIR PROCESSO, conta a fonte, julgamento oficial, Treeline cancelada, Cardinal hipoteca sobrevive {db_}')
     # PROPOSTA 14 (16/11, aprovada): "vendas até mm/aa" na Decisão + fila "pedir Zillow" (leilão em até 7 dias sem Zillow)
     pz = pg.evaluate("""(()=>{const d=window.__dash; d.setView('dec'); const Q=d.pzQueue(); const T=Date.parse(new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'}));
       const ok=Q.every(r=>!(r.zw&&r.zw.v)&&(Date.parse(r.date)-T)/864e5<=7.5&&(Date.parse(r.date)-T)/864e5>=0.5&&['FLIP','CONSIDERAR','PROCESSO','TITULO'].includes(r.vd));
