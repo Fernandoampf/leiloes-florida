@@ -1054,6 +1054,11 @@ function cfSeals(r){ const c=r.cf; if(!c||!c.opened) return []; const S=[], d=x=
  if(c.cancelRisk&&!c.bkActive&&!c.bkSerial) S.push(['red','risco alto de cancelamento','Falência do devedor e/ou remarcações repetidas no processo: o leilão pode cair de novo']);
  if(c.fjPartial) S.push(['amb','julgamento parcial ≥ '+money(c.fjPartial),'Valor do Final Judgment lido só em parte (página 1, soma de linhas ou comentário do docket): é no mínimo '+money(c.fjPartial)+' – conferir o total no documento. Não substitui o julgamento oficial da lista']);
  if(c.fjOld) S.push(['amb','julgamento de '+c.fjOld,'Final Judgment de '+c.fjOld+': o valor não inclui os juros desde então']);
+ if(c.fedDisclaimer&&!c.fed) S.push(['blu','governo renunciou (exceto sobra)','EUA/HUD apresentou renúncia de interesse no imóvel, exceto quanto à sobra do leilão: sem prazo de resgate federal']);
+ if(c.cancelPending) S.push(['red','pedido de cancelamento pendente','Pedido para cancelar o leilão ainda sem decisão no processo']);
+ if(c.fjMulti) S.push(['amb','vários julgamentos no processo','Mais de um Final Judgment (emendas): o valor lido pode não ser o vigente – conferir']);
+ if(c.fjDiff) S.push(['amb','FJ do processo '+money(c.fjDiff[0])+' ≠ lista','O Final Judgment lido no processo ('+money(c.fjDiff[0])+') difere do julgamento publicado pelo RealAuction ('+money(c.fjDiff[1])+'): vale o número oficial da lista – conferir']);
+ if(c.tenantRights) S.push(['amb','inquilino com direitos','Inquilino no imóvel com direitos preservados (PTFA – aviso de 90 dias/contrato) ou aluguel depositado em juízo']);
  if(c.reopen) S.push(['amb','processo reaberto','Processo reaberto depois do julgamento (pedido pendente): o leilão pode ser suspenso ou cancelado']);
  if(c.saleDate&&r.date&&c.saleDate!==r.date&&!c.saleCancelled) S.push(['amb','data no processo '+d(c.saleDate),'Data do leilão no processo ('+d(c.saleDate)+') diferente da lista ('+d(r.date)+')']);
  if(c.occ&&c.occ!=='desconhecida') S.push(['blu','ocupação: '+c.occ,'Ocupação segundo o processo: '+c.occ]);

@@ -315,7 +315,7 @@ JINT = [['2024-01-01', 9.09], ['2024-04-01', 9.34], ['2024-07-01', 9.46], ['2024
 #   "plaintiff": "...", "attorney": "...", "defendants": [...], "fed": false, "hoa": false, "creditors": [...], "fjDate": "...",
 #   "fjAmount": 123456.78, "bankruptcy": [{"case": "...", "date": "..."}], "resched": [...], "cancelMotion": false, "firstMtg": true, "notes": "..."}}
 CLERK_BLOCK = {
-    'orange': 'myeClerk com reCAPTCHA', 'polk': 'termos de uso do clerk proíbem acesso automatizado (só manual)', 'lee': 'matrix recusa conexão automática',
+    'orange': 'myeClerk legível pelo navegador (busca de visitante + reCAPTCHA resolvido à mão) – processo ainda não aberto (não sondado)', 'polk': 'termos de uso do clerk proíbem acesso automatizado (só manual)', 'lee': 'matrix recusa conexão automática',
     'hillsborough': 'HOVER barra o navegador como robô (PerimeterX)', 'brevard': 'exige aceitar termos; sem proibição de automação – abrir pelo navegador (não sondado)', 'seminole': 'bloqueio de robô (403)',
     'osceola': 'site do tribunal fora do ar/inalcançável pelo navegador', 'lake': 'ShowCase legível pelo navegador – processo ainda não aberto (não sondado)', 'duval': 'CORE exige cadastro/login', 'pinellas': '403 Cloudflare',
     'broward': 'legível pelo navegador (Turnstile resolvido à mão) – processo ainda não aberto (não sondado)', 'volusia': 'CCMS legível pelo navegador – processo ainda não aberto (não sondado)', 'palmbeach': 'eCaseView (endereço mudou; não sondado)',
@@ -382,10 +382,10 @@ def browser_case(x):
     allt = re.sub(r'contested then consented', 'consented', ' | '.join([D, T('status'), T('bankruptcy'), T('cancel_motion'), T('occupancy'), T('surviving_liens_notes'), T('loan_type'), T('fj_amount')]), flags=re.I)
     at = (re.match(r'\d{4}-\d{2}-\d{2}', T('read_at')) or [None])[0]
     o = dict(opened=at, by='navegador (clerk de ' + T('county') + ')', src=x.get('source_url'), at=T('read_at') or None)
-    m = re.search(r'\$\s*([\d,]+\.\d{2})', T('fj_amount'))
+    m = re.search(r'\$\s*([\d,]+\.\d{2})', T('fj_amount')) or re.match(r'\s*([\d,]+\.\d{2})\b', T('fj_amount'))   # "$1,234.56" ou número puro
     # 21/11: valor parcial ("at least", "about", só a página 1, soma própria, comentário do docket sem abrir o FJ) nunca vira o total oficial
     part = re.search(r'^\s*(at least|about|approx|~)|\bon page \d|page \d+ itemized|itemized (sum|on page)|pages? [\d\-]+ not|my sum|docket comment|FJ image not opened|amended FJs? not rea', T('fj_amount'), re.I)
-    if m and part: o['fjPartial'] = float(m.group(1).replace(',', ''))
+    if m and (part or x.get('fj_amount_partial') is True): o['fjPartial'] = float(m.group(1).replace(',', ''))
     elif m: o['fjAmount'] = float(m.group(1).replace(',', ''))
     if _DT(T('fj_date')): o['fjDate'] = _DT(T('fj_date'))
     am = re.search(r'(?:per|latest) Amended FJ (\d{1,2}/\d{1,2}/\d{4})', T('fj_amount'), re.I)
@@ -400,7 +400,8 @@ def browser_case(x):
     usa = re.search(r'\bUSA\b|United States|\bUS\b on behalf', Dl, re.I)
     if hud or fedo or usa:
         o['fed'] = True; o['fedDays'] = 365 if fedo else 120      # 28 USC 2410(c): 1 ano; 120 dias para crédito da National Housing Act (HUD/FHA)
-        if hud and re.search(r'disclaim', D, re.I): o['fedDisclaimer'] = True
+        if re.search(r'(HUD|USA|United States)[^.;|]{0,60}disclaim|disclaim[^.;|]{0,40}(HUD|USA|United States)', D + ' ' + T('surviving_liens_notes'), re.I):
+            o['fedDisclaimer'] = True; o.pop('fed'); o.pop('fedDays')   # renúncia do governo (exceto sobra) – sem prazo de resgate
     if re.search(r'\bHOA\b|Association|Homeowners|Condominium', D, re.I):
         o['hoa'] = True
         if re.search(r'(HOA|Association)[^|]*answer', D, re.I): o['hoaAns'] = True
@@ -412,7 +413,7 @@ def browser_case(x):
         cs = re.findall(r'\d:\d{2}-bk-\d{4,6}', bk)
         o['bankruptcy'] = [{'case': c, 'date': None} for c in cs] or True
         o['bkSerial'] = len(cs) >= 3 or bool(re.search(r'serial|repeated|multiple', bk, re.I))
-        o['bkActive'] = bool(re.search(r'no order lifting', bk, re.I))   # só quando o processo mostra suspensão sem ordem de levantamento
+        o['bkActive'] = bool(re.search(r'no order lifting|(?<!current )stay status|verify stay|stay (is )?active', bk + ' ' + T('surviving_liens_notes'), re.I))   # só quando o processo mostra suspensão sem ordem de levantamento
     elif re.search(r'none', bk, re.I): o['bankruptcy'] = False
     cm, sd = T('cancel_motion'), T('sale_date_docket')
     if re.match(r'\s*yes', cm, re.I): o['cancelMotion'] = True
@@ -429,8 +430,12 @@ def browser_case(x):
     elif ap and ap.group(1).lower() in MO: o['saleDateQ'] = f"{ap.group(3)}-{MO[ap.group(1).lower()]:02d}-{int(ap.group(2)):02d}"
     elif re.search(r'on/after|no sooner', sd, re.I) and _DT(sd): o['saleDateQ'] = _DT(sd)
     if re.search(r'REOPEN', T('status')) and re.search(r'PENDING', T('status')): o['reopen'] = True
-    # risco alto de cancelamento: falência do devedor ou remarcações repetidas
-    if o.get('bankruptcy') not in (None, False) or re.search(r'repeated|\bmany\b|serial|multiple (resets|motions)', cm, re.I) or len(re.findall(r'resched|reset', cm, re.I)) >= 3:
+    if re.search(r'(motion|petition)( to reopen|/petition to reopen)', cm, re.I): o['reopen'] = True
+    if re.search(r'\bpending\b', cm, re.I) and re.search(r'cancel', cm, re.I): o['cancelPending'] = True
+    if re.search(r'Amended FJ|multiple FJs|two FJ', T('fj_date') + ' ' + T('surviving_liens_notes'), re.I): o['fjMulti'] = True
+    if re.search(r'PTFA|Protecting Tenants|court registry|registry', T('occupancy'), re.I): o['tenantRights'] = True
+    # risco alto de cancelamento: falência do devedor, remarcações/cancelamentos repetidos ou pedido de cancelamento pendente
+    if o.get('bankruptcy') not in (None, False) or o.get('cancelPending') or re.search(r'repeated|\bmany\b|serial|multiple', cm, re.I) or len(re.findall(r'resched|reset', cm, re.I)) >= 3 or len(re.findall(r'cancel', cm, re.I)) >= 2:
         o['cancelRisk'] = True
     if o.get('fjDate') and at and o['fjDate'] < f"{int(at[:4]) - 1}{at[4:]}": o['fjOld'] = o['fjDate'][:4]   # julgamento com mais de 1 ano
     # ação de associação (condomínio/HOA) sem banco entre os réus: a 1ª hipoteca sobrevive
@@ -832,7 +837,7 @@ def build_items(args):
     try: CB_ = load_cases_browser()
     except Exception as ex: print('dossie_browser falhou:', ex, flush=True); CB_ = {}
     for k_, v_ in CB_.items():                        # navegador (fora do git) por cima do manual; o git (abaixo) ainda vence
-        m_ = dict(casesM.get(k_) or {}); m_.update(v_); casesM[k_] = m_
+        m_ = dict(casesM.get(k_) or {}); m_.update(v_); m_['fjBrowser'] = v_.get('fjAmount'); casesM[k_] = m_
     print(f'dossie_browser: {len(CB_)} processos abertos pelo navegador', flush=True)
     for k_, v_ in load_cases_git().items():          # git (sem nomes) por cima do manual de fora do git, campo a campo
         m_ = dict(casesM.get(k_) or {}); m_.update(v_)
@@ -1071,7 +1076,11 @@ def build_items(args):
         ref = num(x.get('ob')) if src == 'TD' else num(x.get('fj')) if src == 'FC' else num(x.get('ref'))
         cf0 = casesM.get(case_norm(cs, x.get('case')) or '') if src == 'FC' else None     # processo aberto à mão: julgamento OFICIAL substitui
         cf_note = None
-        if cf0 and cf0.get('opened') and num(cf0.get('fjAmount')) and num(cf0['fjAmount']) > 0:
+        if cf0 and cf0.get('opened') and cf0.get('fjBrowser') is not None and num(cf0.get('fjAmount')) == num(cf0.get('fjBrowser')) and ref and abs(num(cf0['fjAmount']) - ref) > 1:
+            # 21/11: FJ lido pelo navegador nunca substitui o número oficial do RealAuction quando ele existe e é diferente – só registra a diferença
+            cf0 = dict(cf0); cf0['fjDiff'] = [num(cf0['fjAmount']), ref]; cf0['fjAmount'] = None
+            cf_note = f"FJ no processo {_usd(cf0['fjDiff'][0])} ≠ julgamento da lista do RealAuction {_usd(ref)} (vale o da lista)."
+        elif cf0 and cf0.get('opened') and num(cf0.get('fjAmount')) and num(cf0['fjAmount']) > 0:
             if ref and abs(num(cf0['fjAmount']) - ref) > 1: cf_note = f"Julgamento do processo {_usd(num(cf0['fjAmount']))} (lista dizia {_usd(ref)})."
             ref = num(cf0['fjAmount'])
         nobid = bool((it.get('po_only') or x.get('inperson')) and not ref)
