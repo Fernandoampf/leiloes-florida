@@ -317,8 +317,8 @@ JINT = [['2024-01-01', 9.09], ['2024-04-01', 9.34], ['2024-07-01', 9.46], ['2024
 CLERK_BLOCK = {
     'orange': 'myeClerk com reCAPTCHA', 'polk': 'termos de uso do clerk proíbem acesso automatizado (só manual)', 'lee': 'matrix recusa conexão automática',
     'hillsborough': 'HOVER barra o navegador como robô (PerimeterX)', 'brevard': 'exige aceitar termos; sem proibição de automação – abrir pelo navegador (não sondado)', 'seminole': 'bloqueio de robô (403)',
-    'osceola': 'Benchmark recusa conexão automática', 'lake': 'ShowCase legível pelo navegador – processo ainda não aberto (não sondado)', 'duval': 'CORE exige cadastro/login', 'pinellas': '403 Cloudflare',
-    'broward': 'reCAPTCHA/Turnstile', 'volusia': 'CCMS legível pelo navegador – processo ainda não aberto (não sondado)', 'palmbeach': 'eCaseView (endereço mudou; não sondado)',
+    'osceola': 'site do tribunal fora do ar/inalcançável pelo navegador', 'lake': 'ShowCase legível pelo navegador – processo ainda não aberto (não sondado)', 'duval': 'CORE exige cadastro/login', 'pinellas': '403 Cloudflare',
+    'broward': 'legível pelo navegador (Turnstile resolvido à mão) – processo ainda não aberto (não sondado)', 'volusia': 'CCMS legível pelo navegador – processo ainda não aberto (não sondado)', 'palmbeach': 'eCaseView (endereço mudou; não sondado)',
     'miamidade': 'exige cadastro/login', }
 # 20/11: termos e testes por condado em /workspace/auc/statewide/dossie_browser/clerk_terms.json (Polk proíbe automação nos termos; Hillsborough/Seminole barram robô;
 # Duval/Miami-Dade exigem cadastro; Lake/Volusia legíveis pelo navegador). "não sondado" no texto = falta (a rotina ainda abre); o resto = fila "abrir com o Fernando".
@@ -332,6 +332,9 @@ def case_norm(co, case):
     if not k:   # ano com 2 dígitos (Lee: '25-CA-005628') -> ('2025', 5628)
         m = re.match(r'\s*(\d{2})\D{1,3}[A-Z]{2}\D{1,3}0*(\d{2,7})\b', str(case or '').upper())
         if m: k = ('20' + m.group(1), int(m.group(2)))
+    if not k:   # Broward: 'CACE-25-019324' / 'CONO-26-021199' (tipo + ano 2 dígitos + número)
+        m = re.match(r'\s*(CA|CO)([A-Z]{2})[\s\-]*(\d{2})[\s\-]*0*(\d{1,7})\b', str(case or '').upper())
+        if m: k = (m.group(1) + m.group(2) + '20' + m.group(3), int(m.group(4)))
     return f"{co}|{k[0]}-{k[1]}" if k else None
 
 def load_cases_manual():
@@ -366,7 +369,11 @@ def load_cases_git():
 # plaintiff, status, fj_date, fj_amount, loan_type, defendant_types[], bankruptcy, cancel_motion, sale_date_docket, occupancy,
 # surviving_liens_notes). Daqui só saem campos sem nome de pessoa (autor = empresa/órgão) e selos derivados, com fonte e data.
 DOSSIE_DIR = os.path.join(SW, 'dossie_browser')
-_DT = lambda s: (lambda m: f"{m.group(3)}-{int(m.group(1)):02d}-{int(m.group(2)):02d}" if m else None)(re.search(r'(\d{1,2})/(\d{1,2})/(\d{4})', str(s or '')))
+def _DT(s):
+    """1ª data do texto (MM/DD/AAAA ou AAAA-MM-DD) -> AAAA-MM-DD"""
+    s = str(s or ''); a = re.search(r'(\d{1,2})/(\d{1,2})/(\d{4})', s); b = re.search(r'(\d{4})-(\d{2})-(\d{2})', s)
+    if b and (not a or b.start() < a.start()): return f"{b.group(1)}-{b.group(2)}-{b.group(3)}"
+    return f"{a.group(3)}-{int(a.group(1)):02d}-{int(a.group(2)):02d}" if a else None
 
 def browser_case(x):
     """item de batch*.json -> campos do processo aberto (sem nomes de pessoas)."""
@@ -376,15 +383,21 @@ def browser_case(x):
     at = (re.match(r'\d{4}-\d{2}-\d{2}', T('read_at')) or [None])[0]
     o = dict(opened=at, by='navegador (clerk de ' + T('county') + ')', src=x.get('source_url'), at=T('read_at') or None)
     m = re.search(r'\$\s*([\d,]+\.\d{2})', T('fj_amount'))
-    if m: o['fjAmount'] = float(m.group(1).replace(',', ''))
+    # 21/11: valor parcial ("at least", "about", só a página 1, soma própria, comentário do docket sem abrir o FJ) nunca vira o total oficial
+    part = re.search(r'^\s*(at least|about|approx|~)|\bon page \d|page \d+ itemized|itemized (sum|on page)|pages? [\d\-]+ not|my sum|docket comment|FJ image not opened|amended FJs? not rea', T('fj_amount'), re.I)
+    if m and part: o['fjPartial'] = float(m.group(1).replace(',', ''))
+    elif m: o['fjAmount'] = float(m.group(1).replace(',', ''))
     if _DT(T('fj_date')): o['fjDate'] = _DT(T('fj_date'))
+    am = re.search(r'(?:per|latest) Amended FJ (\d{1,2}/\d{1,2}/\d{4})', T('fj_amount'), re.I)
+    if am: o['fjDate'] = _DT(am.group(1))   # valor do FJ emendado (já inclui juros até ele)
     pl = re.sub(r'\s*\(.*?\)\s*', ' ', T('plaintiff')).strip()
     if pl: o['plaintiff'] = pl[:120]      # autor = banco/empresa (nunca pessoa física nos lotes lidos)
     lt = T('loan_type').lower()
     if '1st mortgage' in lt: o['firstMtg'] = True
     elif re.search(r'2nd|second|junior', lt): o['firstMtg'] = False
-    hud = re.search(r'\bHUD\b|Housing and Urban', D, re.I); fedo = re.search(r'\bIRS\b|Internal Revenue|\bSBA\b|Small Business|Veterans|\bVA\b|Rural (Housing|Development)|Treasury', D, re.I)
-    usa = re.search(r'\bUSA\b|United States|\bUS\b on behalf', D, re.I)
+    Dl = ' | '.join(d_ for d_ in dfs if not re.search(r'\bdropped\b', d_, re.I))   # réu excluído do processo não conta
+    hud = re.search(r'\bHUD\b|Housing and Urban', Dl, re.I); fedo = re.search(r'\bIRS\b|Internal Revenue|\bSBA\b|Small Business|Veterans|\bVA\b|Rural (Housing|Development)|Treasury', Dl, re.I)
+    usa = re.search(r'\bUSA\b|United States|\bUS\b on behalf', Dl, re.I)
     if hud or fedo or usa:
         o['fed'] = True; o['fedDays'] = 365 if fedo else 120      # 28 USC 2410(c): 1 ano; 120 dias para crédito da National Housing Act (HUD/FHA)
         if hud and re.search(r'disclaim', D, re.I): o['fedDisclaimer'] = True
@@ -404,7 +417,8 @@ def browser_case(x):
     cm, sd = T('cancel_motion'), T('sale_date_docket')
     if re.match(r'\s*yes', cm, re.I): o['cancelMotion'] = True
     elif re.search(r'none seen|no motion to cancel|^\s*no\b', cm, re.I): o['cancelMotion'] = False
-    if re.search(r'\bCANCEL+ED\b', sd) or re.search(r'sale[^.;]*cancel+ed', T('status'), re.I):
+    cd_ = _DT(re.split(r'cancel', sd, flags=re.I)[0]) or _DT(sd)
+    if (re.search(r'\bCANCEL+ED\b', sd) or re.search(r'sale[^.;]*cancel+ed', T('status'), re.I)) and not (cd_ and at and cd_ < at):   # cancelamento de leilão já passado não conta
         o['saleCancelled'] = True; g = re.search(r'granted\s+(\d{1,2}/\d{1,2}/\d{4})', cm, re.I); o['saleCancelledAt'] = _DT(g.group(1)) if g else None
     MO = {m: i + 1 for i, m in enumerate(['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'])}
     ap = re.search(r"appears to be '?([A-Za-z]{3})[a-z]*\.? (\d{1,2}), (\d{4})", sd)
@@ -415,10 +429,14 @@ def browser_case(x):
     elif ap and ap.group(1).lower() in MO: o['saleDateQ'] = f"{ap.group(3)}-{MO[ap.group(1).lower()]:02d}-{int(ap.group(2)):02d}"
     elif re.search(r'on/after|no sooner', sd, re.I) and _DT(sd): o['saleDateQ'] = _DT(sd)
     if re.search(r'REOPEN', T('status')) and re.search(r'PENDING', T('status')): o['reopen'] = True
+    # risco alto de cancelamento: falência do devedor ou remarcações repetidas
+    if o.get('bankruptcy') not in (None, False) or re.search(r'repeated|\bmany\b|serial|multiple (resets|motions)', cm, re.I) or len(re.findall(r'resched|reset', cm, re.I)) >= 3:
+        o['cancelRisk'] = True
+    if o.get('fjDate') and at and o['fjDate'] < f"{int(at[:4]) - 1}{at[4:]}": o['fjOld'] = o['fjDate'][:4]   # julgamento com mais de 1 ano
     # ação de associação (condomínio/HOA) sem banco entre os réus: a 1ª hipoteca sobrevive
     if re.match(r'\s*(HOA|condo)', T('loan_type'), re.I) or re.search(r'FIRST MORTGAGE[^.]*SURVIVES', T('surviving_liens_notes')):
         o['survMtg'] = True; o['firstMtg'] = False
-    if re.search(r'deceased|suggestion of death|estate|personal representative', D + ' ' + T('surviving_liens_notes'), re.I): o['heirs'] = True
+    if re.search(r'deceased|suggestion of death|\bestate\b|personal representative|unknown heirs', D + ' ' + T('surviving_liens_notes'), re.I): o['heirs'] = True
     pp = re.search(r'prepayment penalty\s*\$?\s*([\d,]+\.\d{2})', T('fj_amount'), re.I)
     if pp: o['prepay'] = float(pp.group(1).replace(',', ''))
     if re.search(r'forgery', allt, re.I): o['forgery'] = True
