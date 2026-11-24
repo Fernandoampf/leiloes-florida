@@ -125,15 +125,23 @@ def parse_lake(path, ref):
     out = []
     for blk in re.split(r'<div class="event_item">', s)[1:]:
         if 'Foreclosure' not in blk: continue
-        m = re.search(r'event_time[^>]*>\s*\w+,\s*(\d{1,2})/(\d{1,2})<br\s*/?>\s*([\d:]+\s*[AP]M)', blk)
         c = re.search(r"sale_details\.aspx\?id=(\d+)\">\s*<span class='pscalendar-(\w+)'>\s*([^:<]+):\s*(.*?)</span>", blk, re.S)
-        if not (m and c): continue
-        d = _year_for(int(m.group(1)), int(m.group(2)), ref)
+        if not c: continue
+        # dated: Tue, 12/1<br>11:00 AM; on the sale day the clerk prints Today<br>11:00 AM (no weekday/MM-DD)
+        m = re.search(r'event_time[^>]*>\s*\w+,\s*(\d{1,2})/(\d{1,2})<br\s*/?>\s*([\d:]+\s*[AP]M)', blk)
+        if m:
+            d = _year_for(int(m.group(1)), int(m.group(2)), ref)
+            tm = m.group(3).strip()
+        else:
+            m2 = re.search(r'event_time[^>]*>\s*(Today|Tomorrow)<br\s*/?>\s*([\d:]+\s*[AP]M)', blk, re.I)
+            if not m2: continue
+            d = ref if m2.group(1).lower() == 'today' else (ref + dt.timedelta(days=1))
+            tm = m2.group(2).strip()
         txt = html.unescape(re.sub(r'\s+', ' ', c.group(4))).strip()
         pl, _, df = txt.partition(' vs ')
         cx = re.search(r"pscalendar-red'>\s*([^<]+)<", blk)
         loc = re.search(r'<br\s*/?>\s*([^<]+?)\s*</div>', blk[c.end():])
-        out.append(dict(county='lake', case=c.group(3).strip(), date=d.isoformat(), time=m.group(3).strip(),
+        out.append(dict(county='lake', case=c.group(3).strip(), date=d.isoformat(), time=tm,
                         plaintiff=pl.strip(), defendant=df.strip(), canceled=bool(cx) or c.group(2) == 'cancelled',
                         cxwhy=html.unescape(cx.group(1)).strip() if cx else None,
                         room=(loc.group(1).strip() if loc else None),
